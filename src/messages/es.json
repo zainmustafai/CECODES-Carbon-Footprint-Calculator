@@ -71,8 +71,36 @@
       "loggedOut": "Sesión cerrada."
     }
   },
+  "onboarding": {
+    "title": "Configura tu empresa",
+    "subtitle": "Crea tu empresa y su primera sede para empezar a calcular tu huella de carbono.",
+    "companySection": "Empresa",
+    "facilitySection": "Primera sede",
+    "companyName": "Nombre de la empresa",
+    "companyNamePlaceholder": "Mi Empresa S.A.S.",
+    "sector": "Sector (opcional)",
+    "sectorPlaceholder": "Manufactura, servicios, ...",
+    "facilityName": "Planta",
+    "facilityNamePlaceholder": "Planta principal",
+    "facilityLocation": "Ubicación",
+    "facilityLocationPlaceholder": "Bogotá, Colombia",
+    "submit": "Crear empresa",
+    "validation": {
+      "companyNameRequired": "El nombre de la empresa es obligatorio.",
+      "facilityNameRequired": "El nombre de la planta es obligatorio.",
+      "facilityLocationRequired": "La ubicación es obligatoria."
+    },
+    "errors": {
+      "alreadyOnboarded": "Ya tienes una empresa configurada.",
+      "generic": "No se pudo crear la empresa. Inténtalo de nuevo."
+    },
+    "toasts": {
+      "created": "Empresa creada."
+    }
+  },
   "dashboard": {
     "title": "Tablero",
-    "welcome": "Bienvenido"
+    "welcome": "Bienvenido",
+    "company": "Empresa"
   }
 }

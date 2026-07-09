@@ -71,8 +71,36 @@
       "loggedOut": "Signed out."
     }
   },
+  "onboarding": {
+    "title": "Set up your company",
+    "subtitle": "Create your company and its first facility to start calculating your carbon footprint.",
+    "companySection": "Company",
+    "facilitySection": "First facility",
+    "companyName": "Company name",
+    "companyNamePlaceholder": "My Company Inc.",
+    "sector": "Sector (optional)",
+    "sectorPlaceholder": "Manufacturing, services, ...",
+    "facilityName": "Plant",
+    "facilityNamePlaceholder": "Main plant",
+    "facilityLocation": "Location",
+    "facilityLocationPlaceholder": "Bogotá, Colombia",
+    "submit": "Create company",
+    "validation": {
+      "companyNameRequired": "Company name is required.",
+      "facilityNameRequired": "Plant name is required.",
+      "facilityLocationRequired": "Location is required."
+    },
+    "errors": {
+      "alreadyOnboarded": "You already have a company set up.",
+      "generic": "Could not create the company. Please try again."
+    },
+    "toasts": {
+      "created": "Company created."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "company": "Company"
   }
 }
