@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../lib/generated/prisma/client";
+import { PrismaClient, Scope, GwpSet } from "../src/lib/generated/prisma/client";
 
 // Seed starter reference data. Safe to re-run (idempotent).
 // The full emission-factor library is loaded separately once CECODES confirms the dataset.
@@ -65,6 +65,28 @@ const versions = [
   },
 ];
 
+// STARTER emission-factor subset (representative, from the Excel analysis) so the app
+// has data to render. Replace with CECODES's confirmed full dataset via the importer.
+const starterEmissionFactors = [
+  // Scope 1 — stationary combustion
+  { scope: Scope.SCOPE_1, category: "Fuentes Fijas", subcategory: "Combustibles Sólidos", element: "Carbón Genérico", unit: "ton", co2Factor: "2534.813", factorUnit: "kg CO2/ton", source: "FECOC 2016 (starter)" },
+  { scope: Scope.SCOPE_1, category: "Fuentes Fijas", subcategory: "Combustibles Sólidos", element: "Bagazo", unit: "ton", co2Factor: "1664.917", biogenic: true, factorUnit: "kg CO2/ton", source: "FECOC 2016 (starter)" },
+  { scope: Scope.SCOPE_1, category: "Fuentes Fijas", subcategory: "Combustibles Líquidos", element: "Diésel o ACPM (B2) - Fijo", unit: "gal", co2Factor: "10.149", factorUnit: "kg CO2/gal", source: "FECOC 2016 (starter)" },
+  { scope: Scope.SCOPE_1, category: "Fuentes Fijas", subcategory: "Combustibles Gaseosos", element: "Gas Natural Genérico - Fijo", unit: "m3", co2Factor: "1.9806", factorUnit: "kg CO2/m3", source: "FECOC 2016 (starter)" },
+  // Scope 1 — mobile combustion
+  { scope: Scope.SCOPE_1, category: "Fuentes Móviles", subcategory: "Combustibles Líquidos", element: "Diésel o ACPM - Móvil", unit: "gal", co2Factor: "10.149", ch4Factor: "0.037", n2oFactor: "0.037", gwpSet: GwpSet.AR6, factorUnit: "kg/gal", source: "IPCC/FECOC (starter)" },
+  { scope: Scope.SCOPE_1, category: "Fuentes Móviles", subcategory: "Combustibles Líquidos", element: "Gasolina Motor - Móvil", unit: "gal", co2Factor: "8.8085", ch4Factor: "2.926", n2oFactor: "0.037", gwpSet: GwpSet.AR6, factorUnit: "kg/gal", source: "IPCC/FECOC (starter)" },
+  // Scope 1 — fugitive (refrigerants / SF6 / extinguishers), CO2e already embedded
+  { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Fugas de refrigerantes", element: "Fugas de HCFC-22 / R-22", unit: "kg", co2eFactor: "1960", gwpSet: GwpSet.AR6, factorUnit: "kg CO2e/kg", source: "IPCC AR6 (starter)" },
+  { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Consumo de aislante SF6", element: "Uso de SF6", unit: "kg", co2eFactor: "25200", gwpSet: GwpSet.AR6, factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
+  { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Uso de extintores", element: "Extintores CO2", unit: "kg", co2eFactor: "1", factorUnit: "kg CO2/kg", source: "IPCC (starter)" },
+  // Scope 2 — grid electricity (factor comes from grid_electricity_factors by year)
+  { scope: Scope.SCOPE_2, category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad (Red Nacional - SIN)", unit: "kWh", factorUnit: "kg CO2/kWh", source: "UPME/XM — factor por año (grid_electricity_factors)" },
+  // Scope 3 — waste
+  { scope: Scope.SCOPE_3, category: "Residuos", subcategory: "Incineración", element: "Residuos Ordinarios", unit: "kg", co2eFactor: "0.23", factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
+  { scope: Scope.SCOPE_3, category: "Residuos", subcategory: "Relleno Sanitario", element: "Relleno sanitario gestionado anaeróbico", unit: "kg", co2eFactor: "1.54", factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
+];
+
 async function main() {
   for (const g of gridFactors) {
     await prisma.gridElectricityFactor.upsert({
@@ -81,9 +103,23 @@ async function main() {
     if (!existing) await prisma.emissionFactorVersion.create({ data: v });
   }
 
+  // Emission factors: seed the STARTER subset only when the library is empty
+  // (so a real import is never overwritten). Linked to the latest version.
+  if ((await prisma.emissionFactor.count()) === 0) {
+    const latest = await prisma.emissionFactorVersion.findFirst({
+      orderBy: { date: "desc" },
+    });
+    await prisma.emissionFactor.createMany({
+      data: starterEmissionFactors.map((f) => ({ ...f, versionId: latest?.id })),
+    });
+  }
+
   const gf = await prisma.gridElectricityFactor.count();
   const vv = await prisma.emissionFactorVersion.count();
-  console.log(`Seeded ✓  grid factors=${gf}  factor versions=${vv}`);
+  const ef = await prisma.emissionFactor.count();
+  console.log(
+    `Seeded ✓  grid factors=${gf}  factor versions=${vv}  emission factors=${ef}`,
+  );
 }
 
 main()

@@ -10,6 +10,11 @@
     "signOut": "Cerrar sesión"
   },
   "auth": {
+    "brand": {
+      "headline": "Mide y gestiona la huella de carbono de tu empresa.",
+      "tagline": "Calcula tus emisiones de Alcance 1, 2 y 3 y visualízalas en un tablero claro.",
+      "scopes": "Alcance 1 · Alcance 2 · Alcance 3"
+    },
     "common": {
       "emailLabel": "Correo electrónico",
       "emailPlaceholder": "tu@empresa.com",

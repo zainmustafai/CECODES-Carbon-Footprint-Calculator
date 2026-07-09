@@ -10,6 +10,11 @@
     "signOut": "Sign out"
   },
   "auth": {
+    "brand": {
+      "headline": "Measure and manage your company's carbon footprint.",
+      "tagline": "Calculate your Scope 1, 2 and 3 emissions and see them in a clear dashboard.",
+      "scopes": "Scope 1 · Scope 2 · Scope 3"
+    },
     "common": {
       "emailLabel": "Email",
       "emailPlaceholder": "you@company.com",
