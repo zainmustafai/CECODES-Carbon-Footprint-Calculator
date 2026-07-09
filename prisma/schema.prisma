@@ -1,6 +1,9 @@
 // CECODES Carbon Footprint Tool — domain schema
 // See docs/CECODES Carbon Footprint Tool - Requirements.md and docs/CECODES - Tech Stack Decision.md
 // All emission/factor numbers use Decimal (Postgres NUMERIC) — never Float/Int — to preserve exact values.
+//
+// RLS note: tenant tables carry a denormalized `companyId` so Row-Level Security policies can be a
+// simple, index-backed `company_id = private.current_company_id()`. The app sets companyId on write.
 
 generator client {
   provider = "prisma-client"
@@ -27,8 +30,8 @@ enum GwpSet {
 }
 
 enum Role {
-  COMPANY_USER   // Usuario Empresa — sees only their own company
-  CECODES_ADMIN  // Administrador CECODES — manages factor library + all companies
+  COMPANY_USER  // Usuario Empresa — sees only their own company
+  CECODES_ADMIN // Administrador CECODES — manages factor library + all companies
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +47,7 @@ model AppUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([companyId])
   @@map("app_users")
 }
 
@@ -73,6 +77,7 @@ model Facility {
   updatedAt      DateTime        @updatedAt
   reportingYears ReportingYear[]
 
+  @@index([companyId])
   @@map("facilities")
 }
 
@@ -80,6 +85,7 @@ model ReportingYear {
   id         String   @id @default(uuid())
   facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   facilityId String
+  companyId  String // denormalized for RLS
   year       Int
   gwpSet     GwpSet // resolved from `year` at creation, but stored for reproducibility
   createdAt  DateTime @default(now())
@@ -90,6 +96,7 @@ model ReportingYear {
   results ResultSnapshot[]
 
   @@unique([facilityId, year])
+  @@index([companyId])
   @@map("reporting_years")
 }
 
@@ -100,6 +107,7 @@ model ActivityEntry {
   id              String        @id @default(uuid())
   reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
   reportingYearId String
+  companyId       String // denormalized for RLS
 
   // Link to the factor used, plus denormalized labels/units captured at entry time
   emissionFactor   EmissionFactor? @relation(fields: [emissionFactorId], references: [id])
@@ -118,6 +126,8 @@ model ActivityEntry {
   updatedAt DateTime @updatedAt
 
   @@index([reportingYearId, scope])
+  @@index([companyId])
+  @@index([emissionFactorId])
   @@map("activity_entries")
 }
 
@@ -126,16 +136,18 @@ model ScopeTarget {
   id              String        @id @default(uuid())
   reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
   reportingYearId String
+  companyId       String // denormalized for RLS
   scope           Scope
   targetTonnes    Decimal       @db.Decimal(20, 6)
   createdAt       DateTime      @default(now())
 
   @@unique([reportingYearId, scope])
+  @@index([companyId])
   @@map("scope_targets")
 }
 
 // ---------------------------------------------------------------------------
-// Emission-factor library (admin-maintained, versioned) — Req. §8
+// Emission-factor library (admin-maintained, versioned) — Req. §8. Global reference data.
 // ---------------------------------------------------------------------------
 
 model EmissionFactorVersion {
@@ -166,28 +178,33 @@ model EmissionFactor {
   n2oFactor Decimal? @db.Decimal(30, 10) // kg N2O / unit
 
   // Consolidated factor for items already expressed in CO2e (refrigerants, SF6, spend/distance-based)
-  co2eFactor Decimal? @db.Decimal(30, 10) // kg CO2e / unit
+  co2eFactor    Decimal? @db.Decimal(30, 10) // kg CO2e / unit
+  // Alternate consolidated factor per currency for spend-based Scope 3 (purchased goods & services)
+  co2eFactorCop Decimal? @db.Decimal(30, 10) // kg CO2e / COP
+  co2eFactorUsd Decimal? @db.Decimal(30, 10) // kg CO2e / USD
 
-  factorUnit    String? // Unidad FE
-  source        String? // Fuente bibliográfica
-  gwpSet        GwpSet? // which GWP vintage the factor assumes, when relevant
-  biogenic      Boolean @default(false) // 0=No biogénica / 1=biogénica
+  factorUnit     String? // Unidad FE
+  source         String? // Fuente bibliográfica
+  gwpSet         GwpSet? // which GWP vintage the factor assumes, when relevant
+  biogenic       Boolean  @default(false) // 0=No biogénica / 1=biogénica
   uncertaintyPct Decimal? @db.Decimal(10, 4)
-  effectiveYear Int? // for year-specific factors
-  active        Boolean @default(true)
+  effectiveYear  Int? // for year-specific factors
+  active         Boolean  @default(true)
 
   version   EmissionFactorVersion? @relation(fields: [versionId], references: [id])
   versionId String?
 
   entries   ActivityEntry[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([scope, category, subcategory])
+  @@index([versionId])
+  @@index([active])
   @@map("emission_factors")
 }
 
-// Scope-2 national grid factor by year (SIN) — Req. §7.3
+// Scope-2 national grid factor by year (SIN) — Req. §7.3. Global reference data.
 model GridElectricityFactor {
   id        String   @id @default(uuid())
   year      Int      @unique
@@ -206,12 +223,15 @@ model ResultSnapshot {
   id              String        @id @default(uuid())
   reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
   reportingYearId String
+  companyId       String // denormalized for RLS
   scope           Scope
   category        String?
   tonnesCo2e      Decimal       @db.Decimal(20, 6)
+  biogenicTonnes  Decimal?      @db.Decimal(20, 6) // biogenic CO2 memo item (kept out of headline) — Req. §12.5
   factorVersionId String? // which factor library version produced this
   computedAt      DateTime      @default(now())
 
   @@index([reportingYearId])
+  @@index([companyId])
   @@map("result_snapshots")
 }

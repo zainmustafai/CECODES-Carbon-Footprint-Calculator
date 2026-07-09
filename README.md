@@ -28,8 +28,9 @@ and the **Prisma + RLS integration note** (validate in Phase 1).
 
 ```bash
 bun install                 # installs deps and runs `prisma generate`
-cp .env.example .env        # then fill in your Supabase values
-bun run db:migrate          # create the schema in your Supabase DB (needs DIRECT_URL)
+# put your Supabase values in .env.local (or .env): NEXT_PUBLIC_SUPABASE_*, DATABASE_URL, DIRECT_URL
+bun run db:deploy           # apply migrations to Supabase (no shadow DB needed)
+bun run db:seed             # starter reference data (grid factors + factor-library versions)
 bun run dev                 # http://localhost:3000
 ```
 
@@ -43,7 +44,14 @@ bun run dev                 # http://localhost:3000
 | `bun run db:migrate` | Prisma migrate (dev) against `DIRECT_URL` |
 | `bun run db:deploy` | Apply migrations (prod) |
 | `bun run db:studio` | Prisma Studio |
+| `bun run db:seed` | Seed starter reference data |
 | `bun run db:generate` | Regenerate the Prisma client |
+
+> **Migrations:** the Supabase pooler has no shadow database, so `prisma migrate dev` isn't used.
+> To add one: edit `prisma/schema.prisma`, then generate SQL with
+> `prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script`
+> into a new `prisma/migrations/<timestamp>_<name>/migration.sql`, then `bun run db:deploy`.
+> RLS policies, tenant helpers, and the `auth.users` sync trigger live in the `*_rls_and_auth` migration.
 
 ## Project structure
 
