@@ -1,0 +1,2 @@
+-- Add the top-level SUPER_ADMIN role.
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'SUPER_ADMIN';

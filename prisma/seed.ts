@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, Scope, GwpSet } from "../src/lib/generated/prisma/client";
+import { PrismaClient, Scope, GwpSet, Role } from "../src/lib/generated/prisma/client";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 // Seed starter reference data. Safe to re-run (idempotent).
 // The full emission-factor library is loaded separately once CECODES confirms the dataset.
@@ -87,6 +88,64 @@ const starterEmissionFactors = [
   { scope: Scope.SCOPE_3, category: "Residuos", subcategory: "Relleno Sanitario", element: "Relleno sanitario gestionado anaeróbico", unit: "kg", co2eFactor: "1.54", factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
 ];
 
+// Seed the single admin (credentials from .env.local). Idempotent.
+async function seedAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!url || !serviceKey || !email || !password) {
+    console.warn(
+      "Skipping admin seed (set SUPABASE_* and ADMIN_EMAIL/ADMIN_PASSWORD in .env.local).",
+    );
+    return;
+  }
+
+  const supabase = createSupabaseAdmin(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Ensure the auth user exists (email_confirm skips the verification email).
+  let userId: string | undefined;
+  const { data: created } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (created?.user) {
+    userId = created.user.id;
+  } else {
+    // Already exists — find it and keep the password in sync with .env.local.
+    const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const existing = list?.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase(),
+    );
+    userId = existing?.id;
+    if (userId) {
+      await supabase.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+      });
+    }
+  }
+
+  if (!userId) {
+    console.warn("Admin seed: could not resolve the auth user id.");
+    return;
+  }
+
+  // Force the profile role to CECODES_ADMIN (the signup trigger defaults to COMPANY_USER).
+  await prisma.appUser.upsert({
+    where: { id: userId },
+    update: { role: Role.CECODES_ADMIN, email },
+    create: { id: userId, email, role: Role.CECODES_ADMIN },
+  });
+
+  console.log(`Admin ✓  ${email}`);
+}
+
 async function main() {
   for (const g of gridFactors) {
     await prisma.gridElectricityFactor.upsert({
@@ -114,11 +173,14 @@ async function main() {
     });
   }
 
+  await seedAdmin();
+
   const gf = await prisma.gridElectricityFactor.count();
   const vv = await prisma.emissionFactorVersion.count();
   const ef = await prisma.emissionFactor.count();
+  const admins = await prisma.appUser.count({ where: { role: Role.CECODES_ADMIN } });
   console.log(
-    `Seeded ✓  grid factors=${gf}  factor versions=${vv}  emission factors=${ef}`,
+    `Seeded ✓  grid factors=${gf}  factor versions=${vv}  emission factors=${ef}  admins=${admins}`,
   );
 }
 

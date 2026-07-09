@@ -31,7 +31,7 @@ enum GwpSet {
 
 enum Role {
   COMPANY_USER  // Usuario Empresa — sees only their own company
-  CECODES_ADMIN // Administrador CECODES — manages factor library + all companies
+  CECODES_ADMIN // Administrador CECODES — the seeded admin; manages factor library + all companies
 }
 
 // ---------------------------------------------------------------------------
