@@ -6,11 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import {
   resetPasswordSchema,
   type ResetPasswordValues,
 } from "../schemas/auth-schemas";
+import { updatePasswordAction } from "../actions/auth-actions";
 
 export function useResetPassword() {
   const tv = useTranslations("auth.validation");
@@ -27,10 +27,9 @@ export function useResetPassword() {
 
   const onSubmit = form.handleSubmit(async ({ password }) => {
     setServerError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await updatePasswordAction(password);
     if (error) {
-      setServerError(te("generic"));
+      setServerError(te(error));
       return;
     }
     toast.success(tt("passwordUpdated"));

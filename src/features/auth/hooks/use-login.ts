@@ -5,8 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { loginSchema, type LoginValues } from "../schemas/auth-schemas";
+import { signInAction } from "../actions/auth-actions";
 
 export function useLogin() {
   const tv = useTranslations("auth.validation");
@@ -20,12 +20,11 @@ export function useLogin() {
     defaultValues: { email: "", password: "" },
   });
 
-  const onSubmit = form.handleSubmit(async ({ email, password }) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await signInAction(values);
     if (error) {
-      setServerError(te("invalidCredentials"));
+      setServerError(te(error));
       return;
     }
     router.push("/dashboard");

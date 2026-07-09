@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAction } from "../actions/auth-actions";
 
 export function useLogout() {
   const router = useRouter();
@@ -13,8 +13,7 @@ export function useLogout() {
 
   function logout() {
     startTransition(async () => {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await signOutAction();
       toast.success(tt("loggedOut"));
       router.push("/login");
       router.refresh();

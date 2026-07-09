@@ -6,9 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { registerSchema, type RegisterValues } from "../schemas/auth-schemas";
-import { isEmailInUse } from "../lib/errors";
+import { signUpAction } from "../actions/auth-actions";
 
 export function useRegister() {
   const tv = useTranslations("auth.validation");
@@ -26,20 +25,15 @@ export function useRegister() {
 
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setServerError(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
+    const { error, needsConfirmation } = await signUpAction({ email, password });
 
     if (error) {
-      setServerError(isEmailInUse(error) ? te("emailInUse") : te("generic"));
+      setServerError(te(error));
       return;
     }
 
-    // No session => Supabase requires email confirmation.
-    if (!data.session) {
+    // Supabase requires email confirmation (no session yet).
+    if (needsConfirmation) {
       setSubmittedEmail(email);
       toast.success(tt("registerCheckEmail"));
       return;

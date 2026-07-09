@@ -5,11 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import {
   forgotPasswordSchema,
   type ForgotPasswordValues,
 } from "../schemas/auth-schemas";
+import { requestPasswordResetAction } from "../actions/auth-actions";
 
 export function useForgotPassword() {
   const tv = useTranslations("auth.validation");
@@ -23,10 +23,7 @@ export function useForgotPassword() {
   });
 
   const onSubmit = form.handleSubmit(async ({ email }) => {
-    const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
+    await requestPasswordResetAction(email);
     // Always report success — never reveal whether the account exists.
     setSentEmail(email);
     toast.success(tt("resetEmailSent"));
