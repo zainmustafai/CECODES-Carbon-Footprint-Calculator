@@ -7,6 +7,13 @@
     "label": "Idioma"
   },
   "nav": {
+    "dashboard": "Tablero",
+    "dataEntry": "Ingreso de datos",
+    "reports": "Reportes",
+    "factorLibrary": "Biblioteca de factores",
+    "comingSoon": "Pronto",
+    "menu": "Menú",
+    "account": "Cuenta",
     "signOut": "Cerrar sesión"
   },
   "auth": {
@@ -103,7 +110,17 @@
   },
   "dashboard": {
     "title": "Tablero",
-    "welcome": "Bienvenido",
-    "company": "Empresa"
+    "subtitle": "Resumen de la huella de carbono de tu empresa.",
+    "totalFootprint": "Huella total",
+    "scope1": "Alcance 1",
+    "scope2": "Alcance 2",
+    "scope3": "Alcance 3",
+    "noData": "Sin datos aún",
+    "tCo2e": "t CO2e",
+    "company": "Empresa",
+    "facilities": "Sedes",
+    "sector": "Sector",
+    "emptyTitle": "Aún no hay datos de emisiones",
+    "emptyBody": "El ingreso de datos estará disponible pronto. Mientras tanto, revisa la información de tu empresa."
   }
 }

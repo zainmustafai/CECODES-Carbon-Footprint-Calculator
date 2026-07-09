@@ -7,6 +7,13 @@
     "label": "Language"
   },
   "nav": {
+    "dashboard": "Dashboard",
+    "dataEntry": "Data entry",
+    "reports": "Reports",
+    "factorLibrary": "Factor library",
+    "comingSoon": "Soon",
+    "menu": "Menu",
+    "account": "Account",
     "signOut": "Sign out"
   },
   "auth": {
@@ -103,7 +110,17 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Welcome",
-    "company": "Company"
+    "subtitle": "Overview of your company's carbon footprint.",
+    "totalFootprint": "Total footprint",
+    "scope1": "Scope 1",
+    "scope2": "Scope 2",
+    "scope3": "Scope 3",
+    "noData": "No data yet",
+    "tCo2e": "t CO2e",
+    "company": "Company",
+    "facilities": "Facilities",
+    "sector": "Sector",
+    "emptyTitle": "No emissions data yet",
+    "emptyBody": "Data entry is coming soon. In the meantime, review your company information."
   }
 }
