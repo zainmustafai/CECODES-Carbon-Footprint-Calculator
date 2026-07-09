@@ -11,21 +11,24 @@
   },
   "auth": {
     "brand": {
+      "eyebrow": "Measurement platform",
       "headline": "Measure and manage your company's carbon footprint.",
       "tagline": "Calculate your Scope 1, 2 and 3 emissions and see them in a clear dashboard.",
-      "scopes": "Scope 1 · Scope 2 · Scope 3"
+      "scope": "Scope {n}"
     },
     "common": {
       "emailLabel": "Email",
       "emailPlaceholder": "you@company.com",
       "passwordLabel": "Password",
       "passwordPlaceholder": "••••••••",
-      "confirmLabel": "Confirm password"
+      "confirmLabel": "Confirm password",
+      "or": "or",
+      "togglePassword": "Show or hide password"
     },
     "login": {
       "title": "Sign in",
       "subtitle": "Access your company's carbon footprint.",
-      "submit": "Sign in",
+      "submit": "Log in",
       "forgot": "Forgot your password?",
       "noAccount": "Don't have an account?",
       "signUp": "Sign up"

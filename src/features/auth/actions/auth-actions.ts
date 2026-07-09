@@ -45,7 +45,7 @@ export async function requestPasswordResetAction(email: string): Promise<void> {
   await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${await siteOrigin()}/auth/callback?next=/reset-password`,
   });
-  // Intentionally no result — never reveal whether the account exists.
+  // Intentionally no result - never reveal whether the account exists.
 }
 
 export async function updatePasswordAction(

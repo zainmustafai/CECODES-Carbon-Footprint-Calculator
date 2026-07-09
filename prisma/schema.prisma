@@ -1,6 +1,6 @@
-// CECODES Carbon Footprint Tool — domain schema
+// CECODES Carbon Footprint Tool - domain schema
 // See docs/CECODES Carbon Footprint Tool - Requirements.md and docs/CECODES - Tech Stack Decision.md
-// All emission/factor numbers use Decimal (Postgres NUMERIC) — never Float/Int — to preserve exact values.
+// All emission/factor numbers use Decimal (Postgres NUMERIC) - never Float/Int - to preserve exact values.
 //
 // RLS note: tenant tables carry a denormalized `companyId` so Row-Level Security policies can be a
 // simple, index-backed `company_id = private.current_company_id()`. The app sets companyId on write.
@@ -19,19 +19,19 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 enum Scope {
-  SCOPE_1 // Alcance 1 — direct emissions
-  SCOPE_2 // Alcance 2 — purchased electricity
-  SCOPE_3 // Alcance 3 — other indirect
+  SCOPE_1 // Alcance 1 - direct emissions
+  SCOPE_2 // Alcance 2 - purchased electricity
+  SCOPE_3 // Alcance 3 - other indirect
 }
 
 enum GwpSet {
-  AR5 // reporting years up to and including 2021 (boundary pending — Req. §12.5)
+  AR5 // reporting years up to and including 2021 (boundary pending - Req. §12.5)
   AR6 // reporting years after 2021
 }
 
 enum Role {
-  COMPANY_USER  // Usuario Empresa — sees only their own company
-  CECODES_ADMIN // Administrador CECODES — the seeded admin; manages factor library + all companies
+  COMPANY_USER  // Usuario Empresa - sees only their own company
+  CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ model ActivityEntry {
   unit        String // consumption unit shown to the user (gal, kWh, kg, km, ...)
 
   month Int? // 1..12 for Scope 2; null = annual (Scopes 1 & 3)
-  value Decimal @db.Decimal(20, 6) // activity data — decimals allowed, never truncated
+  value Decimal @db.Decimal(20, 6) // activity data - decimals allowed, never truncated
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,7 +131,7 @@ model ActivityEntry {
   @@map("activity_entries")
 }
 
-// Reduction target per scope (Meta) — inclusion pending CECODES confirmation (Req. §12.9)
+// Reduction target per scope (Meta) - inclusion pending CECODES confirmation (Req. §12.9)
 model ScopeTarget {
   id              String        @id @default(uuid())
   reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
@@ -147,7 +147,7 @@ model ScopeTarget {
 }
 
 // ---------------------------------------------------------------------------
-// Emission-factor library (admin-maintained, versioned) — Req. §8. Global reference data.
+// Emission-factor library (admin-maintained, versioned) - Req. §8. Global reference data.
 // ---------------------------------------------------------------------------
 
 model EmissionFactorVersion {
@@ -204,7 +204,7 @@ model EmissionFactor {
   @@map("emission_factors")
 }
 
-// Scope-2 national grid factor by year (SIN) — Req. §7.3. Global reference data.
+// Scope-2 national grid factor by year (SIN) - Req. §7.3. Global reference data.
 model GridElectricityFactor {
   id        String   @id @default(uuid())
   year      Int      @unique
@@ -216,7 +216,7 @@ model GridElectricityFactor {
 }
 
 // ---------------------------------------------------------------------------
-// Computed results (pinned to the factor version used, for reproducibility) — Req. §8, §14
+// Computed results (pinned to the factor version used, for reproducibility) - Req. §8, §14
 // ---------------------------------------------------------------------------
 
 model ResultSnapshot {
@@ -227,7 +227,7 @@ model ResultSnapshot {
   scope           Scope
   category        String?
   tonnesCo2e      Decimal       @db.Decimal(20, 6)
-  biogenicTonnes  Decimal?      @db.Decimal(20, 6) // biogenic CO2 memo item (kept out of headline) — Req. §12.5
+  biogenicTonnes  Decimal?      @db.Decimal(20, 6) // biogenic CO2 memo item (kept out of headline) - Req. §12.5
   factorVersionId String? // which factor library version produced this
   computedAt      DateTime      @default(now())
 

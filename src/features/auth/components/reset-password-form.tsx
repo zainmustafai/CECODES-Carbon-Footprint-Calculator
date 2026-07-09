@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { TextField } from "@/components/form/text-field";
+import { PasswordField } from "@/components/form/password-field";
 import { useResetPassword } from "../hooks/use-reset-password";
 
 export function ResetPasswordForm() {
@@ -16,19 +16,19 @@ export function ResetPasswordForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      <TextField
+      <PasswordField
         label={tc("passwordLabel")}
-        type="password"
         autoComplete="new-password"
         placeholder={tc("passwordPlaceholder")}
+        toggleLabel={tc("togglePassword")}
         error={errors.password?.message}
         {...register("password")}
       />
-      <TextField
+      <PasswordField
         label={tc("confirmLabel")}
-        type="password"
         autoComplete="new-password"
         placeholder={tc("passwordPlaceholder")}
+        toggleLabel={tc("togglePassword")}
         error={errors.confirmPassword?.message}
         {...register("confirmPassword")}
       />

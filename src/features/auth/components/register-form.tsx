@@ -1,8 +1,10 @@
 "use client";
 
+import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form/text-field";
+import { PasswordField } from "@/components/form/password-field";
 import { useRegister } from "../hooks/use-register";
 
 export function RegisterForm() {
@@ -33,22 +35,23 @@ export function RegisterForm() {
         type="email"
         autoComplete="email"
         placeholder={tc("emailPlaceholder")}
+        startIcon={<Mail />}
         error={errors.email?.message}
         {...register("email")}
       />
-      <TextField
+      <PasswordField
         label={tc("passwordLabel")}
-        type="password"
         autoComplete="new-password"
         placeholder={tc("passwordPlaceholder")}
+        toggleLabel={tc("togglePassword")}
         error={errors.password?.message}
         {...register("password")}
       />
-      <TextField
+      <PasswordField
         label={tc("confirmLabel")}
-        type="password"
         autoComplete="new-password"
         placeholder={tc("passwordPlaceholder")}
+        toggleLabel={tc("togglePassword")}
         error={errors.confirmPassword?.message}
         {...register("confirmPassword")}
       />

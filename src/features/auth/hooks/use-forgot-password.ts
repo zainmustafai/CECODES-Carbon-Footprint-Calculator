@@ -24,7 +24,7 @@ export function useForgotPassword() {
 
   const onSubmit = form.handleSubmit(async ({ email }) => {
     await requestPasswordResetAction(email);
-    // Always report success — never reveal whether the account exists.
+    // Always report success - never reveal whether the account exists.
     setSentEmail(email);
     toast.success(tt("resetEmailSent"));
   });

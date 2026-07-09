@@ -11,21 +11,24 @@
   },
   "auth": {
     "brand": {
+      "eyebrow": "Plataforma de medición",
       "headline": "Mide y gestiona la huella de carbono de tu empresa.",
       "tagline": "Calcula tus emisiones de Alcance 1, 2 y 3 y visualízalas en un tablero claro.",
-      "scopes": "Alcance 1 · Alcance 2 · Alcance 3"
+      "scope": "Alcance {n}"
     },
     "common": {
       "emailLabel": "Correo electrónico",
       "emailPlaceholder": "tu@empresa.com",
       "passwordLabel": "Contraseña",
       "passwordPlaceholder": "••••••••",
-      "confirmLabel": "Confirmar contraseña"
+      "confirmLabel": "Confirmar contraseña",
+      "or": "o",
+      "togglePassword": "Mostrar u ocultar contraseña"
     },
     "login": {
       "title": "Iniciar sesión",
       "subtitle": "Accede a la huella de carbono de tu empresa.",
-      "submit": "Iniciar sesión",
+      "submit": "Ingresar",
       "forgot": "¿Olvidaste tu contraseña?",
       "noAccount": "¿No tienes cuenta?",
       "signUp": "Regístrate"

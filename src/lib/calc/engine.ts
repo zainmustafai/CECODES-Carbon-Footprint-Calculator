@@ -1,19 +1,19 @@
 import type { GwpSet } from "@/lib/generated/prisma/client";
 import { GWP } from "@/lib/gwp";
 
-// Calculation engine — see "docs/CECODES Carbon Footprint Tool - Requirements.md" §7.
+// Calculation engine - see "docs/CECODES Carbon Footprint Tool - Requirements.md" §7.
 // Emissions = activity data × emission factor, split per gas, converted to CO2e via GWP,
 // then rolled up (element → subcategory → category → scope → company total).
 //
 // This is the CORE per-source step. The full engine (roll-ups, electricity-by-year,
 // distance/spend-based Scope 3, unit conversions) is built on top and MUST reproduce
-// the Excel's totals (parity — §14).
+// the Excel's totals (parity - §14).
 
 export interface FactorInput {
   co2Factor?: number | null; // kg CO2 / unit
   ch4Factor?: number | null; // kg CH4 / unit
   n2oFactor?: number | null; // kg N2O / unit
-  co2eFactor?: number | null; // kg CO2e / unit — already combined (refrigerants, spend/distance-based)
+  co2eFactor?: number | null; // kg CO2e / unit - already combined (refrigerants, spend/distance-based)
   biogenic?: boolean; // biogénica: selects the non-fossil CH4 GWP
 }
 

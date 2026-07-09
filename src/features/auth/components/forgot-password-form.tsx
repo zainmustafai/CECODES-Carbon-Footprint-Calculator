@@ -1,5 +1,6 @@
 "use client";
 
+import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form/text-field";
@@ -30,6 +31,7 @@ export function ForgotPasswordForm() {
         type="email"
         autoComplete="email"
         placeholder={tc("emailPlaceholder")}
+        startIcon={<Mail />}
         error={errors.email?.message}
         {...register("email")}
       />

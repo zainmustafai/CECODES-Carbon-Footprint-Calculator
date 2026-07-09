@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form/text-field";
+import { PasswordField } from "@/components/form/password-field";
 import { useLogin } from "../hooks/use-login";
 
 export function LoginForm() {
@@ -21,18 +24,32 @@ export function LoginForm() {
         type="email"
         autoComplete="email"
         placeholder={tc("emailPlaceholder")}
+        startIcon={<Mail />}
         error={errors.email?.message}
         {...register("email")}
       />
-      <TextField
-        label={tc("passwordLabel")}
-        type="password"
-        autoComplete="current-password"
-        placeholder={tc("passwordPlaceholder")}
-        error={errors.password?.message}
-        {...register("password")}
-      />
+
+      <div className="space-y-1.5">
+        <PasswordField
+          label={tc("passwordLabel")}
+          autoComplete="current-password"
+          placeholder={tc("passwordPlaceholder")}
+          toggleLabel={tc("togglePassword")}
+          error={errors.password?.message}
+          {...register("password")}
+        />
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            {t("forgot")}
+          </Link>
+        </div>
+      </div>
+
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {t("submit")}
       </Button>
