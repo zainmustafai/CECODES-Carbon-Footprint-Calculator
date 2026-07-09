@@ -1,0 +1,73 @@
+{
+  "common": {
+    "appName": "CECODES Carbon Footprint",
+    "loading": "Loading..."
+  },
+  "language": {
+    "label": "Language"
+  },
+  "nav": {
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "common": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "confirmLabel": "Confirm password"
+    },
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Access your company's carbon footprint.",
+      "submit": "Sign in",
+      "forgot": "Forgot your password?",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "register": {
+      "title": "Create account",
+      "subtitle": "Register your company to calculate its carbon footprint.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "checkEmailTitle": "Check your email",
+      "checkEmailBody": "We sent a confirmation link to {email}. Open it to activate your account."
+    },
+    "forgot": {
+      "title": "Reset password",
+      "subtitle": "We'll email you a link to reset it.",
+      "submit": "Send link",
+      "backToLogin": "Back to sign in",
+      "sentTitle": "Check your email",
+      "sentBody": "If an account exists for {email}, you'll receive a link to reset your password."
+    },
+    "reset": {
+      "title": "New password",
+      "subtitle": "Enter your new password.",
+      "submit": "Save password"
+    },
+    "validation": {
+      "emailRequired": "Email is required.",
+      "emailInvalid": "Enter a valid email.",
+      "passwordRequired": "Password is required.",
+      "passwordMin": "Password must be at least 8 characters.",
+      "passwordsMismatch": "Passwords do not match."
+    },
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "emailInUse": "An account with this email already exists.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "toasts": {
+      "registerCheckEmail": "Account created. Check your email to confirm.",
+      "resetEmailSent": "Reset link sent.",
+      "passwordUpdated": "Password updated.",
+      "loggedOut": "Signed out."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "common": {
+    "appName": "Huella de Carbono CECODES",
+    "loading": "Cargando..."
+  },
+  "language": {
+    "label": "Idioma"
+  },
+  "nav": {
+    "signOut": "Cerrar sesión"
+  },
+  "auth": {
+    "common": {
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "tu@empresa.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "••••••••",
+      "confirmLabel": "Confirmar contraseña"
+    },
+    "login": {
+      "title": "Iniciar sesión",
+      "subtitle": "Accede a la huella de carbono de tu empresa.",
+      "submit": "Iniciar sesión",
+      "forgot": "¿Olvidaste tu contraseña?",
+      "noAccount": "¿No tienes cuenta?",
+      "signUp": "Regístrate"
+    },
+    "register": {
+      "title": "Crear cuenta",
+      "subtitle": "Registra tu empresa para calcular su huella de carbono.",
+      "submit": "Crear cuenta",
+      "haveAccount": "¿Ya tienes cuenta?",
+      "signIn": "Inicia sesión",
+      "checkEmailTitle": "Revisa tu correo",
+      "checkEmailBody": "Enviamos un enlace de confirmación a {email}. Ábrelo para activar tu cuenta."
+    },
+    "forgot": {
+      "title": "Recuperar contraseña",
+      "subtitle": "Te enviaremos un enlace para restablecerla.",
+      "submit": "Enviar enlace",
+      "backToLogin": "Volver a iniciar sesión",
+      "sentTitle": "Revisa tu correo",
+      "sentBody": "Si existe una cuenta con {email}, recibirás un enlace para restablecer tu contraseña."
+    },
+    "reset": {
+      "title": "Nueva contraseña",
+      "subtitle": "Ingresa tu nueva contraseña.",
+      "submit": "Guardar contraseña"
+    },
+    "validation": {
+      "emailRequired": "El correo es obligatorio.",
+      "emailInvalid": "Ingresa un correo válido.",
+      "passwordRequired": "La contraseña es obligatoria.",
+      "passwordMin": "La contraseña debe tener al menos 8 caracteres.",
+      "passwordsMismatch": "Las contraseñas no coinciden."
+    },
+    "errors": {
+      "invalidCredentials": "Correo o contraseña incorrectos.",
+      "emailInUse": "Ya existe una cuenta con este correo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "toasts": {
+      "registerCheckEmail": "Cuenta creada. Revisa tu correo para confirmar.",
+      "resetEmailSent": "Enlace de restablecimiento enviado.",
+      "passwordUpdated": "Contraseña actualizada.",
+      "loggedOut": "Sesión cerrada."
+    }
+  },
+  "dashboard": {
+    "title": "Tablero",
+    "welcome": "Bienvenido"
+  }
+}
