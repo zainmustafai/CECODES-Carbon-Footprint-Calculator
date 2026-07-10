@@ -9,12 +9,26 @@
   "nav": {
     "dashboard": "Dashboard",
     "dataEntry": "Data entry",
+    "facilities": "Facilities",
     "reports": "Reports",
     "factorLibrary": "Factor library",
+    "companies": "Companies",
+    "users": "Users",
+    "onboarding": "Setup",
+    "administration": "Administration",
+    "workspace": "My company",
+    "myCompany": "My company",
     "comingSoon": "Soon",
     "menu": "Menu",
     "account": "Account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "toggleSidebar": "Show or hide the sidebar",
+    "skipToContent": "Skip to content",
+    "platformVersion": "CECODES · Platform v1.0",
+    "roleBadge": {
+      "company": "Company",
+      "admin": "CECODES admin"
+    }
   },
   "auth": {
     "brand": {
@@ -121,6 +135,176 @@
     "facilities": "Facilities",
     "sector": "Sector",
     "emptyTitle": "No emissions data yet",
-    "emptyBody": "Data entry is coming soon. In the meantime, review your company information."
+    "emptyBody": "Record your source consumption under Data entry and your calculated footprint will appear here."
+  },
+  "facilities": {
+    "title": "Facilities",
+    "subtitle": "A facility is a plant at a location. Reporting years are recorded per facility.",
+    "add": "Add facility",
+    "addTitle": "Add facility",
+    "editTitle": "Edit facility",
+    "dialogSubtitle": "The plant and its location identify the facility within the company.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save changes",
+    "name": "Plant",
+    "namePlaceholder": "Main plant",
+    "location": "Location",
+    "locationPlaceholder": "Bogota, Colombia",
+    "emptyTitle": "No facilities yet",
+    "emptyBody": "Add your first facility to start recording consumption.",
+    "yearCount": "{count, plural, =0 {No reporting years} =1 {# reporting year} other {# reporting years}}",
+    "openDataEntry": "Enter data",
+    "deleteDialog": {
+      "title": "Delete this facility?",
+      "body": "The facility {name} will be removed. This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "validation": {
+      "nameRequired": "The plant name is required.",
+      "locationRequired": "The location is required."
+    },
+    "errors": {
+      "facilityExists": "A facility with that name already exists in this company.",
+      "facilityHasYears": "You cannot delete a facility that has reporting years. Remove its years first.",
+      "forbidden": "You do not have access to this company.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "toasts": {
+      "created": "Facility added.",
+      "updated": "Facility updated.",
+      "deleted": "Facility deleted."
+    }
+  },
+  "dataEntry": {
+    "title": "Data entry",
+    "subtitle": "Record consumption for each source, by scope. Changes save themselves.",
+    "emptyScope": "The factor library has no categories for this scope yet.",
+    "contextBar": {
+      "facility": "Facility",
+      "year": "Year",
+      "noFacility": "No facilities",
+      "noYear": "No years"
+    },
+    "save": {
+      "autosave": "Saves automatically",
+      "saving": "Saving...",
+      "saved": "Saved {time}",
+      "error": "Could not save"
+    },
+    "scopes": {
+      "SCOPE_1": "Scope 1",
+      "SCOPE_2": "Scope 2",
+      "SCOPE_3": "Scope 3"
+    },
+    "category": {
+      "applies": "Applies?",
+      "notApplicable": "Marked as not applicable. Turn it on to record sources.",
+      "lockedBySources": "To mark it as not applicable, remove its sources first.",
+      "noSources": "No sources added in this category yet.",
+      "sourceCount": "{count, plural, =1 {# source} other {# sources}}"
+    },
+    "addSource": {
+      "trigger": "Add source",
+      "search": "Search element...",
+      "empty": "No results.",
+      "biogenic": "Biogenic"
+    },
+    "source": {
+      "annualValue": "Annual value",
+      "notReported": "Not reported",
+      "biogenic": "Biogenic",
+      "factorInactive": "Factor deactivated",
+      "copyJanuary": "Copy January to every month",
+      "monthsProgress": "{reported} of {total} months",
+      "delete": "Delete source"
+    },
+    "deleteDialog": {
+      "title": "Delete this source?",
+      "body": "The recorded values for {element} will be removed. This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "year": {
+      "create": "Create year",
+      "createTitle": "Create reporting year",
+      "createSubtitle": "Each year is calculated independently.",
+      "yearLabel": "Year",
+      "gwpNote": "The {gwp} GWP set will be used."
+    },
+    "gridFactor": {
+      "missing": "There is no grid electricity factor for {year} yet. You can record consumption; emissions will be calculated once an administrator loads the factor."
+    },
+    "empty": {
+      "noFacilityTitle": "No facilities yet",
+      "noFacilityBody": "You need at least one facility to record consumption.",
+      "goToFacilities": "Go to Facilities",
+      "noYearTitle": "No reporting years yet",
+      "noYearBody": "Create a reporting year for {facility} and start recording consumption."
+    },
+    "months": {
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
+    },
+    "validation": {
+      "valueFormat": "Enter a non-negative number with up to 6 decimals.",
+      "yearInvalid": "Enter a valid year.",
+      "yearMin": "That year is too far in the past.",
+      "yearMax": "That year is too far in the future."
+    },
+    "errors": {
+      "forbidden": "You do not have access to this data.",
+      "generic": "Something went wrong. Please try again.",
+      "invalidValue": "One of the values is not valid. Check the highlighted field.",
+      "yearExists": "That facility already has that reporting year.",
+      "sourceExists": "That source is already added.",
+      "factorUnavailable": "That element is no longer available in the factor library.",
+      "januaryEmpty": "Record the January value first.",
+      "categoryHasSources": "Remove the category's sources before marking it as not applicable.",
+      "unknownCategory": "Unknown category."
+    },
+    "toasts": {
+      "yearCreated": "Reporting year created.",
+      "sourceAdded": "Source added.",
+      "sourceRemoved": "Source removed.",
+      "januaryCopied": "January copied to every month."
+    }
+  },
+  "admin": {
+    "companies": {
+      "title": "Companies",
+      "subtitle": "Manage companies and work on their data when they need it.",
+      "emptyTitle": "No companies yet",
+      "emptyBody": "Companies appear here once they register and complete their setup.",
+      "open": "Open dashboard",
+      "openDataEntry": "Enter data",
+      "noSector": "Sector not set"
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Accounts with access to the platform.",
+      "empty": "No users yet.",
+      "email": "Email",
+      "role": "Role",
+      "company": "Company",
+      "noCompany": "No company"
+    },
+    "factors": {
+      "title": "Factor library",
+      "subtitle": "Emission factors and their version history.",
+      "comingSoon": "Coming soon",
+      "loaded": "Loaded: {factors} active factors, {gridFactors} grid electricity factors. Latest version: {version}."
+    }
   }
 }

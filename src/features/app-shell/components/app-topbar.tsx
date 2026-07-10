@@ -1,14 +1,31 @@
+import { getTranslations } from "next-intl/server";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { LanguageToggle } from "@/features/localization";
-import { MobileNav } from "./mobile-nav";
+import { AppBreadcrumbs } from "./app-breadcrumbs";
 import { UserMenu } from "./user-menu";
 
-export function AppTopbar({ email, role }: { email?: string; role: string }) {
+type AppTopbarProps = {
+  email?: string;
+  role: string;
+  companyName?: string | null;
+};
+
+export async function AppTopbar({ email, role, companyName }: AppTopbarProps) {
+  const t = await getTranslations("nav");
+
   return (
-    <header className="flex h-16 items-center gap-3 border-b bg-background px-4 lg:px-8">
-      <MobileNav role={role} />
-      <div className="flex-1" />
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
+      <SidebarTrigger className="-ml-1" aria-label={t("toggleSidebar")} />
+      <Separator
+        orientation="vertical"
+        className="mr-1 data-vertical:h-4 data-vertical:self-auto"
+      />
+      <div className="min-w-0 flex-1">
+        <AppBreadcrumbs />
+      </div>
       <LanguageToggle />
-      <UserMenu email={email} />
+      <UserMenu email={email} role={role} companyName={companyName} />
     </header>
   );
 }

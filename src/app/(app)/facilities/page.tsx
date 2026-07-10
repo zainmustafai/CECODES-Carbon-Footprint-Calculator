@@ -1,14 +1,12 @@
 import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth/server";
-import { DashboardScreen } from "@/features/dashboard";
+import { FacilitiesScreen } from "@/features/facilities";
 
 export default async function Page() {
   const appUser = await requireAppUser();
   if (!appUser) redirect("/onboarding");
-  // An admin has no company, so this dashboard would render nothing but an empty state.
-  // Their home is the company list.
   if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
   if (!appUser.companyId) redirect("/onboarding");
 
-  return <DashboardScreen companyId={appUser.companyId} />;
+  return <FacilitiesScreen companyId={appUser.companyId} basePath="/facilities" />;
 }

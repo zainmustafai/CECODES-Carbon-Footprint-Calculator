@@ -9,12 +9,26 @@
   "nav": {
     "dashboard": "Tablero",
     "dataEntry": "Ingreso de datos",
+    "facilities": "Sedes",
     "reports": "Reportes",
     "factorLibrary": "Biblioteca de factores",
+    "companies": "Empresas",
+    "users": "Usuarios",
+    "onboarding": "Configuración",
+    "administration": "Administración",
+    "workspace": "Mi empresa",
+    "myCompany": "Mi empresa",
     "comingSoon": "Pronto",
     "menu": "Menú",
     "account": "Cuenta",
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "toggleSidebar": "Mostrar u ocultar el menú lateral",
+    "skipToContent": "Saltar al contenido",
+    "platformVersion": "CECODES · Plataforma v1.0",
+    "roleBadge": {
+      "company": "Empresa",
+      "admin": "Administrador CECODES"
+    }
   },
   "auth": {
     "brand": {
@@ -121,6 +135,176 @@
     "facilities": "Sedes",
     "sector": "Sector",
     "emptyTitle": "Aún no hay datos de emisiones",
-    "emptyBody": "El ingreso de datos estará disponible pronto. Mientras tanto, revisa la información de tu empresa."
+    "emptyBody": "Registra el consumo de tus fuentes en Ingreso de datos y aquí verás tu huella calculada."
+  },
+  "facilities": {
+    "title": "Sedes",
+    "subtitle": "Cada sede es una planta en una ubicación. Los años de reporte se registran por sede.",
+    "add": "Agregar sede",
+    "addTitle": "Agregar sede",
+    "editTitle": "Editar sede",
+    "dialogSubtitle": "La planta y su ubicación identifican la sede dentro de la empresa.",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar cambios",
+    "name": "Planta",
+    "namePlaceholder": "Planta principal",
+    "location": "Ubicación",
+    "locationPlaceholder": "Bogotá, Colombia",
+    "emptyTitle": "Aún no hay sedes",
+    "emptyBody": "Agrega tu primera sede para empezar a registrar consumos.",
+    "yearCount": "{count, plural, =0 {Sin años de reporte} =1 {# año de reporte} other {# años de reporte}}",
+    "openDataEntry": "Ingresar datos",
+    "deleteDialog": {
+      "title": "¿Eliminar esta sede?",
+      "body": "Se eliminará la sede {name}. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "validation": {
+      "nameRequired": "El nombre de la planta es obligatorio.",
+      "locationRequired": "La ubicación es obligatoria."
+    },
+    "errors": {
+      "facilityExists": "Ya existe una sede con ese nombre en esta empresa.",
+      "facilityHasYears": "No puedes eliminar una sede con años de reporte. Elimina primero sus años.",
+      "forbidden": "No tienes acceso a esta empresa.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "toasts": {
+      "created": "Sede agregada.",
+      "updated": "Sede actualizada.",
+      "deleted": "Sede eliminada."
+    }
+  },
+  "dataEntry": {
+    "title": "Ingreso de datos",
+    "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
+    "emptyScope": "La biblioteca de factores aún no tiene categorías para este alcance.",
+    "contextBar": {
+      "facility": "Sede",
+      "year": "Año",
+      "noFacility": "Sin sedes",
+      "noYear": "Sin años"
+    },
+    "save": {
+      "autosave": "Se guarda automáticamente",
+      "saving": "Guardando...",
+      "saved": "Guardado {time}",
+      "error": "No se pudo guardar"
+    },
+    "scopes": {
+      "SCOPE_1": "Alcance 1",
+      "SCOPE_2": "Alcance 2",
+      "SCOPE_3": "Alcance 3"
+    },
+    "category": {
+      "applies": "¿Aplica?",
+      "notApplicable": "Marcada como no aplica. Actívala para registrar fuentes.",
+      "lockedBySources": "Para marcarla como no aplica, elimina primero sus fuentes.",
+      "noSources": "Aún no agregas fuentes en esta categoría.",
+      "sourceCount": "{count, plural, =1 {# fuente} other {# fuentes}}"
+    },
+    "addSource": {
+      "trigger": "Agregar fuente",
+      "search": "Buscar elemento...",
+      "empty": "Sin resultados.",
+      "biogenic": "Biogénica"
+    },
+    "source": {
+      "annualValue": "Valor anual",
+      "notReported": "Sin registrar",
+      "biogenic": "Biogénica",
+      "factorInactive": "Factor desactivado",
+      "copyJanuary": "Copiar Enero a todos los meses",
+      "monthsProgress": "{reported} de {total} meses",
+      "delete": "Eliminar fuente"
+    },
+    "deleteDialog": {
+      "title": "¿Eliminar esta fuente?",
+      "body": "Se borrarán los valores registrados para {element}. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "year": {
+      "create": "Crear año",
+      "createTitle": "Crear año de reporte",
+      "createSubtitle": "Cada año se calcula de forma independiente.",
+      "yearLabel": "Año",
+      "gwpNote": "Se usará el conjunto de PCG {gwp}."
+    },
+    "gridFactor": {
+      "missing": "Todavía no hay factor de red eléctrica para {year}. Puedes registrar el consumo; las emisiones se calcularán cuando el administrador cargue el factor."
+    },
+    "empty": {
+      "noFacilityTitle": "Aún no hay sedes",
+      "noFacilityBody": "Necesitas al menos una sede para registrar consumos.",
+      "goToFacilities": "Ir a Sedes",
+      "noYearTitle": "Aún no hay años de reporte",
+      "noYearBody": "Crea un año de reporte para {facility} y empieza a registrar consumos."
+    },
+    "months": {
+      "1": "Enero",
+      "2": "Febrero",
+      "3": "Marzo",
+      "4": "Abril",
+      "5": "Mayo",
+      "6": "Junio",
+      "7": "Julio",
+      "8": "Agosto",
+      "9": "Septiembre",
+      "10": "Octubre",
+      "11": "Noviembre",
+      "12": "Diciembre"
+    },
+    "validation": {
+      "valueFormat": "Ingresa un número no negativo, con hasta 6 decimales.",
+      "yearInvalid": "Ingresa un año válido.",
+      "yearMin": "El año es demasiado antiguo.",
+      "yearMax": "El año no puede estar tan adelante en el futuro."
+    },
+    "errors": {
+      "forbidden": "No tienes acceso a estos datos.",
+      "generic": "Algo salió mal. Inténtalo de nuevo.",
+      "invalidValue": "Hay un valor no válido. Revisa el campo marcado.",
+      "yearExists": "Esa sede ya tiene ese año de reporte.",
+      "sourceExists": "Esa fuente ya está agregada.",
+      "factorUnavailable": "Ese elemento ya no está disponible en la biblioteca de factores.",
+      "januaryEmpty": "Registra primero el valor de Enero.",
+      "categoryHasSources": "Elimina las fuentes de la categoría antes de marcarla como no aplica.",
+      "unknownCategory": "Categoría desconocida."
+    },
+    "toasts": {
+      "yearCreated": "Año de reporte creado.",
+      "sourceAdded": "Fuente agregada.",
+      "sourceRemoved": "Fuente eliminada.",
+      "januaryCopied": "Enero copiado a todos los meses."
+    }
+  },
+  "admin": {
+    "companies": {
+      "title": "Empresas",
+      "subtitle": "Gestiona las empresas y trabaja sobre sus datos cuando lo necesiten.",
+      "emptyTitle": "Aún no hay empresas",
+      "emptyBody": "Las empresas aparecen aquí cuando se registran y completan su configuración.",
+      "open": "Abrir tablero",
+      "openDataEntry": "Ingresar datos",
+      "noSector": "Sector sin definir"
+    },
+    "users": {
+      "title": "Usuarios",
+      "subtitle": "Cuentas con acceso a la plataforma.",
+      "empty": "Aún no hay usuarios.",
+      "email": "Correo",
+      "role": "Rol",
+      "company": "Empresa",
+      "noCompany": "Sin empresa"
+    },
+    "factors": {
+      "title": "Biblioteca de factores",
+      "subtitle": "Factores de emisión y su historial de versiones.",
+      "comingSoon": "Disponible pronto",
+      "loaded": "Cargados: {factors} factores activos, {gridFactors} factores de red eléctrica. Última versión: {version}."
+    }
   }
 }
