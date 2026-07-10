@@ -2,8 +2,12 @@
 
 Corporate greenhouse-gas **carbon-footprint calculator + visualization dashboard** for CECODES.
 Companies self-register, enter activity data across the three GHG-Protocol scopes (Alcance 1/2/3),
-and the tool computes emissions (t CO₂e) — reproducing CECODES's Excel tool — and visualizes them.
+and the tool computes emissions (t CO₂e), reproducing CECODES's Excel tool, and visualizes them.
 
+> **Before writing code, read [IMPLEMENTATION.md](./IMPLEMENTATION.md).** It covers the
+> architecture, the conventions, the security model, and the traps.
+> [DESIGN.md](./DESIGN.md) is the design system.
+>
 > **Product docs live in [`/docs`](./docs).** Start with the requirements and the weekly plan.
 > This README covers the code/setup only.
 
@@ -12,7 +16,7 @@ and the tool computes emissions (t CO₂e) — reproducing CECODES's Excel tool 
 | Layer | Choice |
 |---|---|
 | App | **Next.js 16** (App Router, full-stack) · **React 19** |
-| Styling / UI | **Tailwind CSS v4** · **shadcn/ui** (Base UI) |
+| Styling / UI | **Tailwind CSS v4** · **shadcn/ui** (Radix UI) |
 | Charts | **Recharts** (via shadcn `chart`) |
 | Database | **Supabase Postgres** |
 | Auth & isolation | **Supabase Auth + Row-Level Security** |

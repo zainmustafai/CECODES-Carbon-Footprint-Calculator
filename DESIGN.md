@@ -101,9 +101,20 @@ email, lock for password), show the unit when relevant, and render errors as
 - **Auth (login, register, reset):** full height split. Left is the green brand panel
   (logo, eyebrow, headline, scope pills) hidden below `lg`. Right is the form, centered and
   sized by responsive padding, not a fixed `max-w`.
-- **App shell:** a fixed left `Sidebar` (brand + nav with active state) plus a top bar
-  (page context, language toggle, user menu). Content area is `p-6 lg:p-8`. On mobile the
-  sidebar collapses into a `Sheet`.
+- **App shell:** the shadcn `sidebar` block, `variant="inset" collapsible="icon"`, plus a
+  top bar (sidebar trigger, breadcrumbs, language toggle, avatar menu). Content is
+  `p-6 lg:p-8`. Below `lg` the sidebar becomes a `Sheet`; at or above it collapses to an
+  icon rail. The sidebar is a **deep forest green** surface, darker than the `--primary`
+  button green, driven entirely by the `--sidebar*` tokens: no component hardcodes a color.
+  - The active nav item is `bg-sidebar-accent` with a near white label (about 7:1) plus a
+    bright green inset bar and icon. Never put 14px text on a bright green fill: it lands
+    near 3.2:1 and fails AA.
+  - Nav is one sidebar with role filtered groups, not one sidebar per role. An admin drilled
+    into a company gets that company's workspace under a `SidebarMenuSub`.
+- **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, and collapsible
+  category sections. Values autosave on blur, batched; there is no Guardar button. The unit
+  is always visible beside the value. The Scope 2 month grid is 1 column on a phone, 3 at
+  `md`, 6 at `lg`. Twelve across one line loses on every viewport.
 - **Width:** do not cap content with arbitrary `max-w-*` that leaves dead space. Fill the
   space with grids and responsive padding. Multi column on `md+`, stacked on mobile.
 - **Dashboard:** a KPI row (total plus one card per scope) over a details area (company,
