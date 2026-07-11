@@ -12,6 +12,13 @@
   "language": {
     "label": "Idioma"
   },
+  "theme": {
+    "label": "Tema",
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
   "errorPages": {
     "boundary": {
       "title": "Algo salió mal",
@@ -201,18 +208,101 @@
   },
   "dashboard": {
     "title": "Tablero",
-    "subtitle": "Resumen de la huella de carbono de tu empresa.",
-    "totalFootprint": "Huella total",
-    "scope1": "Alcance 1",
-    "scope2": "Alcance 2",
-    "scope3": "Alcance 3",
-    "noData": "Sin datos aún",
+    "subtitle": "Huella de carbono · {facility} · Año {year}",
+    "subtitleAllFacilities": "Todas las sedes",
+    "lastUpdated": "Última actualización: {date}",
     "tCo2e": "t CO2e",
+    "tCo2ePerMonth": "t CO2e por mes · {year}",
+    "scopeNames": {
+      "SCOPE_1": "Alcance 1",
+      "SCOPE_2": "Alcance 2",
+      "SCOPE_3": "Alcance 3"
+    },
+    "scopeSubtitles": {
+      "SCOPE_1": "Directas",
+      "SCOPE_2": "Electricidad",
+      "SCOPE_3": "Indirectas"
+    },
+    "filters": {
+      "label": "Filtrar",
+      "facility": "Planta / Sede",
+      "allFacilities": "Todas",
+      "year": "Año",
+      "scope": "Alcance",
+      "allScopes": "Todos",
+      "category": "Categoría",
+      "allCategories": "Todas",
+      "clear": "Limpiar"
+    },
+    "kpi": {
+      "total": "Huella total",
+      "grossEmissions": "Emisiones brutas · año {year}",
+      "scopeEmissions": "{scope} · año {year}",
+      "categoryEmissions": "{category} · año {year}",
+      "variation": "Variación vs. año anterior",
+      "variationBase": "{year}: {tonnes} tCO2e",
+      "reduction": "Reducción",
+      "increase": "Aumento",
+      "noPreviousYear": "Sin año anterior para comparar",
+      "target": "Avance hacia la meta",
+      "targetDetail": "Meta {scope}: {target} tCO2e",
+      "targetOverall": "Real vs. meta total",
+      "underTarget": "Dentro de la meta",
+      "overTarget": "Meta superada",
+      "noTarget": "Sin meta definida",
+      "setTarget": "Definir meta"
+    },
+    "byScope": {
+      "title": "Emisiones por alcance",
+      "totalCenter": "tCO2e total"
+    },
+    "byCategory": {
+      "title": "Emisiones por categoría",
+      "empty": "Sin categorías con datos para este filtro."
+    },
+    "monthly": {
+      "title": "Tendencia mensual",
+      "subtitle": "Electricidad (Alcance 2)",
+      "empty": "Aún no hay consumo de electricidad registrado por mes.",
+      "noMonth": "Sin dato"
+    },
+    "comparison": {
+      "title": "Comparación entre años",
+      "empty": "Necesitas al menos dos años con datos para comparar.",
+      "single": "Registra otro año para ver la comparación."
+    },
+    "targets": {
+      "title": "Meta vs. real por alcance",
+      "meta": "Meta",
+      "real": "Real",
+      "empty": "Aún no defines metas de reducción.",
+      "cta": "Definir metas"
+    },
+    "biogenic": "Incluye {tonnes} tCO2e biogénicas, reportadas como memoria.",
+    "missingGridFactor": "Falta el factor de red eléctrica para {year}: el Alcance 2 se muestra en cero hasta que el administrador lo cargue.",
+    "months": {
+      "1": "Ene",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Abr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Ago",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dic"
+    },
     "company": "Empresa",
     "facilities": "Sedes",
     "sector": "Sector",
+    "noData": "Sin datos aún",
     "emptyTitle": "Aún no hay datos de emisiones",
-    "emptyBody": "Registra el consumo de tus fuentes en Ingreso de datos y aquí verás tu huella calculada."
+    "emptyBody": "Crea un año de reporte y registra el consumo de tus fuentes. Aquí verás tu huella calculada, por alcance y por categoría.",
+    "emptyCta": "Ir a Ingreso de datos",
+    "noYearTitle": "Este año no tiene datos",
+    "noYearBody": "Registra el consumo de {year} para ver su huella."
   },
   "facilities": {
     "title": "Sedes",

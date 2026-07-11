@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { LanguageToggle } from "@/features/localization";
+import { ThemeToggle } from "@/features/theme";
 import { AppBreadcrumbs } from "./app-breadcrumbs";
 import { UserMenu } from "./user-menu";
 
@@ -24,6 +25,7 @@ export async function AppTopbar({ email, role, companyName }: AppTopbarProps) {
       <div className="min-w-0 flex-1">
         <AppBreadcrumbs />
       </div>
+      <ThemeToggle />
       <LanguageToggle />
       <UserMenu email={email} role={role} companyName={companyName} />
     </header>

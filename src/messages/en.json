@@ -12,6 +12,13 @@
   "language": {
     "label": "Language"
   },
+  "theme": {
+    "label": "Theme",
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "errorPages": {
     "boundary": {
       "title": "Something went wrong",
@@ -201,18 +208,101 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Overview of your company's carbon footprint.",
-    "totalFootprint": "Total footprint",
-    "scope1": "Scope 1",
-    "scope2": "Scope 2",
-    "scope3": "Scope 3",
-    "noData": "No data yet",
+    "subtitle": "Carbon footprint · {facility} · Year {year}",
+    "subtitleAllFacilities": "All sedes",
+    "lastUpdated": "Last updated: {date}",
     "tCo2e": "t CO2e",
+    "tCo2ePerMonth": "t CO2e per month · {year}",
+    "scopeNames": {
+      "SCOPE_1": "Scope 1",
+      "SCOPE_2": "Scope 2",
+      "SCOPE_3": "Scope 3"
+    },
+    "scopeSubtitles": {
+      "SCOPE_1": "Direct",
+      "SCOPE_2": "Electricity",
+      "SCOPE_3": "Indirect"
+    },
+    "filters": {
+      "label": "Filter",
+      "facility": "Planta / Sede",
+      "allFacilities": "All",
+      "year": "Year",
+      "scope": "Alcance",
+      "allScopes": "All",
+      "category": "Category",
+      "allCategories": "All",
+      "clear": "Clear"
+    },
+    "kpi": {
+      "total": "Total footprint",
+      "grossEmissions": "Gross emissions · year {year}",
+      "scopeEmissions": "{scope} · year {year}",
+      "categoryEmissions": "{category} · year {year}",
+      "variation": "Change vs. previous year",
+      "variationBase": "{year}: {tonnes} tCO2e",
+      "reduction": "Reduction",
+      "increase": "Increase",
+      "noPreviousYear": "No previous year to compare",
+      "target": "Progress toward target",
+      "targetDetail": "Target {scope}: {target} tCO2e",
+      "targetOverall": "Actual vs. total target",
+      "underTarget": "Within target",
+      "overTarget": "Target exceeded",
+      "noTarget": "No target set",
+      "setTarget": "Set a target"
+    },
+    "byScope": {
+      "title": "Emissions by alcance",
+      "totalCenter": "tCO2e total"
+    },
+    "byCategory": {
+      "title": "Emissions by category",
+      "empty": "No categories with data for this filter."
+    },
+    "monthly": {
+      "title": "Monthly trend",
+      "subtitle": "Electricity (Alcance 2)",
+      "empty": "No monthly electricity consumption recorded yet.",
+      "noMonth": "No data"
+    },
+    "comparison": {
+      "title": "Year-over-year comparison",
+      "empty": "You need at least two years with data to compare.",
+      "single": "Record another year to see the comparison."
+    },
+    "targets": {
+      "title": "Target vs. actual by alcance",
+      "meta": "Target",
+      "real": "Actual",
+      "empty": "You have not set reduction targets yet.",
+      "cta": "Set targets"
+    },
+    "biogenic": "Includes {tonnes} tCO2e biogenic, reported as a memo item.",
+    "missingGridFactor": "The grid electricity factor for {year} is missing: Scope 2 shows zero until an administrator loads it.",
+    "months": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
     "company": "Company",
     "facilities": "Facilities",
     "sector": "Sector",
+    "noData": "No data yet",
     "emptyTitle": "No emissions data yet",
-    "emptyBody": "Record your source consumption under Data entry and your calculated footprint will appear here."
+    "emptyBody": "Create a reporting year and record your source consumption. Your calculated footprint will appear here, by alcance and by category.",
+    "emptyCta": "Go to Data entry",
+    "noYearTitle": "This year has no data",
+    "noYearBody": "Record {year}'s consumption to see its footprint."
   },
   "facilities": {
     "title": "Facilities",

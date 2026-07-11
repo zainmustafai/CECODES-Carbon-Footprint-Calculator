@@ -8,6 +8,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavigationProgress } from "@/components/feedback/navigation-progress";
+import { ThemeProvider } from "@/features/theme";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -48,17 +49,27 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-full">
-        {/* Suspense is required: NavigationProgress reads useSearchParams, and without a
-            boundary that would opt the whole app out of static rendering. */}
-        <Suspense fallback={null}>
-          <NavigationProgress />
-        </Suspense>
-        <TooltipProvider>
-          <NextIntlClientProvider>
-            {children}
-            <Toaster />
-          </NextIntlClientProvider>
-        </TooltipProvider>
+        {/* attribute="class" toggles `.dark` on <html>, the variant globals.css keys its dark
+            tokens on. defaultTheme="system" + enableSystem follow the OS until the user picks;
+            disableTransitionOnChange stops every tokened surface from animating on the switch. */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {/* Suspense is required: NavigationProgress reads useSearchParams, and without a
+              boundary that would opt the whole app out of static rendering. */}
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          <TooltipProvider>
+            <NextIntlClientProvider>
+              {children}
+              <Toaster />
+            </NextIntlClientProvider>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

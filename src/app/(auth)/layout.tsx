@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getUser } from "@/lib/auth/server";
 import { LanguageToggle } from "@/features/localization";
+import { ThemeToggle } from "@/features/theme";
 
 const SCOPES = [1, 2, 3];
 
@@ -70,19 +71,24 @@ export default async function AuthLayout({
 
       {/* Form panel: fills the other half; width controlled by responsive padding */}
       <main className="relative flex items-center justify-center px-6 py-12 sm:px-10 lg:px-16 xl:px-24">
-        <div className="absolute right-4 top-4">
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          <ThemeToggle />
           <LanguageToggle />
         </div>
         <div className="w-full">
-          {/* Below lg the brand panel is hidden, so the form panel carries the logo. */}
+          {/* Below lg the brand panel is hidden, so the form panel carries the logo. The
+              lockup is navy, and in dark mode this panel is a dark surface, so it needs the
+              same white chip the brand panel gives it. */}
           <div className="mb-8 flex justify-center lg:hidden">
-            <Image
-              src="/logo.png"
-              alt="CECODES"
-              width={296}
-              height={96}
-              className="h-10 w-auto"
-            />
+            <div className="inline-flex items-center rounded-lg bg-white px-3 py-2">
+              <Image
+                src="/logo.png"
+                alt="CECODES"
+                width={296}
+                height={96}
+                className="h-10 w-auto"
+              />
+            </div>
           </div>
           {children}
         </div>

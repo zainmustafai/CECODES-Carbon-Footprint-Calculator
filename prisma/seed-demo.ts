@@ -215,7 +215,19 @@ async function seedFullCompany(password: string): Promise<void> {
 
   const yumbo2023 = await upsertReportingYear(yumbo.id, companyId, 2023);
   const yumbo2024 = await upsertReportingYear(yumbo.id, companyId, 2024);
+  const bogota2023 = await upsertReportingYear(bogota.id, companyId, 2023);
   const bogota2024 = await upsertReportingYear(bogota.id, companyId, 2024);
+
+  // Clear the years' entries first, so a source removed from the spec (a factor corrected or
+  // dropped between runs) disappears rather than lingering. Re-seeding below is deterministic,
+  // so this keeps the demo a faithful mirror of the current spec on every run.
+  await prisma.activityEntry.deleteMany({
+    where: {
+      reportingYearId: {
+        in: [yumbo2023.id, yumbo2024.id, bogota2023.id, bogota2024.id],
+      },
+    },
+  });
 
   // Scope 1 and 3 annual sources, plus Scope 2 monthly. Every element is resolved from the
   // live library; when the confirmed dataset renames something, the lookup simply misses and
@@ -226,10 +238,15 @@ async function seedFullCompany(password: string): Promise<void> {
   // The Scope 3 waste source names the imported "C5: Residuos generados en operaciones"
   // category. The starter library called it plain "Residuos"; that row is deactivated once
   // the real dataset lands, and pickFactor only ever returns active factors.
+  // A balanced footprint across the three alcances, using factors whose values are sane. The
+  // natural-gas row was dropped on purpose: its imported CH4 factor is one of the Excel's
+  // known-implausible values (Requirements 12.3), and a demo should not showcase a wrong
+  // number. An admin can correct it in the factor library and add it back.
   const specs: SourceSpec[] = [
-    { scope: Scope.SCOPE_1, categoryContains: "Fuentes Fijas", elementContains: "Diésel o ACPM", annualValue: "14957.10" },
-    { scope: Scope.SCOPE_1, categoryContains: "Fuentes Fijas", elementContains: "Gas Natural Genérico", annualValue: "43000" },
+    { scope: Scope.SCOPE_1, categoryContains: "Fuentes Fijas", elementContains: "Diésel o ACPM (B2) - Fijo", annualValue: "14957.10" },
+    { scope: Scope.SCOPE_1, categoryContains: "Fuentes Móviles", elementContains: "Diésel B10 (Mezcla comercial) - Móvil", annualValue: "1500" },
     { scope: Scope.SCOPE_1, categoryContains: "Fugitivas", elementContains: "R-22", annualValue: "12.5" },
+    { scope: Scope.SCOPE_3, categoryContains: "C6", elementContains: "Viajes aéreos - Recorridos largos", annualValue: "180000" },
     { scope: Scope.SCOPE_3, categoryContains: "C5", elementContains: "Compostaje de materia orgánica (base húmeda)", annualValue: "5200" },
   ];
 
@@ -261,27 +278,36 @@ async function seedFullCompany(password: string): Promise<void> {
     console.log(`  ${year} (Planta Yumbo) seeded, ${reportedMonths}/12 months of electricity`);
   }
 
-  // Bogota 2024 gets electricity only, so the facility comparison has something to compare.
+  // Sede Bogota reports electricity in both years, so the company aggregate compares like for
+  // like and the year over year reads as a genuine, modest reduction. It reduced consumption
+  // in 2024, which is the reduction story the dashboard exists to show.
   const gridElement = await pickFactor(electricity);
   if (gridElement) {
+    await seedSource(bogota2023.id, companyId, gridElement, {
+      ...electricity,
+      monthlyValues: monthlyKwh(48000, 12),
+    });
     await seedSource(bogota2024.id, companyId, gridElement, {
       ...electricity,
       monthlyValues: monthlyKwh(41000, 12),
     });
   }
-  console.log("  2024 (Sede Bogota) seeded");
+  console.log("  2023 and 2024 (Sede Bogota) seeded");
 
-  // One reduction target, so the Meta card has a saved value to render.
-  await prisma.scopeTarget.upsert({
-    where: { reportingYearId_scope: { reportingYearId: yumbo2024.id, scope: Scope.SCOPE_1 } },
-    update: { targetTonnes: "140" },
-    create: {
-      reportingYearId: yumbo2024.id,
-      companyId,
-      scope: Scope.SCOPE_1,
-      targetTonnes: "140",
-    },
-  });
+  // Reduction targets per scope, so the Meta card and the "avance hacia la meta" KPI have
+  // values to render. Set a touch above the demo's actuals, so the demo reads as on track.
+  const targets: [Scope, string][] = [
+    [Scope.SCOPE_1, "240"],
+    [Scope.SCOPE_2, "235"],
+    [Scope.SCOPE_3, "55"],
+  ];
+  for (const [scope, targetTonnes] of targets) {
+    await prisma.scopeTarget.upsert({
+      where: { reportingYearId_scope: { reportingYearId: yumbo2024.id, scope } },
+      update: { targetTonnes },
+      create: { reportingYearId: yumbo2024.id, companyId, scope, targetTonnes },
+    });
+  }
 
   await upsertCompanyUser(`demo1@${DEMO_EMAIL_DOMAIN}`, password, companyId);
   console.log(`  user demo1@${DEMO_EMAIL_DOMAIN}`);

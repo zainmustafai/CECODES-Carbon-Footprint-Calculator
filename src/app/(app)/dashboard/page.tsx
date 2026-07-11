@@ -3,7 +3,11 @@ import { companyIsActive, requireAppUser } from "@/lib/auth/server";
 import { DashboardScreen } from "@/features/dashboard";
 import { CompanyInactiveScreen } from "@/features/app-shell";
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ facilityId?: string; year?: string; scope?: string; category?: string }>;
+}) {
   const appUser = await requireAppUser();
   if (!appUser) redirect("/onboarding");
   // An admin has no company, so this dashboard would render nothing but an empty state.
@@ -12,5 +16,11 @@ export default async function Page() {
   if (!appUser.companyId) redirect("/onboarding");
   if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
 
-  return <DashboardScreen companyId={appUser.companyId} />;
+  return (
+    <DashboardScreen
+      companyId={appUser.companyId}
+      basePath="/dashboard"
+      searchParams={await searchParams}
+    />
+  );
 }
