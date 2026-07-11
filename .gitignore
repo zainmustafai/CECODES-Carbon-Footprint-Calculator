@@ -46,6 +46,8 @@ next-env.d.ts
 # CECODES
 .fallow/
 **/node_modules/
+# Local-only: holds working demo/admin sign-in credentials for the shared database.
+/docs/Credentials.md
 # Legacy prototypes kept on disk for reference, not tracked (they carry their own .git):
 /reference/
 

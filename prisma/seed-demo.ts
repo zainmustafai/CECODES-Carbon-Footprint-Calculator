@@ -34,6 +34,8 @@ const prisma = new PrismaClient({ adapter });
 const DEMO_EMAIL_DOMAIN = "demo.cecodes.invalid";
 const FULL_COMPANY = "Demo Alimentos del Valle";
 const EMPTY_COMPANY = "Demo Empresa Vacia";
+const MIDWAY_COMPANY = "Demo Textiles Andinos";
+const INACTIVE_COMPANY = "Demo Empresa Inactiva";
 
 type SourceSpec = {
   scope: Scope;
@@ -104,7 +106,9 @@ async function upsertCompanyUser(
   email: string,
   password: string,
   companyId: string | null,
+  options: { active?: boolean } = {},
 ): Promise<void> {
+  const { active = true } = options;
   const userId = await upsertAuthUser(email, password);
   if (!userId) {
     console.warn(`  ! could not resolve an auth user for ${email}`);
@@ -112,23 +116,26 @@ async function upsertCompanyUser(
   }
 
   // The signup trigger may have created the row already. It never updates, so force the link.
+  // A deactivated user keeps working auth credentials but is refused at the app layer, which is
+  // exactly the "cuenta desactivada" scenario.
   await prisma.appUser.upsert({
     where: { id: userId },
-    update: { email, role: Role.COMPANY_USER, companyId, active: true },
-    create: { id: userId, email, role: Role.COMPANY_USER, companyId, active: true },
+    update: { email, role: Role.COMPANY_USER, companyId, active },
+    create: { id: userId, email, role: Role.COMPANY_USER, companyId, active },
   });
 }
 
 async function findOrCreateCompany(
   name: string,
-  data: { sector?: string; contactEmail?: string },
+  data: { sector?: string; contactEmail?: string; active?: boolean },
 ): Promise<string> {
+  const { active = true, ...rest } = data;
   const existing = await prisma.company.findFirst({ where: { name }, select: { id: true } });
   if (existing) {
-    await prisma.company.update({ where: { id: existing.id }, data: { ...data, active: true } });
+    await prisma.company.update({ where: { id: existing.id }, data: { ...rest, active } });
     return existing.id;
   }
-  const created = await prisma.company.create({ data: { name, ...data } });
+  const created = await prisma.company.create({ data: { name, ...rest, active } });
   return created.id;
 }
 
@@ -279,8 +286,9 @@ async function seedFullCompany(password: string): Promise<void> {
   }
 
   // Sede Bogota reports electricity in both years, so the company aggregate compares like for
-  // like and the year over year reads as a genuine, modest reduction. It reduced consumption
-  // in 2024, which is the reduction story the dashboard exists to show.
+  // like and the year over year reads as a genuine, modest reduction. Its 2024 stops at the
+  // same eight months Planta Yumbo does, so the aggregate monthly trend ends cleanly after
+  // August rather than cliffing when one facility keeps reporting and the other does not.
   const gridElement = await pickFactor(electricity);
   if (gridElement) {
     await seedSource(bogota2023.id, companyId, gridElement, {
@@ -289,28 +297,40 @@ async function seedFullCompany(password: string): Promise<void> {
     });
     await seedSource(bogota2024.id, companyId, gridElement, {
       ...electricity,
-      monthlyValues: monthlyKwh(41000, 12),
+      monthlyValues: monthlyKwh(41000, 8),
     });
   }
   console.log("  2023 and 2024 (Sede Bogota) seeded");
 
   // Reduction targets per scope, so the Meta card and the "avance hacia la meta" KPI have
-  // values to render. Set a touch above the demo's actuals, so the demo reads as on track.
-  const targets: [Scope, string][] = [
-    [Scope.SCOPE_1, "240"],
-    [Scope.SCOPE_2, "235"],
-    [Scope.SCOPE_3, "55"],
+  // values to render. Each facility carries its own targets, so the company aggregate compares
+  // like with like: without Bogota's electricity target, the summed target would sit below the
+  // summed actual and the demo would read "meta superada" for a company that is on track.
+  const targetsByRy: [string, [Scope, string][]][] = [
+    [yumbo2024.id, [
+      [Scope.SCOPE_1, "240"],
+      [Scope.SCOPE_2, "235"],
+      [Scope.SCOPE_3, "55"],
+    ]],
+    [bogota2024.id, [[Scope.SCOPE_2, "80"]]],
   ];
-  for (const [scope, targetTonnes] of targets) {
-    await prisma.scopeTarget.upsert({
-      where: { reportingYearId_scope: { reportingYearId: yumbo2024.id, scope } },
-      update: { targetTonnes },
-      create: { reportingYearId: yumbo2024.id, companyId, scope, targetTonnes },
-    });
+  for (const [reportingYearId, rows] of targetsByRy) {
+    for (const [scope, targetTonnes] of rows) {
+      await prisma.scopeTarget.upsert({
+        where: { reportingYearId_scope: { reportingYearId, scope } },
+        update: { targetTonnes },
+        create: { reportingYearId, companyId, scope, targetTonnes },
+      });
+    }
   }
 
   await upsertCompanyUser(`demo1@${DEMO_EMAIL_DOMAIN}`, password, companyId);
   console.log(`  user demo1@${DEMO_EMAIL_DOMAIN}`);
+
+  // A deactivated user inside an otherwise healthy company: signing in as demo5 lands on the
+  // "cuenta desactivada" screen even though its company and data are fine.
+  await upsertCompanyUser(`demo5@${DEMO_EMAIL_DOMAIN}`, password, companyId, { active: false });
+  console.log(`  user demo5@${DEMO_EMAIL_DOMAIN} (deactivated)`);
 }
 
 async function seedEmptyCompany(password: string): Promise<void> {
@@ -319,6 +339,76 @@ async function seedEmptyCompany(password: string): Promise<void> {
   const companyId = await findOrCreateCompany(EMPTY_COMPANY, { sector: "servicios-financieros" });
   await upsertCompanyUser(`demo2@${DEMO_EMAIL_DOMAIN}`, password, companyId);
   console.log(`  user demo2@${DEMO_EMAIL_DOMAIN}`);
+}
+
+// A single facility mid data entry, deliberately without reduction targets: this tenant
+// exercises a partially reported year, the "sin meta" states, and (via its 2025 year) the
+// missing SIN grid factor warning.
+async function seedMidwayCompany(password: string): Promise<void> {
+  console.log(`\n${MIDWAY_COMPANY}`);
+
+  const companyId = await findOrCreateCompany(MIDWAY_COMPANY, { sector: "manufactura" });
+  const medellin = await upsertFacility(companyId, "Planta Medellín", "Medellín, Antioquia");
+
+  const y2024 = await upsertReportingYear(medellin.id, companyId, 2024);
+  const y2025 = await upsertReportingYear(medellin.id, companyId, 2025);
+
+  await prisma.activityEntry.deleteMany({
+    where: { reportingYearId: { in: [y2024.id, y2025.id] } },
+  });
+
+  const specs: SourceSpec[] = [
+    { scope: Scope.SCOPE_1, categoryContains: "Fuentes Fijas", elementContains: "Diésel o ACPM (B2) - Fijo", annualValue: "6400" },
+    { scope: Scope.SCOPE_3, categoryContains: "C1", elementContains: "Aceite de palma", annualValue: "9000" },
+  ];
+  const electricity: SourceSpec = { scope: Scope.SCOPE_2, elementContains: "Electricidad" };
+
+  // 2024: eight of twelve months, so the UI shows "8 de 12 meses", and no targets at all.
+  for (const spec of specs) {
+    const factor = await pickFactor(spec);
+    if (factor) await seedSource(y2024.id, companyId, factor, spec);
+    else console.warn(`  ! 2024: no factor matched "${spec.elementContains}", skipped`);
+  }
+  const grid2024 = await pickFactor(electricity);
+  if (grid2024)
+    await seedSource(y2024.id, companyId, grid2024, { ...electricity, monthlyValues: monthlyKwh(62000, 8) });
+  console.log("  2024 (Planta Medellín) seeded, 8/12 months, no targets");
+
+  // 2025: reported, but there is no SIN grid factor for 2025, so the year shows the "falta el
+  // factor de red" warning and Alcance 2 stays at zero until an admin loads the factor.
+  const diesel2025 = await pickFactor(specs[0]);
+  if (diesel2025) await seedSource(y2025.id, companyId, diesel2025, { ...specs[0], annualValue: "7100" });
+  const grid2025 = await pickFactor(electricity);
+  if (grid2025)
+    await seedSource(y2025.id, companyId, grid2025, { ...electricity, monthlyValues: monthlyKwh(64000, 6) });
+  console.log("  2025 (Planta Medellín) seeded, missing SIN grid factor scenario");
+
+  await upsertCompanyUser(`demo3@${DEMO_EMAIL_DOMAIN}`, password, companyId);
+  console.log(`  user demo3@${DEMO_EMAIL_DOMAIN}`);
+}
+
+// A deactivated company. Its user is active, so signing in as demo4 lands on the "empresa
+// desactivada" screen, while an admin can still open it to fix and reactivate it. It carries a
+// little data so an admin sees a real workspace, not an empty shell.
+async function seedInactiveCompany(password: string): Promise<void> {
+  console.log(`\n${INACTIVE_COMPANY}`);
+
+  const companyId = await findOrCreateCompany(INACTIVE_COMPANY, {
+    sector: "comercio",
+    active: false,
+  });
+  const store = await upsertFacility(companyId, "Tienda Centro", "Cali, Valle del Cauca");
+  const y2024 = await upsertReportingYear(store.id, companyId, 2024);
+
+  await prisma.activityEntry.deleteMany({ where: { reportingYearId: y2024.id } });
+
+  const electricity: SourceSpec = { scope: Scope.SCOPE_2, elementContains: "Electricidad" };
+  const grid = await pickFactor(electricity);
+  if (grid)
+    await seedSource(y2024.id, companyId, grid, { ...electricity, monthlyValues: monthlyKwh(9000, 12) });
+
+  await upsertCompanyUser(`demo4@${DEMO_EMAIL_DOMAIN}`, password, companyId);
+  console.log(`  user demo4@${DEMO_EMAIL_DOMAIN} (company deactivated)`);
 }
 
 async function main(): Promise<void> {
@@ -332,10 +422,12 @@ async function main(): Promise<void> {
 
   await seedFullCompany(password);
   await seedEmptyCompany(password);
+  await seedMidwayCompany(password);
+  await seedInactiveCompany(password);
 
   console.log(
-    `\nDemo data seeded. Sign in with demo1@${DEMO_EMAIL_DOMAIN} or demo2@${DEMO_EMAIL_DOMAIN}` +
-      " using DEMO_PASSWORD from .env.local.",
+    "\nDemo data seeded. See docs/Credentials.md for every sign-in scenario. All demo users" +
+      " share DEMO_PASSWORD from .env.local.",
   );
 }
 
