@@ -34,6 +34,39 @@ describe("createEntryStore", () => {
     expect(store.getStatus()).toEqual({ kind: "error" });
   });
 
+  it("leaves a cell alone on rollback when the user kept typing into it", () => {
+    const store = createEntryStore({ a: "1" });
+
+    store.setValue("a", "99");
+    const batch = store.takeDirty();
+    store.beginSave();
+    // The user keeps editing while the batch is in flight.
+    store.setValue("a", "995");
+
+    store.rollback(batch);
+
+    // Snapping to "1" here would eat live keystrokes to report a stale failure. The newer
+    // value stays on screen, stays dirty, and rides the next flush.
+    expect(store.getValue("a")).toBe("995");
+    expect(store.hasDirty()).toBe(true);
+    expect(store.getStatus()).toEqual({ kind: "error" });
+  });
+
+  it("reports isSaving while a batch is in flight, even though nothing is dirty", () => {
+    const store = createEntryStore({ a: "1" });
+
+    store.setValue("a", "2");
+    const batch = store.takeDirty();
+    store.beginSave();
+
+    // The reload guard needs this window covered: dirty is empty, the request is not done.
+    expect(store.hasDirty()).toBe(false);
+    expect(store.isSaving()).toBe(true);
+
+    store.commit(batch);
+    expect(store.isSaving()).toBe(false);
+  });
+
   it("keeps a committed value and reports saved", () => {
     const store = createEntryStore({ a: "1" });
 

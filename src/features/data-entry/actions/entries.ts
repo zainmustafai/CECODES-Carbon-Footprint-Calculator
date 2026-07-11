@@ -181,12 +181,17 @@ export async function copyJanuaryToAll(input: {
     });
     if (!january || january.value === null) return { error: "januaryEmpty" };
 
+    // Only the UNREPORTED months (value IS NULL). This used to overwrite months 2..12
+    // wholesale, so one tap could silently destroy eleven distinct reported values with no
+    // undo. As a fill-the-gaps action it is non-destructive by construction, which is also
+    // why it needs no confirmation dialog.
     await prisma.activityEntry.updateMany({
       where: {
         reportingYearId,
         companyId: scope.companyId,
         emissionFactorId,
         month: { not: 1 },
+        value: null,
       },
       data: { value: january.value },
     });

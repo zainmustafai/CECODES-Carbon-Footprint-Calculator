@@ -54,20 +54,36 @@ export function SourceSummary({
     );
   }
 
-  const tonnes = format.number(estimate.tonnes, { maximumFractionDigits: 2 });
+  // An estimate over zero reported values is not "0 t CO2e": nothing has been reported.
+  const tonnes = estimate.hasValues
+    ? format.number(estimate.tonnes, { maximumFractionDigits: 2 })
+    : null;
+
+  // "Factor aplicado: kg CO2/gal" without the number told the user nothing. The value is
+  // what lets them audit the estimate against the factor library or the Excel.
+  const factorLabel = [
+    estimate.factorValue !== null
+      ? format.number(Number(estimate.factorValue), { maximumFractionDigits: 4 })
+      : null,
+    estimate.factorUnit,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   // One annual value does not deserve a whole card beside it.
   if (variant === "compact") {
     return (
       <p className={cn("text-xs text-muted-foreground", className)}>
         <span className="font-medium">{t("estimated")}:</span>{" "}
-        <span className="font-mono tabular-nums text-foreground">{tonnes} t CO2e</span>
-        {estimate.factorUnit ? (
-          <span className="ml-2">
-            {t("factorApplied")}: <span className="font-mono">{estimate.factorUnit}</span>
+        <span className="font-mono tabular-nums text-foreground">
+          {tonnes !== null ? `${tonnes} t CO2e` : t("notReportedYet")}
+        </span>
+        {factorLabel ? (
+          <span className="ml-2 whitespace-nowrap">
+            {t("factorApplied")}: <span className="font-mono">{factorLabel}</span>
           </span>
         ) : null}
-        <span className="ml-2">
+        <span className="ml-2 whitespace-nowrap">
           {t("gwpSet")}: <span className="font-mono">{gwpSet}</span>
         </span>
       </p>
@@ -79,16 +95,20 @@ export function SourceSummary({
       <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
         {t("estimated")}
       </p>
-      <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">
-        {tonnes}
-        <span className="ml-1 text-sm font-normal text-muted-foreground">t CO2e</span>
-      </p>
+      {tonnes !== null ? (
+        <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">
+          {tonnes}
+          <span className="ml-1 text-sm font-normal text-muted-foreground">t CO2e</span>
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">{t("notReportedYet")}</p>
+      )}
 
       <dl className="mt-3 space-y-1 text-xs">
-        {estimate.factorUnit ? (
+        {factorLabel ? (
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">{t("factorApplied")}</dt>
-            <dd className="text-right font-mono">{estimate.factorUnit}</dd>
+            <dd className="text-right font-mono">{factorLabel}</dd>
           </div>
         ) : null}
         <div className="flex justify-between gap-3">

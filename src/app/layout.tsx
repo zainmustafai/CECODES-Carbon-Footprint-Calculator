@@ -26,6 +26,12 @@ export const metadata: Metadata = {
   title: "CECODES · Huella de Carbono",
   description:
     "Calculadora de huella de carbono corporativa (Alcance 1, 2 y 3) y tablero de visualización de CECODES.",
+  // Browser auto-translate (Google Translate) rewrites text nodes into <font> wrappers. When
+  // React then updates live text (the data-entry autosave status, month counters), the node is
+  // no longer where React left it and removeChild throws, crashing the tree. The app has its own
+  // es/en toggle, so translation is redundant here. This meta plus translate="no" on <html> tell
+  // browsers to leave the DOM alone.
+  other: { google: "notranslate" },
 };
 
 export default async function RootLayout({
@@ -38,6 +44,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
+      translate="no"
       className={cn(
         "h-full",
         "antialiased",

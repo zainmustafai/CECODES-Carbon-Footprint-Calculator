@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   InputGroup,
   InputGroupAddon,
@@ -32,8 +33,10 @@ export function ValueField({
   className,
   describedBy,
 }: ValueFieldProps) {
+  const t = useTranslations("dataEntry.validation");
   const { value, invalid, onChange, onBlur, readOnly } = useEntryValue(entryId);
   const fieldId = `entry-${entryId}`;
+  const errorId = `${fieldId}-error`;
 
   return (
     <div className={cn("grid gap-1", className)}>
@@ -53,7 +56,7 @@ export function ValueField({
           autoComplete="off"
           disabled={readOnly}
           aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          aria-describedby={cn(invalid && errorId, describedBy) || undefined}
           aria-label={`${label} (${unit})`}
           placeholder={placeholder}
           className="text-right tabular-nums"
@@ -65,6 +68,16 @@ export function ValueField({
           <InputGroupText className="text-xs text-muted-foreground">{unit}</InputGroupText>
         </InputGroupAddon>
       </InputGroup>
+      {/*
+        A visible reason, not just a red ring. An invalid draft is deliberately never saved
+        (it stays out of the autosave batch), so without this line the pill says "Guardado"
+        while the cell silently holds a value that never left the browser.
+      */}
+      {invalid ? (
+        <p id={errorId} className="text-xs text-destructive">
+          {t("valueFormat")}
+        </p>
+      ) : null}
     </div>
   );
 }

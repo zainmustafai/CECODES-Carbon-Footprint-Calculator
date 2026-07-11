@@ -23,6 +23,18 @@ type AddSourceDialogProps = {
   disabled?: boolean;
 };
 
+// Fold accents away before matching: the factor library carries the Excel's accented Spanish
+// names ("Diésel", "Carbón Genérico", "Líquidos") and Colombian users routinely type without
+// accents, especially in a search box. cmdk's default scorer does not fold diacritics, so
+// "carbon" would find nothing.
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function accentInsensitiveFilter(value: string, search: string): number {
+  return fold(value).includes(fold(search.trim())) ? 1 : 0;
+}
+
 // Element names come from the factor library, so a company cannot invent or misspell one.
 // Already-added elements stay visible but unselectable, which is clearer than hiding them.
 //
@@ -47,7 +59,7 @@ export const AddSourceDialog = forwardRef<HTMLButtonElement, AddSourceDialogProp
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] p-0">
-          <Command>
+          <Command filter={accentInsensitiveFilter}>
             <CommandInput placeholder={t("search")} />
             <CommandList>
               <CommandEmpty>{t("empty")}</CommandEmpty>

@@ -10,7 +10,12 @@
     "no": "No"
   },
   "language": {
-    "label": "Language"
+    "label": "Language",
+    "toasts": {
+      "switching": "Switching language...",
+      "switched": "Language updated.",
+      "failed": "The language could not be switched."
+    }
   },
   "theme": {
     "label": "Theme",
@@ -359,7 +364,7 @@
     "title": "Data entry",
     "subtitle": "Record your sources' consumption by alcance. Changes save themselves.",
     "emptyScope": "The factor library has no categories for this alcance yet.",
-    "valueHint": "Non-negative numbers only. Decimals with a comma (,) are allowed.",
+    "valueHint": "Non-negative values only. Decimals with a comma (,) or dot (.). Do not use thousands separators.",
     "contextBar": {
       "facility": "Sede",
       "year": "Year",
@@ -382,7 +387,8 @@
       "notApplicable": "Marked as not applicable. Turn it on to record sources.",
       "lockedBySources": "To mark it as not applicable, delete its sources first.",
       "noSources": "No sources added in this category yet.",
-      "sourceCount": "{count, plural, =1 {# source} other {# sources}}"
+      "sourceCount": "{count, plural, =1 {# source} other {# sources}}",
+      "noSourcesShort": "No sources"
     },
     "addSource": {
       "trigger": "Add source",
@@ -395,9 +401,10 @@
       "notReported": "Not reported",
       "biogenic": "Biogenic",
       "factorInactive": "Factor deactivated",
-      "copyJanuary": "Copy January to every month",
+      "copyJanuary": "Copy January to the empty months",
       "monthsProgress": "{reported} of {total} months",
-      "delete": "Delete source"
+      "delete": "Delete source",
+      "copyJanuaryNothingEmpty": "Every month already has a value."
     },
     "summary": {
       "title": "Element summary",
@@ -408,7 +415,8 @@
       "unknownSource": "No source recorded",
       "missingGridFactor": "No grid factor for {year}. Emissions will compute once an administrator loads it.",
       "noFactor": "This element has no emission factor loaded.",
-      "note": "Reference estimate. Official totals are calculated on the Dashboard."
+      "note": "Reference estimate. Official totals are calculated on the Dashboard.",
+      "notReportedYet": "Nothing reported yet"
     },
     "meta": {
       "title": "Reduction target",
@@ -445,7 +453,8 @@
       "noFacilityBody": "You need at least one sede to record consumption.",
       "goToFacilities": "Go to Facilities",
       "noYearTitle": "No reporting years yet",
-      "noYearBody": "Create a reporting year for {facility} and start recording consumption."
+      "noYearBody": "Create a reporting year for {facility} and start recording consumption.",
+      "noSourcesInScope": "Open a category and use \"Add source\" to record your first consumption."
     },
     "months": {
       "1": "January",
@@ -485,7 +494,7 @@
       "removingSource": "Deleting source...",
       "sourceRemoved": "Source deleted.",
       "copyingJanuary": "Copying January...",
-      "januaryCopied": "January copied to every month.",
+      "januaryCopied": "January copied to the empty months.",
       "updatingCategory": "Updating category...",
       "categoryEnabled": "Category marked as applicable.",
       "categoryDisabled": "Category marked as not applicable."

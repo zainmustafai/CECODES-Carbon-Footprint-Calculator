@@ -51,7 +51,9 @@ export function ContextBar({
           Label htmlFor points at the Radix trigger's id. Wrapping the trigger in a <label>
           does not give it an accessible name: the trigger is a button, not a form control.
         */}
-        <div className="grid flex-1 gap-3 sm:grid-cols-2 md:flex md:flex-none md:items-center">
+        {/* Two columns even on a phone: stacked full-width selects made the sticky bar eat a
+            quarter of a small viewport. */}
+        <div className="grid flex-1 grid-cols-2 gap-3 md:flex md:flex-none md:items-center">
           <div className="grid gap-1 sm:gap-1.5">
             <Label
               htmlFor="context-facility"

@@ -91,7 +91,7 @@ test.describe("data entry", () => {
     await expect(page.getByText(SAVED)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("1 de 12 meses")).toBeVisible();
 
-    await page.getByRole("button", { name: /copiar enero a todos los meses/i }).click();
+    await page.getByRole("button", { name: /copiar enero/i }).click();
     await expect(page.getByText("12 de 12 meses")).toBeVisible({ timeout: 15_000 });
 
     // The reload is the point of this test: it proves the Decimal round trip. Wait for

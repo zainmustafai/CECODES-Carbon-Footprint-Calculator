@@ -32,6 +32,12 @@ export type SourceEstimate =
       tonnes: number;
       /** Whether any month/annual cell actually holds a value. */
       hasValues: boolean;
+      /**
+       * The primary factor value as a Decimal string (grid factor for Scope 2, the
+       * consolidated CO2e or the CO2 term otherwise). A unit label alone ("kg CO2/gal")
+       * tells the user nothing; the number is what makes the estimate auditable.
+       */
+      factorValue: string | null;
       factorUnit: string | null;
       factorSource: string | null;
     }
@@ -93,6 +99,7 @@ export function estimateSourceTonnes({
       kind: "ok",
       tonnes: kgToTonnes(total * gridValue),
       hasValues,
+      factorValue: gridFactor.factor,
       factorUnit: "kg CO2/kWh",
       factorSource: gridFactor.source,
     };
@@ -119,6 +126,9 @@ export function estimateSourceTonnes({
     kind: "ok",
     tonnes: kgToTonnes(kg),
     hasValues,
+    // The consolidated CO2e wins when present, mirroring computeCo2eKg; otherwise the CO2
+    // term is the primary number (CH4/N2O ride along in the computed tonnes).
+    factorValue: factor.co2eFactor ?? factor.co2Factor ?? factor.ch4Factor ?? factor.n2oFactor,
     factorUnit: factor.factorUnit,
     factorSource: factor.source,
   };

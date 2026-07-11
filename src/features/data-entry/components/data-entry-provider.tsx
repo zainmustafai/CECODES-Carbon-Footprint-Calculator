@@ -56,13 +56,23 @@ export function DataEntryProvider({
     const batch: DirtyValue[] = store.takeDirty();
     store.beginSave();
 
-    const { error } = await saveEntryValues({ reportingYearId, values: batch });
-    if (error) {
+    // The try/catch is load bearing. A server action can REJECT (offline, a 500 before the
+    // action runs, a deployment mid-session), not just return { error }. Without the catch,
+    // the taken batch would be lost from the dirty set, inflight would never decrement, and
+    // the pill would say "Guardando..." forever while nothing saved: autosave wedged for the
+    // rest of the session, silently.
+    try {
+      const { error } = await saveEntryValues({ reportingYearId, values: batch });
+      if (error) {
+        store.rollback(batch);
+        toast.error(t(`errors.${error}`));
+        return;
+      }
+      store.commit(batch);
+    } catch {
       store.rollback(batch);
-      toast.error(t(`errors.${error}`));
-      return;
+      toast.error(t("errors.generic"));
     }
-    store.commit(batch);
   }, [store, reportingYearId, t]);
 
   const schedule = useCallback(
@@ -100,7 +110,9 @@ export function DataEntryProvider({
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (store.hasDirty()) event.preventDefault();
+      // Also warn mid-flight: between takeDirty() and commit() the dirty set is empty, but a
+      // reload would cancel the request and lose the batch just the same.
+      if (store.hasDirty() || store.isSaving()) event.preventDefault();
     };
     window.addEventListener("beforeunload", warn);
     return () => {

@@ -69,6 +69,12 @@ export function createEntryStore(initial: Record<string, string>) {
       return dirty.size > 0;
     },
 
+    // True while any batch is in flight. Between takeDirty() and commit() the dirty set is
+    // empty, so hasDirty() alone would let a reload cancel a save mid-request.
+    isSaving(): boolean {
+      return inflight > 0;
+    },
+
     // Hands the dirty set to a flush and clears it. Anything typed after this point becomes
     // dirty again and rides the next flush.
     takeDirty(): DirtyValue[] {
@@ -92,10 +98,17 @@ export function createEntryStore(initial: Record<string, string>) {
     },
 
     // Roll the failed cells back to the last value the server confirmed.
+    //
+    // A cell the user KEPT TYPING INTO while the batch was in flight is left alone: its
+    // current value differs from the value that failed, it is dirty again, and it will ride
+    // the next flush. Snapping it back would eat live keystrokes to report a stale failure.
     rollback(batch: DirtyValue[]) {
-      for (const { entryId } of batch) {
+      for (const { entryId, value } of batch) {
+        const current = values.get(entryId);
+        if (current !== value) continue; // edited again since the flush took it
+
         const previous = saved.get(entryId) ?? "";
-        if (values.get(entryId) !== previous) {
+        if (current !== previous) {
           values.set(entryId, previous);
           notify(entryId);
         }

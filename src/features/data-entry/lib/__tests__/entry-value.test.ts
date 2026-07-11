@@ -39,6 +39,24 @@ describe("entry value validation", () => {
     expect(isValidEntryValue("12,5")).toBe(true);
   });
 
+  it("strips unambiguous dot-grouped thousands (the es-CO paste format)", () => {
+    // A comma marks the dots as grouping beyond doubt.
+    expect(normalizeDecimalInput("1.234,56")).toBe("1234.56");
+    expect(normalizeDecimalInput("1.234.567,89")).toBe("1234567.89");
+    // More than one dot can only be grouping: a decimal has a single point.
+    expect(normalizeDecimalInput("1.234.567")).toBe("1234567");
+    expect(isValidEntryValue("1.234.567,89")).toBe(true);
+  });
+
+  it("leaves a single bare dot alone: '12.345' stays a decimal, never twelve thousand", () => {
+    // Rewriting it would silently change the meaning of input this field always accepted.
+    // The visible field error and the live estimate are the guard for the ambiguous case.
+    expect(normalizeDecimalInput("12.345")).toBe("12.345");
+    // Groups must be exactly three digits: "12.34" is not a thousands pattern.
+    expect(normalizeDecimalInput("12.34,5")).toBe("12.34.5");
+    expect(isValidEntryValue("12.34,5")).toBe(false);
+  });
+
   it("returns a string, never a number, so precision survives", () => {
     const parsed = entryValue.parse("99999999999999.999999");
     expect(parsed).toBe("99999999999999.999999");

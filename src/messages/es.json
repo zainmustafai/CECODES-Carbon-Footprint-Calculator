@@ -10,7 +10,12 @@
     "no": "No"
   },
   "language": {
-    "label": "Idioma"
+    "label": "Idioma",
+    "toasts": {
+      "switching": "Cambiando idioma...",
+      "switched": "Idioma actualizado.",
+      "failed": "No se pudo cambiar el idioma."
+    }
   },
   "theme": {
     "label": "Tema",
@@ -359,7 +364,7 @@
     "title": "Ingreso de datos",
     "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
     "emptyScope": "La biblioteca de factores aún no tiene categorías para este alcance.",
-    "valueHint": "Solo valores numéricos no negativos. Se permiten decimales con coma (,).",
+    "valueHint": "Solo valores no negativos. Decimales con coma (,) o punto (.). No uses separador de miles.",
     "contextBar": {
       "facility": "Sede",
       "year": "Año",
@@ -382,7 +387,8 @@
       "notApplicable": "Marcada como no aplica. Actívala para registrar fuentes.",
       "lockedBySources": "Para marcarla como no aplica, elimina primero sus fuentes.",
       "noSources": "Aún no agregas fuentes en esta categoría.",
-      "sourceCount": "{count, plural, =1 {# fuente} other {# fuentes}}"
+      "sourceCount": "{count, plural, =1 {# fuente} other {# fuentes}}",
+      "noSourcesShort": "Sin fuentes"
     },
     "addSource": {
       "trigger": "Agregar fuente",
@@ -395,9 +401,10 @@
       "notReported": "Sin registrar",
       "biogenic": "Biogénica",
       "factorInactive": "Factor desactivado",
-      "copyJanuary": "Copiar Enero a todos los meses",
+      "copyJanuary": "Copiar Enero a los meses vacíos",
       "monthsProgress": "{reported} de {total} meses",
-      "delete": "Eliminar fuente"
+      "delete": "Eliminar fuente",
+      "copyJanuaryNothingEmpty": "Todos los meses ya tienen valor."
     },
     "summary": {
       "title": "Resumen del elemento",
@@ -408,7 +415,8 @@
       "unknownSource": "Sin fuente registrada",
       "missingGridFactor": "Sin factor de red para {year}. Las emisiones se calcularán cuando el administrador cargue el factor.",
       "noFactor": "Este elemento no tiene un factor de emisión cargado.",
-      "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero."
+      "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
+      "notReportedYet": "Sin registrar aún"
     },
     "meta": {
       "title": "Meta de reducción",
@@ -445,7 +453,8 @@
       "noFacilityBody": "Necesitas al menos una sede para registrar consumos.",
       "goToFacilities": "Ir a Sedes",
       "noYearTitle": "Aún no hay años de reporte",
-      "noYearBody": "Crea un año de reporte para {facility} y empieza a registrar consumos."
+      "noYearBody": "Crea un año de reporte para {facility} y empieza a registrar consumos.",
+      "noSourcesInScope": "Abre una categoría y usa \"Agregar fuente\" para registrar tu primer consumo."
     },
     "months": {
       "1": "Enero",
@@ -485,7 +494,7 @@
       "removingSource": "Eliminando fuente...",
       "sourceRemoved": "Fuente eliminada.",
       "copyingJanuary": "Copiando Enero...",
-      "januaryCopied": "Enero copiado a todos los meses.",
+      "januaryCopied": "Enero copiado a los meses vacíos.",
       "updatingCategory": "Actualizando categoría...",
       "categoryEnabled": "Categoría marcada como aplicable.",
       "categoryDisabled": "Categoría marcada como no aplica."

@@ -20,8 +20,21 @@ export const DECIMAL_30_10 = /^\d{1,20}(\.\d{1,10})?$/;
 // the non-breaking and narrow-no-break spaces Excel and Word emit as thousands separators.
 // JavaScript's \s already matches U+00A0 and U+202F, so one class covers all of them. It is
 // spelled \s on purpose: the previous version carried an invisible literal NBSP in source.
+//
+// Dot-grouped thousands ("1.234.567" or "1.234,56", the dominant es-CO convention) are
+// stripped, but ONLY when the pattern is unambiguous: the value also contains a comma, or it
+// carries more than one dot group. A bare "12.345" stays a dot-decimal, because rewriting it
+// to twelve thousand would silently change the meaning of input this field has always
+// accepted; the visible validation error and the live estimate are the guard for that case.
 export function normalizeDecimalInput(raw: string): string {
-  return raw.replace(/\s/g, "").replace(",", ".");
+  let text = raw.replace(/\s/g, "");
+
+  const dotGrouped = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(text);
+  if (dotGrouped && (text.includes(",") || text.indexOf(".") !== text.lastIndexOf("."))) {
+    text = text.replace(/\./g, "");
+  }
+
+  return text.replace(",", ".");
 }
 
 // "" means "not reported", which is stored as NULL. It is not the same as 0.
