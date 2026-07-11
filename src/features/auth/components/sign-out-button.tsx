@@ -9,7 +9,7 @@ export function SignOutButton() {
   const { logout, isPending } = useLogout();
 
   return (
-    <Button variant="outline" size="sm" onClick={logout} disabled={isPending}>
+    <Button variant="outline" size="sm" onClick={logout} loading={isPending}>
       {t("signOut")}
     </Button>
   );

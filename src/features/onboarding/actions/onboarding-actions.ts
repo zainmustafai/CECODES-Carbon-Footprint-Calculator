@@ -12,6 +12,15 @@ const serverSchema = z.object({
   facilityLocation: z.string().trim().min(1),
 });
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
 // Creates the user's company plus its first facility, and links the user to it.
 // Returns an i18n error key on failure. Server-only (no Supabase/DB from the browser).
 export async function createCompanyAction(input: {
@@ -57,7 +66,10 @@ export async function createCompanyAction(input: {
       });
       if (claimed.count !== 1) throw new Error("already-linked");
     });
-  } catch {
+  } catch (error) {
+    // The [companyId, name] unique index. Reporting it as "generic" told the user nothing,
+    // and the field they need to change is right in front of them.
+    if (isUniqueViolation(error)) return { error: "facilityExists" };
     return { error: "generic" };
   }
 

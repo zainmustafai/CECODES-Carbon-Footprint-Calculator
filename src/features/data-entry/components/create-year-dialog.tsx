@@ -69,7 +69,7 @@ export function CreateYearDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" loading={isSubmitting}>
               {t("create")}
             </Button>
           </DialogFooter>

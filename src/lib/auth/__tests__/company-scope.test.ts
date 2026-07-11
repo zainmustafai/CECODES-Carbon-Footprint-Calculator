@@ -21,14 +21,19 @@ vi.mock("@/lib/auth/server", () => ({
 
 const {
   ScopeError,
+  resolveAdminScope,
   resolveCompanyScope,
   resolveReportingYearScope,
   scopeErrorKey,
 } = await import("@/lib/auth/company-scope");
 
-const ADMIN = { id: "u-admin", role: "CECODES_ADMIN", companyId: null };
-const USER_A = { id: "u-a", role: "COMPANY_USER", companyId: "company-a" };
-const UNONBOARDED = { id: "u-x", role: "COMPANY_USER", companyId: null };
+const ADMIN = { id: "u-admin", role: "CECODES_ADMIN", companyId: null, active: true };
+const USER_A = { id: "u-a", role: "COMPANY_USER", companyId: "company-a", active: true };
+const UNONBOARDED = { id: "u-x", role: "COMPANY_USER", companyId: null, active: true };
+const INACTIVE_ADMIN = { ...ADMIN, active: false };
+const INACTIVE_USER = { ...USER_A, active: false };
+
+const ACTIVE_COMPANY = { id: "company-a", active: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -60,28 +65,44 @@ describe("resolveCompanyScope: admin", () => {
     await expect(resolveCompanyScope({ companyId: undefined })).rejects.toThrow(ScopeError);
     expect(findUniqueCompany).not.toHaveBeenCalled();
   });
+
+  it("may still open an INACTIVE company, so it can be fixed and reactivated", async () => {
+    getAppUser.mockResolvedValue(ADMIN);
+    findUniqueCompany.mockResolvedValue({ id: "company-b" });
+
+    const scope = await resolveCompanyScope({ companyId: "company-b" });
+
+    expect(scope.isAdmin).toBe(true);
+  });
+
+  it("is refused once the admin themselves is deactivated", async () => {
+    getAppUser.mockResolvedValue(INACTIVE_ADMIN);
+
+    await expect(resolveCompanyScope({ companyId: "company-b" })).rejects.toThrow(ScopeError);
+    expect(findUniqueCompany).not.toHaveBeenCalled();
+  });
 });
 
 describe("resolveCompanyScope: company user", () => {
   it("may open their own company", async () => {
     getAppUser.mockResolvedValue(USER_A);
+    findUniqueCompany.mockResolvedValue(ACTIVE_COMPANY);
 
     const scope = await resolveCompanyScope({ companyId: "company-a" });
 
     expect(scope).toMatchObject({ companyId: "company-a", isAdmin: false });
-    // No existence check needed: the id came from their own profile row.
-    expect(findUniqueCompany).not.toHaveBeenCalled();
   });
 
   it("is refused another company, even one that exists", async () => {
     getAppUser.mockResolvedValue(USER_A);
-    findUniqueCompany.mockResolvedValue({ id: "company-b" });
+    findUniqueCompany.mockResolvedValue({ id: "company-b", active: true });
 
     await expect(resolveCompanyScope({ companyId: "company-b" })).rejects.toThrow(ScopeError);
   });
 
   it("falls back to their own company when the caller names none", async () => {
     getAppUser.mockResolvedValue(USER_A);
+    findUniqueCompany.mockResolvedValue(ACTIVE_COMPANY);
 
     const scope = await resolveCompanyScope({ companyId: null });
 
@@ -93,6 +114,26 @@ describe("resolveCompanyScope: company user", () => {
 
     await expect(resolveCompanyScope({ companyId: "company-a" })).rejects.toThrow(ScopeError);
   });
+
+  it("is refused when their own user row is deactivated", async () => {
+    getAppUser.mockResolvedValue(INACTIVE_USER);
+
+    await expect(resolveCompanyScope({ companyId: "company-a" })).rejects.toThrow(ScopeError);
+  });
+
+  it("is refused when their company is deactivated", async () => {
+    getAppUser.mockResolvedValue(USER_A);
+    findUniqueCompany.mockResolvedValue({ id: "company-a", active: false });
+
+    await expect(resolveCompanyScope({ companyId: "company-a" })).rejects.toThrow(ScopeError);
+  });
+
+  it("is refused when their company row has vanished", async () => {
+    getAppUser.mockResolvedValue(USER_A);
+    findUniqueCompany.mockResolvedValue(null);
+
+    await expect(resolveCompanyScope({ companyId: "company-a" })).rejects.toThrow(ScopeError);
+  });
 });
 
 describe("resolveCompanyScope: no profile", () => {
@@ -100,6 +141,34 @@ describe("resolveCompanyScope: no profile", () => {
     getAppUser.mockResolvedValue(null);
 
     await expect(resolveCompanyScope({ companyId: "company-a" })).rejects.toThrow(ScopeError);
+  });
+});
+
+describe("resolveAdminScope", () => {
+  it("accepts an active admin", async () => {
+    getAppUser.mockResolvedValue(ADMIN);
+
+    const scope = await resolveAdminScope();
+
+    expect(scope.appUser.id).toBe("u-admin");
+  });
+
+  it("refuses a company user", async () => {
+    getAppUser.mockResolvedValue(USER_A);
+
+    await expect(resolveAdminScope()).rejects.toThrow(ScopeError);
+  });
+
+  it("refuses a deactivated admin", async () => {
+    getAppUser.mockResolvedValue(INACTIVE_ADMIN);
+
+    await expect(resolveAdminScope()).rejects.toThrow(ScopeError);
+  });
+
+  it("refuses a session with no profile row", async () => {
+    getAppUser.mockResolvedValue(null);
+
+    await expect(resolveAdminScope()).rejects.toThrow(ScopeError);
   });
 });
 
@@ -120,6 +189,7 @@ describe("resolveReportingYearScope", () => {
 
   it("accepts a year belonging to the caller's own company", async () => {
     getAppUser.mockResolvedValue(USER_A);
+    findUniqueCompany.mockResolvedValue(ACTIVE_COMPANY);
     findUniqueReportingYear.mockResolvedValue({
       id: "ry-a",
       companyId: "company-a",

@@ -4,18 +4,35 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FEATURE_SCOPE_TARGETS } from "@/lib/feature-flags";
+import type { GwpSet } from "@/lib/generated/prisma/client";
+import type { PreviewGridFactor } from "@/lib/calc/preview";
 import { findCategory } from "../lib/group-factors";
 import type { GroupedFactors, ScopeVM } from "../lib/types";
 import { CategorySection } from "./category-section";
+import { MetaCard } from "./meta-card";
 
 type ScopeTabsProps = {
   scopes: ScopeVM[];
   grouped: GroupedFactors;
   /** The reporting year has no national grid factor, so Scope 2 cannot be computed yet. */
   missingGridFactorYear: number | null;
+  gridFactor: PreviewGridFactor | null;
+  gwpSet: GwpSet;
+  year: number;
+  /** Saved reduction targets, keyed by scope. Absent means no target was set. */
+  targets: Record<string, string>;
 };
 
-export function ScopeTabs({ scopes, grouped, missingGridFactorYear }: ScopeTabsProps) {
+export function ScopeTabs({
+  scopes,
+  grouped,
+  missingGridFactorYear,
+  gridFactor,
+  gwpSet,
+  year,
+  targets,
+}: ScopeTabsProps) {
   const t = useTranslations("dataEntry");
 
   return (
@@ -41,13 +58,24 @@ export function ScopeTabs({ scopes, grouped, missingGridFactorYear }: ScopeTabsP
           {scope.scope === "SCOPE_2" && missingGridFactorYear ? (
             // Recording kWh is valid regardless. Silently computing zero emissions is the
             // exact class of bug this tool exists to replace.
-            <div className="flex items-start gap-3 rounded-lg border border-chart-2/40 bg-chart-2/5 p-4">
+            //
+            // role="status", not role="alert": the warning is informational and does not
+            // block the user. An alert would interrupt a screen reader mid-sentence on every
+            // tab switch.
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-lg border border-chart-2/40 bg-chart-2/5 p-4"
+            >
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-2" aria-hidden />
               <p className="text-sm text-muted-foreground">
                 {/* String, not number: ICU would format 2020 as "2.020". */}
                 {t("gridFactor.missing", { year: String(missingGridFactorYear) })}
               </p>
             </div>
+          ) : null}
+
+          {FEATURE_SCOPE_TARGETS ? (
+            <MetaCard scope={scope.scope} initialValue={targets[scope.scope] ?? ""} />
           ) : null}
 
           {scope.categories.length === 0 ? (
@@ -60,6 +88,9 @@ export function ScopeTabs({ scopes, grouped, missingGridFactorYear }: ScopeTabsP
                 key={category.category}
                 category={category}
                 factorCategory={findCategory(grouped, scope.scope, category.category)}
+                gridFactor={gridFactor}
+                gwpSet={gwpSet}
+                year={year}
               />
             ))
           )}

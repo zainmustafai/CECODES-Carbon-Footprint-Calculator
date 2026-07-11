@@ -2,17 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionDialog } from "@/components/feedback/confirm-action-dialog";
 import { Button } from "@/components/ui/button";
 import { useDeleteFacility } from "../hooks/use-delete-facility";
 
@@ -28,8 +18,8 @@ export function DeleteFacilityButton({
   const { remove, isPending } = useDeleteFacility();
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <ConfirmActionDialog
+      trigger={
         <Button
           variant="ghost"
           size="icon-sm"
@@ -38,22 +28,15 @@ export function DeleteFacilityButton({
         >
           <Trash2 className="size-4 text-muted-foreground" aria-hidden />
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("title")}</AlertDialogTitle>
-          <AlertDialogDescription>{t("body", { name })}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => remove(facilityId)}
-            className="bg-destructive text-white hover:bg-destructive/90"
-          >
-            {t("confirm")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      }
+      title={t("title")}
+      description={t("body", { name })}
+      cancelLabel={t("cancel")}
+      confirmLabel={t("confirm")}
+      pending={isPending}
+      onConfirm={() => remove(facilityId)}
+      // The card unmounts on the refresh, so send focus back to the page heading.
+      onClosed={() => document.getElementById("facilities-heading")?.focus()}
+    />
   );
 }

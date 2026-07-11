@@ -71,7 +71,7 @@ export function FacilityDialog({ companyId, facility }: FacilityDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" loading={isSubmitting}>
               {isEdit ? t("save") : t("add")}
             </Button>
           </DialogFooter>

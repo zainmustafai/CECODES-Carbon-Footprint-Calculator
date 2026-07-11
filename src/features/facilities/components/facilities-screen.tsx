@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { FacilityDialog } from "./facility-dialog";
 import { DeleteFacilityButton } from "./delete-facility-button";
+import { YearChips } from "./year-chips";
 
 type FacilitiesScreenProps = {
   /** Already authorized by the route. Every query re-scopes on it. */
@@ -17,6 +18,8 @@ type FacilitiesScreenProps = {
 export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreenProps) {
   const t = await getTranslations("facilities");
 
+  // The years themselves, not just their count: each chip must state how many activity
+  // records its deletion would take with it.
   const facilities = await prisma.facility.findMany({
     where: { companyId },
     orderBy: { name: "asc" },
@@ -24,7 +27,10 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
       id: true,
       name: true,
       location: true,
-      _count: { select: { reportingYears: true } },
+      reportingYears: {
+        orderBy: { year: "desc" },
+        select: { id: true, year: true, _count: { select: { entries: true } } },
+      },
     },
   });
 
@@ -32,7 +38,14 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+          {/* tabIndex -1 so focus can return here after a facility card unmounts. */}
+          <h1
+            id="facilities-heading"
+            tabIndex={-1}
+            className="text-2xl font-semibold tracking-tight outline-none"
+          >
+            {t("title")}
+          </h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <FacilityDialog companyId={companyId} />
@@ -65,9 +78,18 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
                   </div>
                 </div>
 
+                <YearChips
+                  facilityName={facility.name}
+                  years={facility.reportingYears.map((year) => ({
+                    id: year.id,
+                    year: year.year,
+                    entryCount: year._count.entries,
+                  }))}
+                />
+
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Badge variant="outline" className="tabular-nums">
-                    {t("yearCount", { count: facility._count.reportingYears })}
+                    {t("yearCount", { count: facility.reportingYears.length })}
                   </Badge>
                   <Button asChild variant="ghost" size="sm">
                     <Link

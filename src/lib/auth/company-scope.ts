@@ -34,6 +34,9 @@ export async function resolveCompanyScope({
 }): Promise<CompanyScope> {
   const appUser = await getAppUser();
   if (!appUser) throw new ScopeError("no-profile");
+  // A deactivated user may still hold a valid Supabase session. The role and this flag live
+  // in Postgres, not in the JWT, so refusing here is what makes deactivation immediate.
+  if (!appUser.active) throw new ScopeError("forbidden");
 
   if (appUser.role === "CECODES_ADMIN") {
     // An admin's own companyId is null. If that null ever reached a scoped query,
@@ -45,12 +48,36 @@ export async function resolveCompanyScope({
       select: { id: true },
     });
     if (!exists) throw new ScopeError("not-found");
+    // Deliberately no `active` check here: an admin must be able to open an inactive
+    // company in order to fix and reactivate it.
     return { appUser, companyId, isAdmin: true };
   }
 
   if (!appUser.companyId) throw new ScopeError("no-profile"); // not onboarded yet
   if (companyId && companyId !== appUser.companyId) throw new ScopeError("forbidden");
+
+  const company = await prisma.company.findUnique({
+    where: { id: appUser.companyId },
+    select: { active: true },
+  });
+  if (!company) throw new ScopeError("not-found");
+  if (!company.active) throw new ScopeError("forbidden");
+
   return { appUser, companyId: appUser.companyId, isAdmin: false };
+}
+
+export type AdminScope = { appUser: AppUser };
+
+// The action-level admin guard. `requireAdmin()` in lib/auth/server.ts calls notFound(),
+// which is right for a page and useless inside a Server Action. Every admin action calls
+// this first, so the admin-versus-company-user decision stays in this one module.
+export async function resolveAdminScope(): Promise<AdminScope> {
+  const appUser = await getAppUser();
+  if (!appUser) throw new ScopeError("no-profile");
+  if (!appUser.active || appUser.role !== "CECODES_ADMIN") {
+    throw new ScopeError("forbidden");
+  }
+  return { appUser };
 }
 
 export type ReportingYearScope = CompanyScope & {

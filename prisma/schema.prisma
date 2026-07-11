@@ -34,6 +34,17 @@ enum Role {
   CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
 }
 
+// What an admin did to a factor. IMPORTED is written by prisma/import-factors.ts; its
+// absence on every change row for a factor is what marks that factor "never edited by a
+// human", which is the signal the importer uses to decide it may safely overwrite.
+enum FactorChangeAction {
+  CREATED
+  UPDATED
+  DEACTIVATED
+  REACTIVATED
+  IMPORTED
+}
+
 // ---------------------------------------------------------------------------
 // Identity (Supabase Auth owns auth.users; we mirror role + company link here)
 // ---------------------------------------------------------------------------
@@ -44,8 +55,15 @@ model AppUser {
   role      Role     @default(COMPANY_USER)
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
+  // A deactivated user keeps their auth credentials but is refused at every server entry
+  // point (requireAppUser, resolveCompanyScope, resolveAdminScope, signInAction). The role
+  // and this flag live in Postgres, not in the JWT, so every request re-reads them and a
+  // deactivation takes effect immediately without revoking a session.
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  factorChanges EmissionFactorChange[]
 
   @@index([companyId])
   @@map("app_users")
@@ -56,13 +74,17 @@ model AppUser {
 // ---------------------------------------------------------------------------
 
 model Company {
-  id         String     @id @default(uuid())
-  name       String // Empresa
-  sector     String? // optional
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  facilities Facility[]
-  users      AppUser[]
+  id           String     @id @default(uuid())
+  name         String // Empresa
+  sector       String? // optional; slug from src/lib/sectors.ts, free text for legacy rows
+  contactEmail String? // optional; shown on reports
+  // A deactivated company blocks its own users. Admins may still open it to fix and
+  // reactivate it, which is why resolveCompanyScope checks this only on the company-user path.
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  facilities   Facility[]
+  users        AppUser[]
 
   @@map("companies")
 }
@@ -191,7 +213,7 @@ model ScopeTarget {
 
 model EmissionFactorVersion {
   id           String           @id @default(uuid())
-  version      String // e.g. "v005"
+  version      String           @unique // e.g. "v005"
   date         DateTime
   preparedBy   String? // Elaboró
   reviewedBy   String? // Revisó
@@ -234,8 +256,13 @@ model EmissionFactor {
   versionId String?
 
   entries   ActivityEntry[]
+  changes   EmissionFactorChange[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  // The natural key (scope, category, subcategory, element, unit) is enforced by a hand
+  // written expression index in the migration, because a plain unique index would treat two
+  // NULL subcategories as distinct. It is not declared here: Prisma cannot express COALESCE.
 
   @@index([scope, category, subcategory])
   @@index([versionId])
@@ -243,13 +270,40 @@ model EmissionFactor {
   @@map("emission_factors")
 }
 
+// Per-factor audit trail. Requirements section 8: every change records who, when, and what.
+//
+// EmissionFactorVersion stays the library RELEASE concept (Excel "Control de Cambios"
+// parity: v001..v005). This table is the per-edit record beneath it.
+//
+// `changes` holds a field diff, { field: { from, to } }, with every Decimal serialized as a
+// string. Two full row snapshots per edit would triple the storage and force the UI to diff
+// at read time; a CREATED row stores the whole initial state as from:null, so nothing is lost.
+model EmissionFactorChange {
+  id             String             @id @default(uuid())
+  factor         EmissionFactor     @relation(fields: [factorId], references: [id], onDelete: Cascade)
+  factorId       String
+  changedBy      AppUser?           @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  changedById    String?
+  changedByEmail String // denormalized: the audit row must outlive the actor
+  action         FactorChangeAction
+  changes        Json
+  changedAt      DateTime           @default(now())
+
+  @@index([factorId, changedAt])
+  @@map("emission_factor_changes")
+}
+
 // Scope-2 national grid factor by year (SIN) - Req. §7.3. Global reference data.
 model GridElectricityFactor {
-  id        String   @id @default(uuid())
-  year      Int      @unique
-  factor    Decimal  @db.Decimal(30, 10) // kg CO2 / kWh
-  source    String? // UPME / XM
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  year           Int      @unique
+  factor         Decimal  @db.Decimal(30, 10) // kg CO2 / kWh
+  source         String? // UPME / XM
+  createdAt      DateTime @default(now())
+  // Who last touched this year, and when. A full change table is unnecessary here: the year
+  // rows are themselves the history, and the library version notes record the release.
+  updatedAt      DateTime @default(now()) @updatedAt
+  updatedByEmail String?
 
   @@map("grid_electricity_factors")
 }

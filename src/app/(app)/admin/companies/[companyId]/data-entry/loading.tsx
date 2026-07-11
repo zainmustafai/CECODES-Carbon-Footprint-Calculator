@@ -1,5 +1,5 @@
-import { ScreenSkeleton } from "@/features/app-shell";
+import { DataEntrySkeleton } from "@/features/data-entry";
 
 export default function Loading() {
-  return <ScreenSkeleton />;
+  return <DataEntrySkeleton />;
 }

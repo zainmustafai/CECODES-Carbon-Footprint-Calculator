@@ -20,6 +20,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   dashboard: "dashboard",
   "data-entry": "dataEntry",
   facilities: "facilities",
+  company: "company",
   reports: "reports",
   companies: "companies",
   users: "users",

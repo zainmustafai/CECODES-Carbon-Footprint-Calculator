@@ -1,15 +1,14 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { FIXTURE_PATH, db, purgeE2E, type Fixture } from "./fixture";
+import { rmSync } from "node:fs";
+import { db, purgeE2E } from "./fixture";
 
+// Sweeps the ENTIRE "E2E " namespace, not just the fixture company.
+//
+// The admin specs create their own companies ("E2E Empresa <uuid>"), factors, versions and
+// grid years. Passing purgeE2E a single companyId would narrow the sweep to the fixture
+// tenant and leave everything else behind in a shared database.
 export default async function globalTeardown() {
   const client = await db();
-
-  const companyId = existsSync(FIXTURE_PATH)
-    ? (JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as Fixture).companyId
-    : undefined;
-
-  // With no fixture file (setup itself failed) this still sweeps the whole E2E namespace.
-  await purgeE2E(client, companyId);
+  await purgeE2E(client);
   await client.end();
 
   rmSync("e2e/.auth", { recursive: true, force: true });

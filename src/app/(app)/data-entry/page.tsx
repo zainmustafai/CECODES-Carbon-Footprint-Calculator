@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { requireAppUser } from "@/lib/auth/server";
+import { companyIsActive, requireAppUser } from "@/lib/auth/server";
 import { DataEntryScreen } from "@/features/data-entry";
+import { CompanyInactiveScreen } from "@/features/app-shell";
 
 export default async function Page({
   searchParams,
@@ -12,6 +13,7 @@ export default async function Page({
   // An admin has no company of their own. They enter data through /admin/companies/[id].
   if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
   if (!appUser.companyId) redirect("/onboarding");
+  if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
 
   return (
     <DataEntryScreen

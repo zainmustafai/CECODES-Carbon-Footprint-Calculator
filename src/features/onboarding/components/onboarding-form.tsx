@@ -1,18 +1,25 @@
 "use client";
 
+import { Controller } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SelectField } from "@/components/form/select-field";
 import { TextField } from "@/components/form/text-field";
+import { SECTORS } from "@/lib/sectors";
 import { useOnboarding } from "../hooks/use-onboarding";
 
 export function OnboardingForm() {
   const t = useTranslations("onboarding");
+  const tSectors = useTranslations("company.sectors");
   const { form, onSubmit, isSubmitting, serverError } = useOnboarding();
   const {
     register,
     formState: { errors },
   } = form;
+
+  // A curated list, not free text: a typo here becomes a permanent label on every report.
+  const sectorOptions = SECTORS.map((slug) => ({ value: slug, label: tSectors(slug) }));
 
   return (
     <form onSubmit={onSubmit} className="space-y-6" noValidate>
@@ -28,11 +35,20 @@ export function OnboardingForm() {
               error={errors.companyName?.message}
               {...register("companyName")}
             />
-            <TextField
-              label={t("sector")}
-              placeholder={t("sectorPlaceholder")}
-              error={errors.sector?.message}
-              {...register("sector")}
+            <Controller
+              control={form.control}
+              name="sector"
+              render={({ field }) => (
+                <SelectField
+                  id="onboarding-sector"
+                  label={t("sector")}
+                  placeholder={t("sectorPlaceholder")}
+                  options={sectorOptions}
+                  value={field.value || undefined}
+                  onValueChange={field.onChange}
+                  error={errors.sector?.message}
+                />
+              )}
             />
           </CardContent>
         </Card>
@@ -61,7 +77,7 @@ export function OnboardingForm() {
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" loading={isSubmitting}>
           {t("submit")}
         </Button>
       </div>

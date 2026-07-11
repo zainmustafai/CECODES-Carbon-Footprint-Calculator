@@ -11,9 +11,25 @@ import {
   type Fixture,
 } from "./fixture";
 
+async function createAuthUser(email: string): Promise<string> {
+  const { data, error } = await supabaseAdmin().auth.admin.createUser({
+    email,
+    password: E2E_PASSWORD,
+    email_confirm: true,
+  });
+  if (error || !data.user) {
+    throw new Error(`E2E: could not create auth user ${email}. ${error?.message}`);
+  }
+  return data.user.id;
+}
+
 // The seeded CECODES admin has no company of its own, so it cannot drive the company-user
-// data-entry flow. The suite provisions its own throwaway tenant instead, and removes it in
-// teardown. Nothing outside the "E2E " namespace is ever touched.
+// data-entry flow. The suite provisions its own throwaway tenant instead, plus its own
+// throwaway admin, and removes both in teardown. Nothing outside the "E2E " namespace is
+// ever touched.
+//
+// The admin is disposable on purpose: the admin specs deactivate and delete accounts, and
+// doing that to the real seeded admin would lock the project out of its own database.
 export default async function globalSetup() {
   const client = await db();
 
@@ -23,14 +39,10 @@ export default async function globalSetup() {
   const suffix = randomUUID().slice(0, 8);
   const companyName = `${E2E_COMPANY_PREFIX}${suffix}`;
   const email = `e2e-${suffix}@${E2E_EMAIL_DOMAIN}`;
+  const adminEmail = `e2e-admin-${suffix}@${E2E_EMAIL_DOMAIN}`;
 
-  const { data, error } = await supabaseAdmin().auth.admin.createUser({
-    email,
-    password: E2E_PASSWORD,
-    email_confirm: true,
-  });
-  if (error || !data.user) throw new Error(`E2E: could not create auth user. ${error?.message}`);
-  const userId = data.user.id;
+  const userId = await createAuthUser(email);
+  const adminUserId = await createAuthUser(adminEmail);
 
   const company = await client.query<{ id: string }>(
     `INSERT INTO companies (id, name, sector, "createdAt", "updatedAt")
@@ -55,12 +67,23 @@ export default async function globalSetup() {
     [userId, email, companyId],
   );
 
+  // An admin owns no company: companyId stays null. The trigger defaults the role to
+  // COMPANY_USER, so it must be forced here.
+  await client.query(
+    `INSERT INTO app_users (id, email, role, "companyId", "createdAt", "updatedAt")
+     VALUES ($1, $2, 'CECODES_ADMIN', NULL, now(), now())
+     ON CONFLICT (id) DO UPDATE SET role = 'CECODES_ADMIN', "companyId" = NULL`,
+    [adminUserId, adminEmail],
+  );
+
   const fixture: Fixture = {
     email,
     companyId,
     companyName,
     facilityId: facility.rows[0].id,
     userId,
+    adminEmail,
+    adminUserId,
   };
 
   mkdirSync("e2e/.auth", { recursive: true });

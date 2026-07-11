@@ -1,10 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_YEAR, loadFixture, type Fixture } from "./fixture";
+import { E2E_YEAR, db, loadFixture, type Fixture } from "./fixture";
 
 let fixture: Fixture;
 
-test.beforeAll(() => {
+// This spec asserts the "no reporting years yet" empty state, so it owns that precondition
+// rather than inheriting it from whichever spec happened to run before it. Other specs create
+// and remove years on the same fixture facility, and depending on Playwright's file ordering
+// to undo that is the kind of coupling that fails once, mysteriously, on a Tuesday.
+test.beforeAll(async () => {
   fixture = loadFixture();
+
+  const client = await db();
+  await client.query(`DELETE FROM reporting_years WHERE "facilityId" = $1`, [
+    fixture.facilityId,
+  ]);
+  await client.end();
 });
 
 // Anchored on the timestamp: the idle label must never satisfy "a save has landed".
@@ -14,9 +24,23 @@ function category(page: Page, name: string | RegExp) {
   return page.locator("section").filter({ has: page.getByRole("button", { name }) });
 }
 
+// The element names come from the live factor library, which prisma/import-factors.ts
+// replaces wholesale with CECODES's dataset. Hardcoding one would tie the suite to whichever
+// starter row happened to be seeded, so the first offered option is used instead.
+async function addFirstSource(page: Page, section: ReturnType<typeof category>) {
+  await section.getByRole("button", { name: /agregar fuente/i }).click();
+  const option = page.getByRole("option").first();
+  await expect(option).toBeVisible();
+  const element = (await option.textContent())?.trim() ?? "";
+  await option.click();
+  return element;
+}
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("data entry", () => {
+  let annualElement = "";
+
   test("creates a reporting year, then records annual and monthly values that survive a reload", async ({
     page,
   }) => {
@@ -36,14 +60,15 @@ test.describe("data entry", () => {
     await page.getByRole("tab", { name: "Alcance 1" }).click();
     const stationary = category(page, /^Fuentes Fijas$/);
     await stationary.getByRole("button", { name: /^Fuentes Fijas$/ }).click();
-    await stationary.getByRole("button", { name: /agregar fuente/i }).click();
-    await page.getByPlaceholder(/buscar elemento/i).fill("Diésel");
-    await page.getByRole("option", { name: /Diésel o ACPM \(B2\) - Fijo/ }).click();
+    annualElement = await addFirstSource(page, stationary);
 
-    const annual = page.getByLabel(/valor anual: Diésel o ACPM \(B2\) - Fijo/i);
+    const annual = page.getByLabel(new RegExp(`valor anual: ${escapeRegExp(annualElement)}`, "i"));
     await annual.fill("1234.56");
     await annual.blur();
     await expect(page.getByText(SAVED)).toBeVisible({ timeout: 15_000 });
+
+    // The estimated-emissions summary appears as soon as a value exists.
+    await expect(stationary.getByText(/emisiones estimadas/i).first()).toBeVisible();
 
     // Alcance 2: the twelve-month grid, then copy Enero across.
     await page.getByRole("tab", { name: "Alcance 2" }).click();
@@ -69,9 +94,9 @@ test.describe("data entry", () => {
     await page.reload();
 
     await page.getByRole("tab", { name: "Alcance 1" }).click();
-    await expect(page.getByLabel(/valor anual: Diésel o ACPM \(B2\) - Fijo/i)).toHaveValue(
-      "1234.56",
-    );
+    await expect(
+      page.getByLabel(new RegExp(`valor anual: ${escapeRegExp(annualElement)}`, "i")),
+    ).toHaveValue("1234.56");
 
     await page.getByRole("tab", { name: "Alcance 2" }).click();
     await expect(page.getByText("12 de 12 meses")).toBeVisible();
@@ -83,7 +108,9 @@ test.describe("data entry", () => {
     await page.goto(`/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR}`);
     await page.getByRole("tab", { name: "Alcance 1" }).click();
 
-    const annual = page.getByLabel(/valor anual: Diésel o ACPM \(B2\) - Fijo/i);
+    const annual = page.getByLabel(
+      new RegExp(`valor anual: ${escapeRegExp(annualElement)}`, "i"),
+    );
     await annual.fill("-5");
     await annual.blur();
 
@@ -99,3 +126,7 @@ test.describe("authorization", () => {
     expect(response?.status()).toBe(404);
   });
 });
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

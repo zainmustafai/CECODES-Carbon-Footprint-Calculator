@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { requireAppUser } from "@/lib/auth/server";
+import { companyIsActive, requireAppUser } from "@/lib/auth/server";
 import { DashboardScreen } from "@/features/dashboard";
+import { CompanyInactiveScreen } from "@/features/app-shell";
 
 export default async function Page() {
   const appUser = await requireAppUser();
@@ -9,6 +10,7 @@ export default async function Page() {
   // Their home is the company list.
   if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
   if (!appUser.companyId) redirect("/onboarding");
+  if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
 
   return <DashboardScreen companyId={appUser.companyId} />;
 }

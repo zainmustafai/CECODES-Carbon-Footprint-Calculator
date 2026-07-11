@@ -35,7 +35,7 @@ export function ForgotPasswordForm() {
         error={errors.email?.message}
         {...register("email")}
       />
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" loading={isSubmitting}>
         {t("submit")}
       </Button>
     </form>

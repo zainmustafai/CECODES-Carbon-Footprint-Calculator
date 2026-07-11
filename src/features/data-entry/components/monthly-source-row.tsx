@@ -11,18 +11,37 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import type { GwpSet } from "@/lib/generated/prisma/client";
+import type { PreviewGridFactor } from "@/lib/calc/preview";
 import type { SourceVM } from "../lib/types";
 import { useReportedCount } from "../hooks/use-reported-count";
 import { useSourceActions } from "../hooks/use-source-actions";
 import { ValueField } from "./value-field";
 import { DeleteSourceButton } from "./delete-source-button";
+import { SourceSummary } from "./source-summary";
 
 // Alcance 2: twelve monthly values, Enero to Diciembre.
 // The grid is 1 column on a phone, 3 on a tablet, 6 on a laptop. Twelve on one line would
 // force horizontal scanning on every viewport and win on none.
-export function MonthlySourceRow({ source }: { source: SourceVM }) {
+//
+// Arrow keys are deliberately NOT bound to move between month fields: they must move the
+// text caret inside the input. Tab order runs Enero to Diciembre, then Copiar Enero.
+export function MonthlySourceRow({
+  source,
+  gridFactor,
+  gwpSet,
+  year,
+  onDeleted,
+}: {
+  source: SourceVM;
+  gridFactor: PreviewGridFactor | null;
+  gwpSet: GwpSet;
+  year: number;
+  onDeleted?: () => void;
+}) {
   const t = useTranslations("dataEntry.source");
   const tm = useTranslations("dataEntry.months");
+  const tv = useTranslations("dataEntry");
   const [open, setOpen] = useState(false);
   const { copyJanuary, isPending } = useSourceActions();
 
@@ -34,6 +53,8 @@ export function MonthlySourceRow({ source }: { source: SourceVM }) {
   // The server refuses to copy an unreported January, so do not offer it.
   const januaryId = source.cells.find((cell) => cell.month === 1)?.entryId;
   const januaryReported = useReportedCount(januaryId ? [januaryId] : []) === 1;
+
+  const hintId = `hint-${source.emissionFactorId || source.element}`;
 
   return (
     <Collapsible
@@ -68,33 +89,50 @@ export function MonthlySourceRow({ source }: { source: SourceVM }) {
           <DeleteSourceButton
             emissionFactorId={source.emissionFactorId}
             element={source.element}
+            onDeleted={onDeleted}
           />
         </div>
       </div>
 
       <CollapsibleContent>
-        <div className="mt-3 space-y-3 rounded-lg border bg-muted/30 p-3">
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
-            {source.cells.map((cell) => (
-              <ValueField
-                key={cell.entryId}
-                entryId={cell.entryId}
-                unit={source.unit}
-                label={tm(String(cell.month))}
-                showLabel
-                placeholder={t("notReported")}
-              />
-            ))}
+        <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem]">
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+            <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {source.cells.map((cell) => (
+                <ValueField
+                  key={cell.entryId}
+                  entryId={cell.entryId}
+                  unit={source.unit}
+                  label={tm(String(cell.month))}
+                  showLabel
+                  placeholder={t("notReported")}
+                  describedBy={hintId}
+                />
+              ))}
+            </div>
+
+            <p id={hintId} className="text-xs text-muted-foreground">
+              {tv("valueHint")}
+            </p>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={isPending}
+              disabled={!januaryReported}
+              onClick={() => void copyJanuary(source.emissionFactorId)}
+            >
+              <Copy className="size-4" aria-hidden />
+              {t("copyJanuary")}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isPending || !januaryReported}
-            onClick={() => copyJanuary(source.emissionFactorId)}
-          >
-            <Copy className="size-4" aria-hidden />
-            {t("copyJanuary")}
-          </Button>
+
+          <SourceSummary
+            source={source}
+            gridFactor={gridFactor}
+            gwpSet={gwpSet}
+            year={year}
+          />
         </div>
       </CollapsibleContent>
     </Collapsible>

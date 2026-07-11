@@ -1,4 +1,5 @@
 import type { Scope } from "@/lib/generated/prisma/client";
+import type { PreviewFactor } from "@/lib/calc/preview";
 import type { CategoryVM, GroupedFactors, ScopeVM, SourceVM } from "./types";
 
 // Entries arrive with Decimal already serialized to a string by the screen. Nothing in this
@@ -15,6 +16,8 @@ export type EntryRow = {
   value: string;
   factorActive: boolean;
   biogenic: boolean;
+  /** Optional: only the screen supplies it, for the estimated-emissions summary. */
+  factor?: PreviewFactor | null;
 };
 
 export type ApplicabilityRow = { scope: Scope; category: string; applies: boolean };
@@ -74,6 +77,7 @@ function buildSources(entries: EntryRow[]): SourceVM[] {
         unit: entry.unit,
         biogenic: entry.biogenic,
         factorActive: entry.factorActive,
+        factor: entry.factor ?? null,
         cells: [],
       };
       byFactor.set(key, source);

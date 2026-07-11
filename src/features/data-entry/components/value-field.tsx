@@ -17,6 +17,8 @@ type ValueFieldProps = {
   showLabel?: boolean;
   placeholder?: string;
   className?: string;
+  /** id of the shared format hint ("non-negative, decimals with a comma"). */
+  describedBy?: string;
 };
 
 // The unit is always visible next to the value. The old tool hid it, and the old tool also
@@ -28,6 +30,7 @@ export function ValueField({
   showLabel = false,
   placeholder,
   className,
+  describedBy,
 }: ValueFieldProps) {
   const { value, invalid, onChange, onBlur, readOnly } = useEntryValue(entryId);
   const fieldId = `entry-${entryId}`;
@@ -50,6 +53,7 @@ export function ValueField({
           autoComplete="off"
           disabled={readOnly}
           aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           aria-label={`${label} (${unit})`}
           placeholder={placeholder}
           className="text-right tabular-nums"

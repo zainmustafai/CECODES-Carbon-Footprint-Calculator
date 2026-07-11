@@ -1,4 +1,5 @@
 import {
+  Building,
   Building2,
   ClipboardList,
   FileText,
@@ -22,6 +23,7 @@ export const WORKSPACE_ITEMS: NavLeaf[] = [
   { key: "dashboard", segment: "dashboard", icon: LayoutDashboard },
   { key: "dataEntry", segment: "data-entry", icon: ClipboardList },
   { key: "facilities", segment: "facilities", icon: MapPin },
+  { key: "company", segment: "company", icon: Building },
   { key: "reports", segment: "reports", icon: FileText, comingSoon: true },
 ];
 
@@ -29,7 +31,7 @@ export const WORKSPACE_ITEMS: NavLeaf[] = [
 export const ADMIN_ITEMS: NavLeaf[] = [
   { key: "companies", segment: "/admin/companies", icon: Building2 },
   { key: "users", segment: "/admin/users", icon: Users },
-  { key: "factorLibrary", segment: "/admin/factors", icon: Library, comingSoon: true },
+  { key: "factorLibrary", segment: "/admin/factors", icon: Library },
 ];
 
 export function navHref(base: string, item: NavLeaf): string {

@@ -44,6 +44,7 @@ placeholders only. Never commit real values.
 | `DATABASE_URL` | App runtime ([src/lib/prisma.ts](src/lib/prisma.ts)) | Pooled connection, port 6543 |
 | `DIRECT_URL` | Prisma CLI ([prisma.config.ts](prisma.config.ts)) | Direct connection, port 5432 |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | [prisma/seed.ts](prisma/seed.ts) | Creates the single CECODES admin |
+| `DEMO_SEED_ALLOWED`, `DEMO_PASSWORD` | [prisma/seed-demo.ts](prisma/seed-demo.ts) | **Local only.** The flag is the production brake |
 
 If the database password contains characters that are reserved in a URI, such as `@` or
 `:`, percent encode them inside `DATABASE_URL` and `DIRECT_URL`. An `@` becomes `%40`.
@@ -60,6 +61,8 @@ If the database password contains characters that are reserved in a URI, such as
 | `bun run test:e2e` | Playwright. **Writes to the shared database.** See section 10 |
 | `bun run db:deploy` | Apply pending migrations |
 | `bun run db:seed` | Idempotent. Safe to run repeatedly |
+| `bun run db:import-factors` | Import the factor library from the Excel. `--dry-run` previews. Idempotent |
+| `bun run db:seed:demo` | Demo tenants. Refuses to run unless `DEMO_SEED_ALLOWED=true` |
 | `bun run db:studio` | Prisma Studio |
 
 > **Trap:** `bun run db:migrate` (`prisma migrate dev`) **does not work here.** Supabase's
@@ -209,6 +212,46 @@ Two more, specific to this domain:
 
 9. **Every total shown to a user is in tonnes (`t CO2e`).** Kilograms are an intermediate
    unit only. Convert with `kgToTonnes` before display.
+
+And one interaction rule:
+
+10. **Writes are optimistic.** The UI reflects the user's action immediately; the Server
+    Action confirms in the background. On failure, roll back to the last state the server
+    confirmed and surface the error using the matching row of the feedback table below.
+    Never block the interface on a spinner while a routine save round-trips.
+
+    The autosave store, [entry-store.ts](src/features/data-entry/lib/entry-store.ts), is
+    the reference implementation: a typed value renders instantly, dirty cells flush in a
+    batch, and a failed batch rolls each cell back to the last server-confirmed value.
+    For mutations outside that store, reach for React 19's `useOptimistic` (or
+    `useTransition` plus local rollback state) before inventing bespoke pending flags.
+    Two parts are non-negotiable whatever the mechanism: keep the last confirmed value so
+    rollback is possible, and surface the failure. Optimism without rollback is just
+    lying about a failed save, which for an inventory tool is worse than a spinner.
+
+### Async feedback: nothing may feel stuck
+
+Every mutation tells the user it started, and then how it ended. There are exactly three
+shapes, and a new flow must pick one rather than invent a fourth.
+
+| Flow | In progress | Success | Failure |
+| --- | --- | --- | --- |
+| Form with a visible submit button | `<Button loading>` spinner, `aria-busy` | toast, then close or redirect | **inline** `serverError` text |
+| Imperative row action (menu item, toggle, delete) | `toast.loading` | the same toast becomes `toast.success` | the same toast becomes `toast.error` |
+| Autosave | the `SaveStatus` pill | the pill | rollback + `toast.error` |
+
+- [use-toast-action.ts](src/hooks/use-toast-action.ts) is the second row. It wraps
+  `useTransition`, opens a loading toast, and replaces it **by id** when the action settles.
+  `router.refresh()` runs inside the transition, so a row never unmounts while its own confirm
+  dialog is still spinning. It does not use `toast.promise`: our actions return
+  `{ error?: string }` instead of throwing, and `toast.promise`'s reject mapping fights that.
+- [confirm-action-dialog.tsx](src/components/feedback/confirm-action-dialog.tsx) is the only
+  way to confirm a destructive action. It **stays open with a spinner until the action
+  settles**. Radix's `AlertDialogAction` closes on click and cannot host a spinner, so the
+  confirm here is a plain `<Button loading>` inside a controlled `AlertDialog`.
+- **Autosave never toasts on success.** A toast every 700ms is noise; the pill is the feedback.
+- A form's error goes **inline**, next to the field the user must fix. An imperative action has
+  no form to anchor to, so it toasts. Do not mix the two.
 
 ### The UI language
 
@@ -643,22 +686,46 @@ A list of things that have already cost someone an hour.
 
 Named honestly, so nobody assumes otherwise.
 
-- **The calculation engine.** [engine.ts](src/lib/calc/engine.ts) computes CO2e for a
-  single source. There are no roll ups, no electricity by year, no distance or spend based
-  Scope 3, and nothing writes `ResultSnapshot`. The dashboard shows a real frame with
-  zeroes, not fake numbers.
+- **The calculation engine roll ups.** [engine.ts](src/lib/calc/engine.ts) computes CO2e for a
+  single source, and [preview.ts](src/lib/calc/preview.ts) uses it to show a per source
+  estimate beside the inputs. There are still no roll ups to category, scope or company, no
+  distance or spend based Scope 3 handling, and nothing writes `ResultSnapshot`. The dashboard
+  shows a real frame with zeroes, not fake numbers.
+  > The preview is **display only** and says so on screen. It parses to `number` because
+  > nothing it computes is ever stored. Do not copy that pattern into the real engine.
 - **Excel parity**, which is the project's actual acceptance test. See docs section 14.
-- **The full emission factor library.** Twelve representative factors are seeded. CECODES
-  has not yet delivered the confirmed dataset, and several factors in their source data are
-  known to be wrong. See docs section 12.
-- **Admin factor management.** The screen is a placeholder that reports what is loaded.
-- **Admin created users.** The authorization helpers this needs already exist.
 - **Reports**, PDF and Excel export.
-- **Per scope Meta / Target.** `ScopeTarget` exists in the schema. The feature is pending
-  CECODES confirmation, docs section 12.9.
 - **RLS through Prisma.** Documented as inert. Making it real means a non owner role,
   `SET LOCAL role`, per transaction JWT claims, and `FORCE ROW LEVEL SECURITY`. It is a
   large change and is not required while `resolveCompanyScope` holds.
+
+### Open questions the code deliberately leaves open
+
+- **Five grid electricity factors disagree** between the Excel and the seeded values (2019,
+  2021, 2022, 2023, 2024). The importer **reports and never overwrites**; a human resolves each
+  one in the admin grid tab. Eleven further years (2008 to 2018, 2020) exist only in the Excel.
+- **Seven Scope 3 categories are empty in the Excel** (C8, C10 to C15). They use methods
+  CECODES has not supplied, so the importer skips them by name and lists them. Requirements 12.8.
+- **`gwpSet` is left NULL on every imported factor.** The sheet does not state a vintage per
+  row, and guessing one would silently pick a CH4 GWP. Explicit beats implied.
+- **Spend based factors** land in `co2eFactor` with unit `USD`. `co2eFactorCop` and
+  `co2eFactorUsd` stay reserved until CECODES answers the currency question, docs 12.4.
+- **Per scope Meta** ships behind [FEATURE_SCOPE_TARGETS](src/lib/feature-flags.ts). CECODES
+  said "almost certainly yes" but has not confirmed. Flipping the flag is the whole revert.
+
+### The Excel's kilogram columns, and why we read them
+
+The 2025 sheet gives CH4 and N2O twice: a grams column and a kilograms column beside it. The
+kilograms column is usually a **cached Excel formula result** carrying float noise
+(`0.026622399999999997`), so where the grams column exists it is authoritative and the
+importer divides it by 1000 in `Decimal`.
+
+But the grams column is **not always populated**: 288 CH4 rows and 152 N2O rows carry a value
+only in the kilograms column (rice cultivation, fugitive gas leaks, coal mine seepage), and no
+row has grams without kilograms. Refusing to read that column drops those factors silently,
+which is the exact class of bug this tool exists to replace. So
+[perGasKilograms](src/lib/factor-import/map-row.ts) prefers grams, falls back to kilograms, and
+quantizes either way to the column's scale so a re-import compares equal instead of "changing".
 
 Two smaller, deliberate deferrals:
 

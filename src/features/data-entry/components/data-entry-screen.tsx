@@ -100,7 +100,7 @@ export async function DataEntryScreen({
     );
   }
 
-  const [entries, applicability, factors, gridFactor] = await Promise.all([
+  const [entries, applicability, factors, gridFactor, targets] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -114,7 +114,19 @@ export async function DataEntryScreen({
         unit: true,
         month: true,
         value: true,
-        emissionFactor: { select: { active: true, biogenic: true } },
+        emissionFactor: {
+          select: {
+            active: true,
+            biogenic: true,
+            // Feeds the per-source estimated-emissions summary. Decimals, so stringify below.
+            co2Factor: true,
+            ch4Factor: true,
+            n2oFactor: true,
+            co2eFactor: true,
+            factorUnit: true,
+            source: true,
+          },
+        },
       },
     }),
     prisma.categoryApplicability.findMany({
@@ -141,7 +153,11 @@ export async function DataEntryScreen({
     }),
     prisma.gridElectricityFactor.findUnique({
       where: { year: selectedYear.year },
-      select: { id: true },
+      select: { factor: true, source: true },
+    }),
+    prisma.scopeTarget.findMany({
+      where: { reportingYearId: selectedYear.id, companyId },
+      select: { scope: true, targetTonnes: true },
     }),
   ]);
 
@@ -160,11 +176,30 @@ export async function DataEntryScreen({
     value: entry.value === null ? "" : entry.value.toString(),
     factorActive: entry.emissionFactor?.active ?? false,
     biogenic: entry.emissionFactor?.biogenic ?? false,
+    factor: entry.emissionFactor
+      ? {
+          co2Factor: entry.emissionFactor.co2Factor?.toString() ?? null,
+          ch4Factor: entry.emissionFactor.ch4Factor?.toString() ?? null,
+          n2oFactor: entry.emissionFactor.n2oFactor?.toString() ?? null,
+          co2eFactor: entry.emissionFactor.co2eFactor?.toString() ?? null,
+          biogenic: entry.emissionFactor.biogenic,
+          factorUnit: entry.emissionFactor.factorUnit,
+          source: entry.emissionFactor.source,
+        }
+      : null,
   }));
 
   const grouped = groupFactors(factors);
   const scopes = shapeEntries(entryRows, applicability, grouped);
   const initialValues = Object.fromEntries(entryRows.map((e) => [e.id, e.value]));
+
+  const gridFactorVM = gridFactor
+    ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
+    : null;
+
+  const targetsByScope: Record<string, string> = Object.fromEntries(
+    targets.map((target) => [target.scope, target.targetTonnes.toString()]),
+  );
 
   return (
     <div className="space-y-8">
@@ -185,6 +220,10 @@ export async function DataEntryScreen({
           scopes={scopes}
           grouped={grouped}
           missingGridFactorYear={gridFactor ? null : selectedYear.year}
+          gridFactor={gridFactorVM}
+          gwpSet={selectedYear.gwpSet}
+          year={selectedYear.year}
+          targets={targetsByScope}
         />
       </DataEntryProvider>
     </div>

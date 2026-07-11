@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Building2, CalendarRange } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -46,15 +47,24 @@ export function ContextBar({
   return (
     <div className="sticky top-0 z-20 -mx-6 mb-6 border-b bg-background/95 px-6 py-3 backdrop-blur lg:-mx-8 lg:px-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        {/*
+          Label htmlFor points at the Radix trigger's id. Wrapping the trigger in a <label>
+          does not give it an accessible name: the trigger is a button, not a form control.
+        */}
         <div className="grid flex-1 gap-3 sm:grid-cols-2 md:flex md:flex-none md:items-center">
-          <label className="grid gap-1 sm:gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">{t("facility")}</span>
+          <div className="grid gap-1 sm:gap-1.5">
+            <Label
+              htmlFor="context-facility"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {t("facility")}
+            </Label>
             <Select
               value={selectedFacilityId ?? undefined}
               onValueChange={(facilityId) => go(facilityId)}
               disabled={facilities.length === 0}
             >
-              <SelectTrigger className="w-full md:w-56">
+              <SelectTrigger id="context-facility" className="w-full md:w-56">
                 <Building2 className="size-4 text-muted-foreground" aria-hidden />
                 <SelectValue placeholder={t("noFacility")} />
               </SelectTrigger>
@@ -66,10 +76,15 @@ export function ContextBar({
                 ))}
               </SelectContent>
             </Select>
-          </label>
+          </div>
 
-          <label className="grid gap-1 sm:gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">{t("year")}</span>
+          <div className="grid gap-1 sm:gap-1.5">
+            <Label
+              htmlFor="context-year"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {t("year")}
+            </Label>
             <Select
               value={selectedYear ? String(selectedYear) : undefined}
               onValueChange={(year) =>
@@ -77,7 +92,7 @@ export function ContextBar({
               }
               disabled={years.length === 0}
             >
-              <SelectTrigger className="w-full md:w-36">
+              <SelectTrigger id="context-year" className="w-full md:w-36">
                 <CalendarRange className="size-4 text-muted-foreground" aria-hidden />
                 <SelectValue placeholder={t("noYear")} />
               </SelectTrigger>
@@ -89,7 +104,7 @@ export function ContextBar({
                 ))}
               </SelectContent>
             </Select>
-          </label>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 md:ml-auto">

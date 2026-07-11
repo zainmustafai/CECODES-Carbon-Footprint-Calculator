@@ -87,7 +87,7 @@ Reach for the primitive, do not rebuild it:
 | Status | `Badge` (`secondary` for neutral, `outline` for "coming soon") |
 | Dense data | `Table` |
 | Row actions / menus | `DropdownMenu` |
-| Destructive confirm | `AlertDialog` (never a plain `Dialog`) |
+| Destructive confirm | `ConfirmActionDialog` (an `AlertDialog` that stays open, with a spinner, until the action settles) |
 | Mobile nav | `Sheet` |
 | Identity | `Avatar` with initials fallback |
 | Toasts | `sonner` |
@@ -95,6 +95,15 @@ Reach for the primitive, do not rebuild it:
 **Form fields** always show their label, use a leading icon where it clarifies (mail for
 email, lock for password), show the unit when relevant, and render errors as
 `text-sm text-destructive` below the field.
+
+**Every field uses the control its data deserves.** A sector is a `SelectField`, not free
+text. A year is `type="number"`. An email is `type="email"`. A quantity or an emission factor
+is a `DecimalField`: `type="text"` with `inputMode="decimal"`, never `type="number"`, because
+es-CO types a decimal comma and a number input round-trips through a float.
+
+**Nothing ever feels stuck.** Every button that triggers work takes `loading`, which shows a
+spinner and sets `aria-busy`. Row actions show a loading toast that becomes the success or
+error toast. See the async-feedback table in IMPLEMENTATION.md section 4.
 
 ## Layout patterns
 
@@ -114,7 +123,12 @@ email, lock for password), show the unit when relevant, and render errors as
 - **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, and collapsible
   category sections. Values autosave on blur, batched; there is no Guardar button. The unit
   is always visible beside the value. The Scope 2 month grid is 1 column on a phone, 3 at
-  `md`, 6 at `lg`. Twelve across one line loses on every viewport.
+  `md`, 4 at `lg`, with the estimated-emissions summary in an 18rem rail beside it. Twelve
+  across one line loses on every viewport.
+- **Estimated emissions:** every source shows what it currently adds up to, live. A Scope 2
+  source gets the full summary card in its rail; an annual Scope 1 or 3 source gets a single
+  compact line, because one value does not deserve a card. When a factor is missing the
+  summary says so. It never renders `0.0 t CO2e` for a source that simply has no factor.
 - **Width:** do not cap content with arbitrary `max-w-*` that leaves dead space. Fill the
   space with grids and responsive padding. Multi column on `md+`, stacked on mobile.
 - **Dashboard:** a KPI row (total plus one card per scope) over a details area (company,

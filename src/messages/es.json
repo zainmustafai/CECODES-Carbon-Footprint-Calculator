@@ -1,15 +1,42 @@
 {
   "common": {
     "appName": "Huella de Carbono CECODES",
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "clear": "Limpiar",
+    "actions": "Acciones",
+    "yes": "Sí",
+    "no": "No"
   },
   "language": {
     "label": "Idioma"
+  },
+  "errorPages": {
+    "boundary": {
+      "title": "Algo salió mal",
+      "body": "No pudimos cargar esta pantalla. Tus datos están a salvo. Vuelve a intentarlo.",
+      "retry": "Reintentar"
+    },
+    "notFound": {
+      "title": "Página no encontrada",
+      "body": "La página que buscas no existe o no tienes acceso a ella.",
+      "backHome": "Volver al inicio"
+    }
+  },
+  "accountDisabled": {
+    "title": "Cuenta desactivada",
+    "body": "Tu cuenta fue desactivada por un administrador de CECODES. Escríbenos si crees que se trata de un error."
+  },
+  "companyInactive": {
+    "title": "Empresa desactivada",
+    "body": "La empresa a la que perteneces fue desactivada por un administrador de CECODES. Sus datos se conservan. Contacta a CECODES para reactivarla."
   },
   "nav": {
     "dashboard": "Tablero",
     "dataEntry": "Ingreso de datos",
     "facilities": "Sedes",
+    "company": "Empresa",
     "reports": "Reportes",
     "factorLibrary": "Biblioteca de factores",
     "companies": "Empresas",
@@ -86,12 +113,14 @@
     "errors": {
       "invalidCredentials": "Correo o contraseña incorrectos.",
       "emailInUse": "Ya existe una cuenta con este correo.",
+      "accountDisabled": "Tu cuenta fue desactivada. Contacta a CECODES.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "toasts": {
       "registerCheckEmail": "Cuenta creada. Revisa tu correo para confirmar.",
       "resetEmailSent": "Enlace de restablecimiento enviado.",
       "passwordUpdated": "Contraseña actualizada.",
+      "loggingOut": "Cerrando sesión...",
       "loggedOut": "Sesión cerrada."
     }
   },
@@ -103,7 +132,7 @@
     "companyName": "Nombre de la empresa",
     "companyNamePlaceholder": "Mi Empresa S.A.S.",
     "sector": "Sector (opcional)",
-    "sectorPlaceholder": "Manufactura, servicios, ...",
+    "sectorPlaceholder": "Selecciona un sector",
     "facilityName": "Planta",
     "facilityNamePlaceholder": "Planta principal",
     "facilityLocation": "Ubicación",
@@ -116,10 +145,58 @@
     },
     "errors": {
       "alreadyOnboarded": "Ya tienes una empresa configurada.",
+      "facilityExists": "Ya existe una sede con ese nombre en esta empresa.",
       "generic": "No se pudo crear la empresa. Inténtalo de nuevo."
     },
     "toasts": {
       "created": "Empresa creada."
+    }
+  },
+  "company": {
+    "title": "Configuración de empresa",
+    "subtitle": "Define el perfil de tu empresa. Estos datos aparecerán en los informes.",
+    "profileTitle": "Información de la empresa",
+    "profileSubtitle": "Datos generales que aparecerán en los informes.",
+    "name": "Nombre de la empresa",
+    "namePlaceholder": "Mi Empresa S.A.S.",
+    "sector": "Sector (opcional)",
+    "sectorPlaceholder": "Selecciona un sector",
+    "contactEmail": "Contacto (opcional)",
+    "contactEmailPlaceholder": "sostenibilidad@empresa.com",
+    "save": "Guardar cambios",
+    "facilitiesTitle": "Plantas y sedes",
+    "facilitiesSubtitle": "Cada sede se mide por separado.",
+    "facilityCount": "{count, plural, =0 {Sin sedes} =1 {# sede} other {# sedes}}",
+    "openFacilities": "Gestionar sedes",
+    "yearsLabel": "Años de reporte",
+    "noYears": "Sin años de reporte",
+    "noFacilities": "Aún no hay sedes. Agrégalas desde la pantalla de Sedes.",
+    "sectors": {
+      "agroindustria-alimentos": "Agroindustria y alimentos",
+      "manufactura": "Manufactura",
+      "energia": "Energía",
+      "mineria-hidrocarburos": "Minería e hidrocarburos",
+      "construccion": "Construcción",
+      "transporte-logistica": "Transporte y logística",
+      "comercio": "Comercio",
+      "servicios-financieros": "Servicios financieros",
+      "tecnologia-telecomunicaciones": "Tecnología y telecomunicaciones",
+      "salud": "Salud",
+      "educacion": "Educación",
+      "turismo-hoteleria": "Turismo y hotelería",
+      "sector-publico": "Sector público",
+      "otro": "Otro"
+    },
+    "validation": {
+      "nameRequired": "El nombre de la empresa es obligatorio.",
+      "emailInvalid": "Ingresa un correo válido."
+    },
+    "errors": {
+      "forbidden": "No tienes acceso a esta empresa.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "toasts": {
+      "saved": "Empresa actualizada."
     }
   },
   "dashboard": {
@@ -155,10 +232,18 @@
     "emptyBody": "Agrega tu primera sede para empezar a registrar consumos.",
     "yearCount": "{count, plural, =0 {Sin años de reporte} =1 {# año de reporte} other {# años de reporte}}",
     "openDataEntry": "Ingresar datos",
+    "yearsTitle": "Años de reporte",
+    "deleteYear": "Eliminar año {year}",
     "deleteDialog": {
       "title": "¿Eliminar esta sede?",
       "body": "Se eliminará la sede {name}. Esta acción no se puede deshacer.",
       "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "yearDelete": {
+      "title": "¿Eliminar el año {year}?",
+      "body": "Se eliminarán {entries, plural, =0 {todos los registros} =1 {# registro de actividad} other {# registros de actividad}} del año {year} en {facility}. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar año",
       "cancel": "Cancelar"
     },
     "validation": {
@@ -167,20 +252,24 @@
     },
     "errors": {
       "facilityExists": "Ya existe una sede con ese nombre en esta empresa.",
-      "facilityHasYears": "No puedes eliminar una sede con años de reporte. Elimina primero sus años.",
+      "facilityHasYears": "No puedes eliminar una sede con años de reporte. Elimina primero sus años desde esta misma tarjeta.",
       "forbidden": "No tienes acceso a esta empresa.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "toasts": {
       "created": "Sede agregada.",
       "updated": "Sede actualizada.",
-      "deleted": "Sede eliminada."
+      "deleting": "Eliminando sede...",
+      "deleted": "Sede eliminada.",
+      "deletingYear": "Eliminando año...",
+      "yearDeleted": "Año de reporte eliminado."
     }
   },
   "dataEntry": {
     "title": "Ingreso de datos",
     "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
     "emptyScope": "La biblioteca de factores aún no tiene categorías para este alcance.",
+    "valueHint": "Solo valores numéricos no negativos. Se permiten decimales con coma (,).",
     "contextBar": {
       "facility": "Sede",
       "year": "Año",
@@ -219,6 +308,31 @@
       "copyJanuary": "Copiar Enero a todos los meses",
       "monthsProgress": "{reported} de {total} meses",
       "delete": "Eliminar fuente"
+    },
+    "summary": {
+      "title": "Resumen del elemento",
+      "estimated": "Emisiones estimadas",
+      "factorApplied": "Factor aplicado",
+      "gwpSet": "Conjunto GWP",
+      "factorSource": "Fuente del factor",
+      "unknownSource": "Sin fuente registrada",
+      "missingGridFactor": "Sin factor de red para {year}. Las emisiones se calcularán cuando el administrador cargue el factor.",
+      "noFactor": "Este elemento no tiene un factor de emisión cargado.",
+      "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero."
+    },
+    "meta": {
+      "title": "Meta de reducción",
+      "label": "Meta para {scope}",
+      "help": "Meta anual para este alcance, en toneladas de CO2e. El avance se mostrará en el Tablero.",
+      "save": "Guardar meta",
+      "validation": {
+        "format": "Ingresa un número no negativo, con hasta 6 decimales."
+      },
+      "toasts": {
+        "saving": "Guardando meta...",
+        "saved": "Meta guardada.",
+        "cleared": "Meta eliminada."
+      }
     },
     "deleteDialog": {
       "title": "¿Eliminar esta fuente?",
@@ -276,9 +390,15 @@
     },
     "toasts": {
       "yearCreated": "Año de reporte creado.",
+      "addingSource": "Agregando fuente...",
       "sourceAdded": "Fuente agregada.",
+      "removingSource": "Eliminando fuente...",
       "sourceRemoved": "Fuente eliminada.",
-      "januaryCopied": "Enero copiado a todos los meses."
+      "copyingJanuary": "Copiando Enero...",
+      "januaryCopied": "Enero copiado a todos los meses.",
+      "updatingCategory": "Actualizando categoría...",
+      "categoryEnabled": "Categoría marcada como aplicable.",
+      "categoryDisabled": "Categoría marcada como no aplica."
     }
   },
   "admin": {
@@ -289,7 +409,60 @@
       "emptyBody": "Las empresas aparecen aquí cuando se registran y completan su configuración.",
       "open": "Abrir tablero",
       "openDataEntry": "Ingresar datos",
-      "noSector": "Sector sin definir"
+      "noSector": "Sector sin definir",
+      "create": "Nueva empresa",
+      "createTitle": "Crear empresa",
+      "editTitle": "Editar empresa",
+      "dialogSubtitle": "Las sedes se agregan después, desde el espacio de trabajo de la empresa.",
+      "name": "Nombre de la empresa",
+      "namePlaceholder": "Mi Empresa S.A.S.",
+      "sector": "Sector (opcional)",
+      "sectorPlaceholder": "Selecciona un sector",
+      "save": "Guardar",
+      "edit": "Editar",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "delete": "Eliminar",
+      "inactiveBadge": "Inactiva",
+      "facilityCount": "{count, plural, =0 {Sin sedes} =1 {# sede} other {# sedes}}",
+      "userCount": "{count, plural, =0 {Sin usuarios} =1 {# usuario} other {# usuarios}}",
+      "deactivateDialog": {
+        "title": "¿Desactivar {name}?",
+        "body": "Sus usuarios no podrán entrar hasta que la reactives. No se elimina ningún dato.",
+        "confirm": "Desactivar",
+        "cancel": "Cancelar"
+      },
+      "activateDialog": {
+        "title": "¿Activar {name}?",
+        "body": "Sus usuarios volverán a tener acceso a la plataforma.",
+        "confirm": "Activar",
+        "cancel": "Cancelar"
+      },
+      "deleteDialog": {
+        "title": "¿Eliminar {name}?",
+        "body": "Solo se pueden eliminar empresas sin sedes ni usuarios. Esta acción no se puede deshacer.",
+        "confirm": "Eliminar",
+        "cancel": "Cancelar"
+      },
+      "validation": {
+        "nameRequired": "El nombre de la empresa es obligatorio."
+      },
+      "errors": {
+        "forbidden": "No tienes permisos para esta acción.",
+        "companyHasData": "No puedes eliminar una empresa con sedes o usuarios. Desactívala en su lugar.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "toasts": {
+        "saving": "Guardando empresa...",
+        "created": "Empresa creada.",
+        "updated": "Empresa actualizada.",
+        "activating": "Activando empresa...",
+        "activated": "Empresa activada.",
+        "deactivating": "Desactivando empresa...",
+        "deactivated": "Empresa desactivada.",
+        "deleting": "Eliminando empresa...",
+        "deleted": "Empresa eliminada."
+      }
     },
     "users": {
       "title": "Usuarios",
@@ -298,13 +471,267 @@
       "email": "Correo",
       "role": "Rol",
       "company": "Empresa",
-      "noCompany": "Sin empresa"
+      "noCompany": "Sin empresa",
+      "status": "Estado",
+      "createdAt": "Creado",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "create": "Nuevo usuario",
+      "createTitle": "Crear usuario",
+      "editTitle": "Editar usuario",
+      "dialogSubtitle": "El usuario podrá entrar de inmediato con la contraseña temporal.",
+      "emailPlaceholder": "persona@empresa.com",
+      "tempPassword": "Contraseña temporal",
+      "tempPasswordHelp": "Compártela con la persona. Podrá cambiarla desde recuperar contraseña.",
+      "generate": "Generar",
+      "roleCompany": "Usuario Empresa",
+      "roleAdmin": "Administrador CECODES",
+      "companyNone": "Sin empresa",
+      "companyNoneHelp": "Un usuario sin empresa creará la suya al iniciar sesión. Un administrador nunca tiene empresa.",
+      "save": "Guardar",
+      "edit": "Editar",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "delete": "Eliminar",
+      "you": "Tú",
+      "deactivateDialog": {
+        "title": "¿Desactivar a {email}?",
+        "body": "No podrá iniciar sesión ni guardar datos hasta que lo reactives. Sus datos se conservan.",
+        "confirm": "Desactivar",
+        "cancel": "Cancelar"
+      },
+      "activateDialog": {
+        "title": "¿Activar a {email}?",
+        "body": "Volverá a tener acceso a la plataforma.",
+        "confirm": "Activar",
+        "cancel": "Cancelar"
+      },
+      "deleteDialog": {
+        "title": "¿Eliminar a {email}?",
+        "body": "Se eliminará su cuenta de acceso y su perfil. Esta acción no se puede deshacer.",
+        "confirm": "Eliminar",
+        "cancel": "Cancelar"
+      },
+      "validation": {
+        "emailRequired": "El correo es obligatorio.",
+        "emailInvalid": "Ingresa un correo válido.",
+        "passwordMin": "La contraseña debe tener al menos 8 caracteres."
+      },
+      "errors": {
+        "forbidden": "No tienes permisos para esta acción.",
+        "emailInUse": "Ya existe una cuenta con este correo.",
+        "cannotEditSelf": "No puedes cambiar tu propio rol ni desactivar tu cuenta.",
+        "companyNotFound": "La empresa seleccionada no existe.",
+        "authFailed": "No se pudo crear la cuenta de acceso. Inténtalo de nuevo.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "toasts": {
+        "saving": "Guardando usuario...",
+        "created": "Usuario creado.",
+        "updated": "Usuario actualizado.",
+        "activating": "Activando usuario...",
+        "activated": "Usuario activado.",
+        "deactivating": "Desactivando usuario...",
+        "deactivated": "Usuario desactivado.",
+        "deleting": "Eliminando usuario...",
+        "deleted": "Usuario eliminado."
+      }
     },
     "factors": {
       "title": "Biblioteca de factores",
       "subtitle": "Factores de emisión y su historial de versiones.",
-      "comingSoon": "Disponible pronto",
-      "loaded": "Cargados: {factors} factores activos, {gridFactors} factores de red eléctrica. Última versión: {version}."
+      "loaded": "Cargados: {factors} factores activos, {gridFactors} factores de red eléctrica. Última versión: {version}.",
+      "tabs": {
+        "library": "Factores",
+        "grid": "Red eléctrica",
+        "versions": "Versiones"
+      },
+      "create": "Nuevo factor",
+      "createTitle": "Nuevo factor de emisión",
+      "createSubtitle": "El elemento, su unidad y su categoría identifican al factor.",
+      "editTitle": "Editar factor",
+      "editSubtitle": "Cada cambio queda registrado en el historial.",
+      "backToLibrary": "Volver a la biblioteca",
+      "filters": {
+        "search": "Buscar elemento o categoría...",
+        "scope": "Alcance",
+        "allScopes": "Todos los alcances",
+        "category": "Categoría",
+        "allCategories": "Todas las categorías",
+        "status": "Estado",
+        "statusActive": "Activos",
+        "statusInactive": "Inactivos",
+        "statusAll": "Todos",
+        "clear": "Limpiar filtros"
+      },
+      "table": {
+        "scope": "Alcance",
+        "category": "Categoría",
+        "element": "Elemento",
+        "unit": "Unidad",
+        "factor": "Factor",
+        "status": "Estado",
+        "actions": "Acciones",
+        "perGas": "por gas",
+        "noFactor": "Sin factor"
+      },
+      "status": {
+        "active": "Activo",
+        "inactive": "Inactivo"
+      },
+      "pagination": {
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "page": "Página {page} de {pages}",
+        "total": "{count} factores"
+      },
+      "empty": {
+        "libraryTitle": "La biblioteca está vacía",
+        "libraryBody": "Importa el archivo de factores de CECODES o crea un factor manualmente.",
+        "noResultsTitle": "Sin resultados",
+        "noResultsBody": "Ningún factor coincide con los filtros. Prueba a limpiarlos."
+      },
+      "form": {
+        "identification": "Identificación",
+        "identificationHelp": "Alcance, categoría, elemento y unidad identifican al factor de forma única.",
+        "factorsSection": "Factores de emisión",
+        "factorsHelp": "Usa los factores por gas cuando existan. Si el factor ya viene en CO2e, usa el campo consolidado.",
+        "metadata": "Metadatos",
+        "metadataHelp": "Fuente, incertidumbre y vigencia. Se muestran al usuario junto al elemento.",
+        "factorRequired": "Ingresa al menos un factor de emisión.",
+        "scope2Note": "El Alcance 2 toma su factor de la pestaña Red eléctrica, por año. Aquí no se captura factor."
+      },
+      "fields": {
+        "scope": "Alcance",
+        "category": "Categoría",
+        "subcategory": "Subcategoría",
+        "element": "Elemento",
+        "unit": "Unidad de consumo",
+        "co2Factor": "Factor CO2",
+        "ch4Factor": "Factor CH4",
+        "n2oFactor": "Factor N2O",
+        "co2eFactor": "Factor CO2e consolidado",
+        "co2eFactorCop": "Factor CO2e por COP",
+        "co2eFactorUsd": "Factor CO2e por USD",
+        "factorUnit": "Unidad del factor",
+        "source": "Fuente bibliográfica",
+        "gwpSet": "Conjunto GWP",
+        "gwpNone": "Sin especificar",
+        "biogenic": "Biogénica",
+        "biogenicHelp": "Cambia el GWP de CH4 al valor no fósil.",
+        "uncertaintyPct": "Incertidumbre",
+        "effectiveYear": "Año de vigencia",
+        "active": "Activo",
+        "activeHelp": "Un factor inactivo desaparece del selector de fuentes. Los registros existentes se conservan.",
+        "version": "Versión"
+      },
+      "history": {
+        "title": "Historial de cambios",
+        "subtitle": "Quién cambió qué, y cuándo.",
+        "empty": "Este factor no tiene cambios registrados.",
+        "by": "por {email}",
+        "from": "antes",
+        "to": "después",
+        "emptyValue": "vacío"
+      },
+      "changeActions": {
+        "CREATED": "Creado",
+        "UPDATED": "Actualizado",
+        "DEACTIVATED": "Desactivado",
+        "REACTIVATED": "Reactivado",
+        "IMPORTED": "Importado"
+      },
+      "deactivateDialog": {
+        "title": "¿Desactivar este factor?",
+        "body": "{element} dejará de aparecer en el selector de fuentes. Los registros existentes se conservan y siguen mostrando el elemento.",
+        "confirm": "Desactivar",
+        "cancel": "Cancelar"
+      },
+      "activateDialog": {
+        "title": "¿Activar este factor?",
+        "body": "{element} volverá a estar disponible en el selector de fuentes.",
+        "confirm": "Activar",
+        "cancel": "Cancelar"
+      },
+      "versions": {
+        "title": "Historial de versiones",
+        "subtitle": "Control de cambios de la biblioteca, igual que en el Excel.",
+        "create": "Nueva versión",
+        "createTitle": "Nueva versión de la biblioteca",
+        "createSubtitle": "Registra una publicación de la biblioteca de factores.",
+        "version": "Versión",
+        "versionPlaceholder": "v006",
+        "date": "Fecha",
+        "preparedBy": "Elaboró",
+        "reviewedBy": "Revisó",
+        "authorizedBy": "Autorizó",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Qué cambió en esta versión.",
+        "empty": "Aún no hay versiones registradas.",
+        "save": "Crear versión",
+        "noDescription": "Sin descripción"
+      },
+      "grid": {
+        "title": "Factor de red eléctrica (SIN)",
+        "subtitle": "Factor nacional por año. El Alcance 2 lo usa según el año del reporte.",
+        "add": "Agregar año",
+        "addTitle": "Agregar factor de red",
+        "editTitle": "Editar factor de red",
+        "dialogSubtitle": "kg CO2 por kWh consumido, según UPME y XM.",
+        "year": "Año",
+        "factor": "Factor",
+        "factorUnit": "kg CO2/kWh",
+        "source": "Fuente",
+        "sourcePlaceholder": "UPME/XM (SIN)",
+        "updatedBy": "Actualizado por",
+        "updatedAt": "Actualizado",
+        "never": "Sin registro",
+        "empty": "Aún no hay factores de red eléctrica.",
+        "save": "Guardar",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteDialog": {
+          "title": "¿Eliminar el factor de {year}?",
+          "body": "Los reportes de ese año volverán a mostrar el aviso de factor faltante hasta que lo cargues de nuevo.",
+          "confirm": "Eliminar",
+          "cancel": "Cancelar"
+        }
+      },
+      "validation": {
+        "scopeRequired": "Selecciona un alcance.",
+        "categoryRequired": "La categoría es obligatoria.",
+        "elementRequired": "El elemento es obligatorio.",
+        "unitRequired": "La unidad es obligatoria.",
+        "decimalInvalid": "Ingresa un número no negativo válido.",
+        "yearInvalid": "Ingresa un año válido.",
+        "versionRequired": "La versión es obligatoria.",
+        "dateRequired": "La fecha es obligatoria.",
+        "factorRequired": "Ingresa al menos un factor de emisión."
+      },
+      "errors": {
+        "forbidden": "No tienes permisos para esta acción.",
+        "factorExists": "Ya existe un factor con ese alcance, categoría, elemento y unidad.",
+        "versionExists": "Ya existe una versión con ese nombre.",
+        "gridYearExists": "Ya existe un factor para ese año.",
+        "notFound": "El factor ya no existe.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "toasts": {
+        "saving": "Guardando factor...",
+        "created": "Factor creado.",
+        "updated": "Factor actualizado.",
+        "noChanges": "No hay cambios que guardar.",
+        "activating": "Activando factor...",
+        "activated": "Factor activado.",
+        "deactivating": "Desactivando factor...",
+        "deactivated": "Factor desactivado.",
+        "versionSaving": "Creando versión...",
+        "versionCreated": "Versión creada.",
+        "gridSaving": "Guardando factor de red...",
+        "gridSaved": "Factor de red guardado.",
+        "gridDeleting": "Eliminando factor de red...",
+        "gridDeleted": "Factor de red eliminado."
+      }
     }
   }
 }

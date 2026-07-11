@@ -2,9 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { resolveFacilityScope, scopeErrorKey } from "@/lib/auth/company-scope";
+import {
+  ScopeError,
+  resolveFacilityScope,
+  resolveReportingYearScope,
+  scopeErrorKey,
+} from "@/lib/auth/company-scope";
 import { resolveGwpSet } from "@/lib/gwp";
-import { createReportingYearInput } from "../schemas/reporting-year-schema";
+import {
+  createReportingYearInput,
+  deleteReportingYearInput,
+} from "../schemas/reporting-year-schema";
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -44,6 +52,38 @@ export async function createReportingYear(input: {
     return { reportingYearId: created.id };
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "yearExists" };
+    return { error: scopeErrorKey(error) };
+  }
+}
+
+// Deletes a reporting year and, by cascade, its activity entries, applicability rows, scope
+// targets and result snapshots. The UI states the entry count before asking.
+//
+// This is also what makes a facility deletable: deleteFacility refuses while any year exists,
+// and before this action there was no way to remove one, so a facility that had ever been
+// used could never be deleted through the UI.
+export async function deleteReportingYear(input: {
+  reportingYearId: string;
+}): Promise<{ error?: string }> {
+  const parsed = deleteReportingYearInput.safeParse(input);
+  if (!parsed.success) return { error: "generic" };
+
+  try {
+    // Derives the company FROM the row, so a caller cannot pair their own companyId with
+    // someone else's reportingYearId.
+    const scope = await resolveReportingYearScope(parsed.data.reportingYearId);
+
+    const deleted = await prisma.reportingYear.deleteMany({
+      where: { id: parsed.data.reportingYearId, companyId: scope.companyId },
+    });
+    if (deleted.count !== 1) throw new ScopeError("not-found");
+
+    revalidatePath("/facilities");
+    revalidatePath("/data-entry");
+    revalidatePath(`/admin/companies/${scope.companyId}/facilities`);
+    revalidatePath(`/admin/companies/${scope.companyId}/data-entry`);
+    return {};
+  } catch (error) {
     return { error: scopeErrorKey(error) };
   }
 }

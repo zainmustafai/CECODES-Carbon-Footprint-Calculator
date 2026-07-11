@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { GwpSet } from "@/lib/generated/prisma/client";
+import type { PreviewGridFactor } from "@/lib/calc/preview";
 import type { CategoryVM, FactorCategory } from "../lib/types";
 import { isMonthly } from "../lib/months";
 import { useSourceActions } from "../hooks/use-source-actions";
@@ -23,12 +25,30 @@ import { SourceRow } from "./source-row";
 type CategorySectionProps = {
   category: CategoryVM;
   factorCategory: FactorCategory | undefined;
+  gridFactor: PreviewGridFactor | null;
+  gwpSet: GwpSet;
+  year: number;
 };
 
-export function CategorySection({ category, factorCategory }: CategorySectionProps) {
+export function CategorySection({
+  category,
+  factorCategory,
+  gridFactor,
+  gwpSet,
+  year,
+}: CategorySectionProps) {
   const t = useTranslations("dataEntry.category");
+  const tv = useTranslations("dataEntry");
   const [open, setOpen] = useState(category.sources.length > 0);
   const { setApplies, isPending } = useSourceActions();
+
+  // Deleting a source unmounts its row, and with it the focused delete button, which would
+  // drop focus onto <body>. "Agregar fuente" is the one element in this section that always
+  // survives the refresh, so focus goes there.
+  const addSourceRef = useRef<HTMLButtonElement>(null);
+  const focusAddSource = () => addSourceRef.current?.focus();
+
+  const hintId = `hint-${category.scope}-${category.category}`;
 
   const hasSources = category.sources.length > 0;
   const monthly = isMonthly(category.scope);
@@ -43,7 +63,9 @@ export function CategorySection({ category, factorCategory }: CategorySectionPro
       id={switchId}
       checked={category.applies}
       disabled={lockSwitch}
-      onCheckedChange={(applies) => setApplies(category.scope, category.category, applies)}
+      onCheckedChange={(applies) => {
+        void setApplies(category.scope, category.category, applies);
+      }}
     />
   );
 
@@ -78,7 +100,7 @@ export function CategorySection({ category, factorCategory }: CategorySectionPro
                 {t("sourceCount", { count: category.sources.length })}
               </Badge>
             ) : null}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" aria-busy={isPending || undefined}>
               <label htmlFor={switchId} className="text-xs text-muted-foreground">
                 {t("applies")}
               </label>
@@ -108,10 +130,32 @@ export function CategorySection({ category, factorCategory }: CategorySectionPro
               <div className="mb-3">
                 {category.sources.map((source) =>
                   monthly ? (
-                    <MonthlySourceRow key={source.emissionFactorId} source={source} />
+                    <MonthlySourceRow
+                      key={source.emissionFactorId}
+                      source={source}
+                      gridFactor={gridFactor}
+                      gwpSet={gwpSet}
+                      year={year}
+                      onDeleted={focusAddSource}
+                    />
                   ) : (
-                    <SourceRow key={source.emissionFactorId} source={source} />
+                    <SourceRow
+                      key={source.emissionFactorId}
+                      source={source}
+                      gridFactor={gridFactor}
+                      gwpSet={gwpSet}
+                      year={year}
+                      hintId={hintId}
+                      onDeleted={focusAddSource}
+                    />
                   ),
+                )}
+                {/* One shared format hint per category. Every annual field points at it
+                    through aria-describedby; the month grid carries its own. */}
+                {monthly ? null : (
+                  <p id={hintId} className="pt-1 text-xs text-muted-foreground">
+                    {tv("valueHint")}
+                  </p>
                 )}
               </div>
             ) : (
@@ -121,6 +165,7 @@ export function CategorySection({ category, factorCategory }: CategorySectionPro
             )}
 
             <AddSourceDialog
+              ref={addSourceRef}
               category={factorCategory}
               existingFactorIds={category.sources.map((s) => s.emissionFactorId)}
             />

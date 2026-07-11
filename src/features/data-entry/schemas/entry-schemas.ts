@@ -1,22 +1,16 @@
 import { z } from "zod";
+import {
+  DECIMAL_20_6,
+  isValidEntryValue,
+  normalizeDecimalInput,
+} from "@/lib/decimal-input";
 
 type T = (key: string) => string;
 
-// Decimal(20, 6): at most 14 integer digits and 6 fractional digits, non-negative.
-// Postgres silently rounds a 7th decimal but raises 22003 past 14 integer digits, so both
-// are caught here rather than at the driver. No sign, no exponent: this rejects "-5",
-// "1e400", "Infinity", "NaN" and "abc" by construction.
-export const DECIMAL_20_6 = /^\d{1,14}(\.\d{1,6})?$/;
-
-// Colombian keyboards produce a decimal comma. Thin/regular spaces come from pasted values.
-export function normalizeDecimalInput(raw: string): string {
-  return raw.replace(/[\s ]/g, "").replace(",", ".");
-}
-
-export function isValidEntryValue(raw: string): boolean {
-  const normalized = normalizeDecimalInput(raw);
-  return normalized === "" || DECIMAL_20_6.test(normalized);
-}
+// The decimal rules moved to @/lib/decimal-input once the admin factor forms needed the
+// same normalization against a wider column type. Re-exported so existing imports and the
+// unit tests in lib/__tests__ keep pointing here.
+export { DECIMAL_20_6, isValidEntryValue, normalizeDecimalInput };
 
 // "" means "not reported", which is stored as NULL. It is not the same as 0, which means
 // the company genuinely consumed nothing.
