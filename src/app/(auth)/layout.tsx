@@ -1,6 +1,6 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { BarChart3 } from "lucide-react";
 import { getUser } from "@/lib/auth/server";
 import { LanguageToggle } from "@/features/localization";
 
@@ -30,26 +30,38 @@ export default async function AuthLayout({
           className="pointer-events-none absolute -bottom-32 -left-16 size-96 rounded-full bg-primary-foreground/5"
         />
 
-        <div className="relative flex items-center gap-2 font-semibold">
-          <BarChart3 className="size-5" />
-          <span>CECODES</span>
+        {/* The lockup is navy; it needs a light surface to read on the green panel. */}
+        <div className="relative">
+          <div className="inline-flex items-center rounded-lg bg-white px-3 py-2">
+            <Image
+              src="/logo.png"
+              alt="CECODES"
+              width={296}
+              height={96}
+              className="h-8 w-auto"
+              priority
+            />
+          </div>
         </div>
 
+        {/* The brand green (--primary) is light enough that dimmed near-white text drops
+            below AA on it. The eyebrow and tagline therefore sit at full opacity; the
+            uppercase tracking and the smaller size keep the eyebrow visually secondary. */}
         <div className="relative space-y-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-primary-foreground/70">
-            {t("eyebrow")}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-widest">{t("eyebrow")}</p>
           <h2 className="text-4xl font-semibold leading-tight">{t("headline")}</h2>
-          <p className="text-primary-foreground/80">{t("tagline")}</p>
+          <p className="text-primary-foreground">{t("tagline")}</p>
         </div>
 
+        {/* Outlined pills, not a translucent fill: a bg-primary-foreground/10 fill lightens
+            the green under the text and pushes it under AA. A border does not. */}
         <div className="relative flex flex-wrap gap-2">
           {SCOPES.map((n) => (
             <span
               key={n}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/10 px-3 py-1 text-xs font-medium"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/30 px-3 py-1 text-xs font-medium"
             >
-              <span className="size-1.5 rounded-full bg-primary-foreground/70" />
+              <span className="size-1.5 rounded-full bg-primary-foreground" />
               {t("scope", { n })}
             </span>
           ))}
@@ -61,7 +73,19 @@ export default async function AuthLayout({
         <div className="absolute right-4 top-4">
           <LanguageToggle />
         </div>
-        <div className="w-full">{children}</div>
+        <div className="w-full">
+          {/* Below lg the brand panel is hidden, so the form panel carries the logo. */}
+          <div className="mb-8 flex justify-center lg:hidden">
+            <Image
+              src="/logo.png"
+              alt="CECODES"
+              width={296}
+              height={96}
+              className="h-10 w-auto"
+            />
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Leaf } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,9 +22,12 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanyName } from "../hooks/use-company-name";
-import { ADMIN_ITEMS, WORKSPACE_ITEMS, navHref, type NavLeaf } from "../config/nav";
+import {
+  ADMIN_ITEMS,
+  WORKSPACE_ITEMS,
+  navHref,
+  type NavLeaf,
+} from "../config/nav";
 
 // The block's own data-active styles (bg-sidebar-accent + accent-foreground) read well on
 // green. We add a bright-green indicator bar and icon so active out-ranks hover without
@@ -41,21 +44,16 @@ type AppSidebarProps = {
   companyName?: string | null;
 };
 
-export function AppSidebar({ role, companyName }: AppSidebarProps) {
+export function AppSidebar({ role }: AppSidebarProps) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const params = useParams<{ companyId?: string }>();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, isMobile, state } = useSidebar();
 
   const isAdmin = role === "CECODES_ADMIN";
   const drilledCompanyId = isAdmin ? (params?.companyId ?? null) : null;
-  const drilledCompanyName = useCompanyName(drilledCompanyId);
 
   const close = () => setOpenMobile(false);
-
-  const subtitle = isAdmin
-    ? (drilledCompanyName ?? t("administration"))
-    : (companyName ?? t("workspace"));
 
   function renderLeaf(item: NavLeaf, base: string) {
     const href = navHref(base, item);
@@ -64,7 +62,11 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
     if (item.comingSoon) {
       return (
         <SidebarMenuItem key={item.key}>
-          <SidebarMenuButton aria-disabled tooltip={label} className="cursor-default">
+          <SidebarMenuButton
+            aria-disabled
+            tooltip={label}
+            className="cursor-default"
+          >
             <item.icon aria-hidden />
             <span>{label}</span>
           </SidebarMenuButton>
@@ -76,8 +78,17 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
     const active = isActive(pathname, href);
     return (
       <SidebarMenuItem key={item.key}>
-        <SidebarMenuButton asChild isActive={active} tooltip={label} className={ACTIVE}>
-          <Link href={href} aria-current={active ? "page" : undefined} onClick={close}>
+        <SidebarMenuButton
+          asChild
+          isActive={active}
+          tooltip={label}
+          className={ACTIVE}
+        >
+          <Link
+            href={href}
+            aria-current={active ? "page" : undefined}
+            onClick={close}
+          >
             <item.icon aria-hidden />
             <span>{label}</span>
           </Link>
@@ -86,26 +97,44 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
     );
   }
 
+  const useSquareLogo = !isMobile && state === "collapsed";
+
   return (
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href={isAdmin ? "/admin/companies" : "/dashboard"} onClick={close}>
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Leaf className="size-4" aria-hidden />
-                </div>
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate text-sm font-semibold">CECODES</span>
-                  {isAdmin && drilledCompanyId && !drilledCompanyName ? (
-                    <Skeleton className="mt-1 h-3 w-24 bg-sidebar-accent" />
-                  ) : (
-                    <span className="truncate text-xs text-sidebar-foreground/70">
-                      {subtitle}
-                    </span>
-                  )}
-                </div>
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              className="bg-white hover:bg-white active:bg-white/90 h-16 min-h-max"
+            >
+              <Link
+                href={isAdmin ? "/admin/companies" : "/dashboard"}
+                onClick={close}
+                className="flex flex-col items-stretch"
+              >
+                {/* The logo is a wide navy lockup; the icon sits in its leftmost square,
+                    so an object-left cover crop yields the brand mark. The white chip is
+                    required: navy on the forest-green sidebar has no contrast. */}
+                {useSquareLogo ?
+                  <Image
+                    src="/logo-square.png"
+                    width={30}
+                    height={30}
+                    alt="Logo"
+                    aria-hidden
+                    className="size-full object-cover object-left"
+                  />
+                : <Image
+                    src="/logo.png"
+                    alt=""
+                    aria-hidden
+                    width={96}
+                    height={96}
+                    className="size-full object-cover object-left"
+                  />
+                }
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -113,14 +142,15 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        {isAdmin ? (
+        {isAdmin ?
           <SidebarGroup>
             <SidebarGroupLabel>{t("administration")}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {ADMIN_ITEMS.map((item) => {
                   const isCompanies = item.key === "companies";
-                  if (!isCompanies || !drilledCompanyId) return renderLeaf(item, "");
+                  if (!isCompanies || !drilledCompanyId)
+                    return renderLeaf(item, "");
 
                   // Drilled into a company: "Empresas" stays the way back, and the company
                   // workspace nests beneath it.
@@ -147,7 +177,7 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
                               <SidebarMenuSubItem key={sub.key}>
                                 <SidebarMenuSubButton
                                   aria-disabled
-                                  className="cursor-default text-sidebar-foreground/60"
+                                  className="text-sidebar-foreground/60 cursor-default"
                                 >
                                   <sub.icon aria-hidden />
                                   <span>{label}</span>
@@ -178,19 +208,20 @@ export function AppSidebar({ role, companyName }: AppSidebarProps) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ) : (
-          <SidebarGroup>
+        : <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
                 {WORKSPACE_ITEMS.map((item) => renderLeaf(item, ""))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
+        }
       </SidebarContent>
 
       <SidebarFooter>
-        <p className="px-2 pb-1 text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+        {/* /70, not /50: at /50 this 12px text lands at 4.19:1 on the sidebar green, under
+            AA. /70 matches the group labels, which pass. */}
+        <p className="group-data-[collapsible=icon]:hidden px-2 pb-1 text-sidebar-foreground/70 text-xs">
           {t("platformVersion")}
         </p>
       </SidebarFooter>

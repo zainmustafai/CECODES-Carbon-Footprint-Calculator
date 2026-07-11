@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
@@ -6,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { NavigationProgress } from "@/components/feedback/navigation-progress";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -46,6 +48,11 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-full">
+        {/* Suspense is required: NavigationProgress reads useSearchParams, and without a
+            boundary that would opt the whole app out of static rendering. */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <TooltipProvider>
           <NextIntlClientProvider>
             {children}
