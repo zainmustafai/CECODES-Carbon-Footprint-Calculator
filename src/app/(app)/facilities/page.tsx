@@ -1,14 +1,7 @@
 import { redirect } from "next/navigation";
-import { companyIsActive, requireAppUser } from "@/lib/auth/server";
-import { FacilitiesScreen } from "@/features/facilities";
-import { CompanyInactiveScreen } from "@/features/app-shell";
 
+// Sedes management folded into the company page; this route stays as a permanent redirect so
+// old bookmarks and in-app links keep working.
 export default async function Page() {
-  const appUser = await requireAppUser();
-  if (!appUser) redirect("/onboarding");
-  if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
-  if (!appUser.companyId) redirect("/onboarding");
-  if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
-
-  return <FacilitiesScreen companyId={appUser.companyId} basePath="/facilities" />;
+  redirect("/company");
 }

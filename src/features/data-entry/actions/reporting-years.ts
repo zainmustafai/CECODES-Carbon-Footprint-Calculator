@@ -78,9 +78,10 @@ export async function deleteReportingYear(input: {
     });
     if (deleted.count !== 1) throw new ScopeError("not-found");
 
-    revalidatePath("/facilities");
+    // Reporting-year chips live on the company page (Sedes section) now.
+    revalidatePath("/company");
     revalidatePath("/data-entry");
-    revalidatePath(`/admin/companies/${scope.companyId}/facilities`);
+    revalidatePath(`/admin/companies/${scope.companyId}/company`);
     revalidatePath(`/admin/companies/${scope.companyId}/data-entry`);
     return {};
   } catch (error) {

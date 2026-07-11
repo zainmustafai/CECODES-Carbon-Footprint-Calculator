@@ -67,7 +67,8 @@
     "roleBadge": {
       "company": "Empresa",
       "admin": "Administrador CECODES"
-    }
+    },
+    "preview": "Resumen"
   },
   "auth": {
     "brand": {
@@ -831,6 +832,143 @@
         "gridDeleting": "Eliminando factor de red...",
         "gridDeleted": "Factor de red eliminado."
       }
+    },
+    "onboarding": {
+      "pageTitle": "Nueva empresa",
+      "pageSubtitle": "Configura una empresa miembro, su primera sede y su primer usuario.",
+      "title": "Datos de la empresa",
+      "stepCounter": "Paso {current} de {total}",
+      "steps": {
+        "company": "Empresa",
+        "facility": "Sede",
+        "user": "Usuario"
+      },
+      "company": {
+        "title": "Empresa",
+        "description": "El nombre y el sector de la empresa miembro.",
+        "name": "Nombre de la empresa",
+        "namePlaceholder": "Ej. Alimentos del Valle",
+        "sector": "Sector",
+        "sectorPlaceholder": "Selecciona un sector"
+      },
+      "facility": {
+        "title": "Primera sede (opcional)",
+        "description": "Registra la primera sede ahora o agrégala después desde la empresa.",
+        "name": "Nombre de la sede",
+        "namePlaceholder": "Ej. Planta Yumbo",
+        "location": "Ubicación",
+        "locationPlaceholder": "Ej. Yumbo, Valle del Cauca"
+      },
+      "user": {
+        "title": "Primer usuario (opcional)",
+        "description": "Crea el primer usuario con una contraseña temporal para compartir.",
+        "email": "Correo electrónico",
+        "emailPlaceholder": "persona@empresa.com",
+        "password": "Contraseña temporal",
+        "passwordHelp": "El usuario podrá cambiarla después de iniciar sesión.",
+        "generate": "Generar"
+      },
+      "cancel": "Cancelar",
+      "back": "Atrás",
+      "next": "Siguiente",
+      "submit": "Crear empresa",
+      "validation": {
+        "companyNameRequired": "Ingresa el nombre de la empresa.",
+        "sectorRequired": "Selecciona un sector.",
+        "facilityNameRequired": "Ingresa el nombre de la sede.",
+        "facilityLocationRequired": "Ingresa la ubicación de la sede.",
+        "emailInvalid": "Ingresa un correo válido.",
+        "passwordMin": "La contraseña debe tener al menos 8 caracteres.",
+        "emailRequired": "Ingresa el correo del usuario."
+      },
+      "errors": {
+        "generic": "No se pudo completar la acción. Intenta de nuevo.",
+        "forbidden": "No tienes permiso para esta acción.",
+        "facilityExists": "Ya existe una sede con ese nombre.",
+        "emailInUse": "Ese correo ya está en uso.",
+        "authFailed": "No se pudo crear el usuario.",
+        "companyNotFound": "No se encontró la empresa."
+      },
+      "toasts": {
+        "creating": "Creando empresa...",
+        "created": "Empresa creada"
+      },
+      "summary": {
+        "title": "Empresa creada",
+        "subtitle": "{company} está lista.",
+        "companyCreated": "Empresa creada: {company}",
+        "facilityCreated": "Sede creada: {facility}",
+        "facilityFailed": "No se pudo crear la sede: {error}",
+        "facilitySkipped": "Sin sede inicial. Podrás agregarla desde la empresa.",
+        "userCreated": "Usuario creado: {email}",
+        "userFailed": "No se pudo crear el usuario: {error}",
+        "userSkipped": "Sin usuario inicial. Podrás crearlo en Usuarios.",
+        "credentialsTitle": "Credenciales del usuario",
+        "email": "Correo",
+        "password": "Contraseña",
+        "credentialsHelp": "Compártelas de forma segura. No se volverán a mostrar.",
+        "copy": "Copiar",
+        "copiedShort": "Copiado",
+        "copied": "Credenciales copiadas",
+        "copyFailed": "No se pudieron copiar",
+        "openCompany": "Abrir empresa",
+        "createAnother": "Crear otra empresa",
+        "backToList": "Ver empresas"
+      }
+    }
+  },
+  "preview": {
+    "title": "Resumen",
+    "subtitle": "Revisa en una tabla todos los datos ingresados.",
+    "subtitleContext": "{facility} · {year}",
+    "totalLabel": "Total estimado",
+    "tCO2e": "t CO2e",
+    "gwp": "Conjunto GWP: {set}",
+    "filters": {
+      "facility": "Sede",
+      "year": "Año",
+      "loading": "Cargando..."
+    },
+    "table": {
+      "element": "Elemento",
+      "unit": "Unidad",
+      "quantity": "Cantidad",
+      "factor": "Factor",
+      "tonnes": "t CO2e",
+      "source": "Fuente",
+      "total": "Total"
+    },
+    "scopeTotal": "Total del alcance",
+    "notReported": "Sin registrar",
+    "missingGrid": "Falta factor de red",
+    "noFactor": "Sin factor",
+    "inactiveFactor": "Factor desactivado",
+    "missingGridNote": "El año {year} no tiene factor de red eléctrica cargado, así que el Alcance 2 no se puede estimar. Un administrador puede cargarlo en la biblioteca de factores.",
+    "biogenicNote": "Incluye {tonnes} t CO2e de fuentes biogénicas, que el Protocolo GHG reporta por separado.",
+    "footnote": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
+    "monthsShort": {
+      "1": "Ene",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Abr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Ago",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dic"
+    },
+    "empty": {
+      "noFacilityTitle": "Aún no hay sedes",
+      "noFacilityBody": "Agrega una sede a tu empresa para empezar a registrar y previsualizar datos.",
+      "goToCompany": "Ir a la empresa",
+      "noYearTitle": "Aún no hay años de reporte",
+      "noYearBody": "Crea un año de reporte en Ingreso de datos para verlo aquí.",
+      "goToDataEntry": "Ir a Ingreso de datos",
+      "noDataTitle": "Aún no hay datos",
+      "noDataBody": "Registra el consumo de tus fuentes en Ingreso de datos y aparecerá en esta tabla."
     }
   }
 }

@@ -1,5 +1,5 @@
-import { ScreenSkeleton } from "@/features/app-shell";
+import { AdminTableSkeleton } from "@/features/admin";
 
 export default function Loading() {
-  return <ScreenSkeleton />;
+  return <AdminTableSkeleton />;
 }

@@ -1,14 +1,12 @@
-import { requireAdmin } from "@/lib/auth/server";
-import { FacilitiesScreen } from "@/features/facilities";
+import { redirect } from "next/navigation";
 
-export default async function Page({ params }: { params: Promise<{ companyId: string }> }) {
-  await requireAdmin();
+// Sedes management folded into the company drill-down page; this route stays as a permanent
+// redirect so old bookmarks and in-app links keep working.
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
   const { companyId } = await params;
-
-  return (
-    <FacilitiesScreen
-      companyId={companyId}
-      basePath={`/admin/companies/${companyId}/facilities`}
-    />
-  );
+  redirect(`/admin/companies/${companyId}/company`);
 }

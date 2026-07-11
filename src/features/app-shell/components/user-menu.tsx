@@ -55,7 +55,7 @@ export function UserMenu({ email, role, companyName }: UserMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href={isAdmin ? "/admin/companies" : "/facilities"}>
+          <Link href={isAdmin ? "/admin/companies" : "/company"}>
             <Building2 className="size-4" aria-hidden />
             {isAdmin ? t("companies") : t("myCompany")}
           </Link>

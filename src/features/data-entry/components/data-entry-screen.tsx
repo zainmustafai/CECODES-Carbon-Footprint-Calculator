@@ -64,7 +64,7 @@ export async function DataEntryScreen({
           body={t("empty.noFacilityBody")}
           action={
             <Button asChild>
-              <Link href={basePath.replace(/\/data-entry$/, "/facilities")}>
+              <Link href={basePath.replace(/\/data-entry$/, "/company")}>
                 {t("empty.goToFacilities")}
               </Link>
             </Button>

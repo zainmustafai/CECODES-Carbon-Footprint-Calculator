@@ -5,7 +5,7 @@ import {
   FileText,
   LayoutDashboard,
   Library,
-  MapPin,
+  Table2,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -22,7 +22,8 @@ export type NavLeaf = {
 export const WORKSPACE_ITEMS: NavLeaf[] = [
   { key: "dashboard", segment: "dashboard", icon: LayoutDashboard },
   { key: "dataEntry", segment: "data-entry", icon: ClipboardList },
-  { key: "facilities", segment: "facilities", icon: MapPin },
+  { key: "preview", segment: "preview", icon: Table2 },
+  // Sedes (facilities) is managed inside the company page now, not as its own item.
   { key: "company", segment: "company", icon: Building },
   { key: "reports", segment: "reports", icon: FileText, comingSoon: true },
 ];

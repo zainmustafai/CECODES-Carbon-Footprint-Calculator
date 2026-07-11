@@ -19,6 +19,7 @@ import { useCompanyName } from "../hooks/use-company-name";
 const SEGMENT_KEYS: Record<string, string> = {
   dashboard: "dashboard",
   "data-entry": "dataEntry",
+  preview: "preview",
   facilities: "facilities",
   company: "company",
   reports: "reports",

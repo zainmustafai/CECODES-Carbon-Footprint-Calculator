@@ -1,8 +1,8 @@
 import { requireAdmin } from "@/lib/auth/server";
-import { CompanyProfileScreen } from "@/features/company";
+import { CompanyScreen } from "@/features/company";
 
 // The same screen the company user sees, scoped by the URL instead of the session.
-// requireAdmin() guards the rendering; updateCompanyProfile re-authorizes on write.
+// requireAdmin() guards the rendering; every write action re-authorizes on its own.
 export default async function Page({
   params,
 }: {
@@ -12,7 +12,7 @@ export default async function Page({
   const { companyId } = await params;
 
   return (
-    <CompanyProfileScreen
+    <CompanyScreen
       companyId={companyId}
       basePath={`/admin/companies/${companyId}/company`}
     />

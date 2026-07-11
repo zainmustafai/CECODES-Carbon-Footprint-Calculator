@@ -20,9 +20,10 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function revalidate(companyId: string) {
-  revalidatePath("/facilities");
+  // Facilities render inside the company page now, so that is what must revalidate.
+  revalidatePath("/company");
   revalidatePath("/data-entry");
-  revalidatePath(`/admin/companies/${companyId}/facilities`);
+  revalidatePath(`/admin/companies/${companyId}/company`);
   revalidatePath(`/admin/companies/${companyId}/data-entry`);
 }
 

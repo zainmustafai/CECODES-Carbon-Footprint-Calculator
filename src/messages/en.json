@@ -67,7 +67,8 @@
     "roleBadge": {
       "company": "Company",
       "admin": "CECODES admin"
-    }
+    },
+    "preview": "Summary"
   },
   "auth": {
     "brand": {
@@ -831,6 +832,143 @@
         "gridDeleting": "Deleting grid factor...",
         "gridDeleted": "Grid factor deleted."
       }
+    },
+    "onboarding": {
+      "pageTitle": "New company",
+      "pageSubtitle": "Set up a member company, its first facility, and its first user.",
+      "title": "Company details",
+      "stepCounter": "Step {current} of {total}",
+      "steps": {
+        "company": "Company",
+        "facility": "Facility",
+        "user": "User"
+      },
+      "company": {
+        "title": "Company",
+        "description": "The member company's name and sector.",
+        "name": "Company name",
+        "namePlaceholder": "e.g. Alimentos del Valle",
+        "sector": "Sector",
+        "sectorPlaceholder": "Select a sector"
+      },
+      "facility": {
+        "title": "First facility (optional)",
+        "description": "Record the first facility now, or add it later from the company page.",
+        "name": "Facility name",
+        "namePlaceholder": "e.g. Planta Yumbo",
+        "location": "Location",
+        "locationPlaceholder": "e.g. Yumbo, Valle del Cauca"
+      },
+      "user": {
+        "title": "First user (optional)",
+        "description": "Create the first user with a temporary password to share.",
+        "email": "Email",
+        "emailPlaceholder": "person@company.com",
+        "password": "Temporary password",
+        "passwordHelp": "The user can change it after signing in.",
+        "generate": "Generate"
+      },
+      "cancel": "Cancel",
+      "back": "Back",
+      "next": "Next",
+      "submit": "Create company",
+      "validation": {
+        "companyNameRequired": "Enter the company name.",
+        "sectorRequired": "Select a sector.",
+        "facilityNameRequired": "Enter the facility name.",
+        "facilityLocationRequired": "Enter the facility location.",
+        "emailInvalid": "Enter a valid email.",
+        "passwordMin": "The password must be at least 8 characters.",
+        "emailRequired": "Enter the user's email."
+      },
+      "errors": {
+        "generic": "The action could not be completed. Please try again.",
+        "forbidden": "You do not have permission for this action.",
+        "facilityExists": "A facility with that name already exists.",
+        "emailInUse": "That email is already in use.",
+        "authFailed": "The user could not be created.",
+        "companyNotFound": "The company was not found."
+      },
+      "toasts": {
+        "creating": "Creating company...",
+        "created": "Company created"
+      },
+      "summary": {
+        "title": "Company created",
+        "subtitle": "{company} is ready.",
+        "companyCreated": "Company created: {company}",
+        "facilityCreated": "Facility created: {facility}",
+        "facilityFailed": "The facility could not be created: {error}",
+        "facilitySkipped": "No first facility. You can add it from the company page.",
+        "userCreated": "User created: {email}",
+        "userFailed": "The user could not be created: {error}",
+        "userSkipped": "No first user. You can create one under Users.",
+        "credentialsTitle": "User credentials",
+        "email": "Email",
+        "password": "Password",
+        "credentialsHelp": "Share them securely. They will not be shown again.",
+        "copy": "Copy",
+        "copiedShort": "Copied",
+        "copied": "Credentials copied",
+        "copyFailed": "Could not copy",
+        "openCompany": "Open company",
+        "createAnother": "Create another company",
+        "backToList": "View companies"
+      }
+    }
+  },
+  "preview": {
+    "title": "Summary",
+    "subtitle": "Review every value you entered in one table.",
+    "subtitleContext": "{facility} · {year}",
+    "totalLabel": "Estimated total",
+    "tCO2e": "t CO2e",
+    "gwp": "GWP set: {set}",
+    "filters": {
+      "facility": "Facility",
+      "year": "Year",
+      "loading": "Loading..."
+    },
+    "table": {
+      "element": "Element",
+      "unit": "Unit",
+      "quantity": "Quantity",
+      "factor": "Factor",
+      "tonnes": "t CO2e",
+      "source": "Source",
+      "total": "Total"
+    },
+    "scopeTotal": "Scope total",
+    "notReported": "Not reported",
+    "missingGrid": "No grid factor",
+    "noFactor": "No factor",
+    "inactiveFactor": "Factor deactivated",
+    "missingGridNote": "Year {year} has no electricity grid factor loaded, so Scope 2 cannot be estimated. An admin can load it in the factor library.",
+    "biogenicNote": "Includes {tonnes} t CO2e from biogenic sources, which the GHG Protocol reports separately.",
+    "footnote": "Reference estimate. Official totals are calculated on the Dashboard.",
+    "monthsShort": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
+    "empty": {
+      "noFacilityTitle": "No facilities yet",
+      "noFacilityBody": "Add a facility to your company to start recording and previewing data.",
+      "goToCompany": "Go to company",
+      "noYearTitle": "No reporting years yet",
+      "noYearBody": "Create a reporting year in Data entry to see it here.",
+      "goToDataEntry": "Go to Data entry",
+      "noDataTitle": "No data yet",
+      "noDataBody": "Record your source consumption in Data entry and it will appear in this table."
     }
   }
 }

@@ -6,6 +6,7 @@ import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { generateTempPassword } from "@/lib/generate-password";
 import { createUser, updateUser } from "../actions/user-actions";
 import {
   NO_COMPANY,
@@ -27,19 +28,6 @@ export type EditableUser = {
 // email and password fields are neither rendered nor validated (the update resolver ignores
 // them), so their default values simply pass through unused.
 type UserFormValues = CreateUserFormValues;
-
-// A read-only password the admin can share. Built from a safe alphabet (no 0/O, 1/l/I) with
-// crypto.getRandomValues so it is unpredictable, and at least 12 characters long.
-function generateTempPassword(length = 16): string {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  const bytes = new Uint32Array(length);
-  crypto.getRandomValues(bytes);
-  let out = "";
-  for (let i = 0; i < length; i += 1) {
-    out += alphabet[bytes[i] % alphabet.length];
-  }
-  return out;
-}
 
 export function useUserForm({
   user,

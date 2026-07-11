@@ -9,13 +9,18 @@ import { FacilityDialog } from "./facility-dialog";
 import { DeleteFacilityButton } from "./delete-facility-button";
 import { YearChips } from "./year-chips";
 
-type FacilitiesScreenProps = {
+type FacilitiesSectionProps = {
   /** Already authorized by the route. Every query re-scopes on it. */
   companyId: string;
+  /** The company base path ("/company" or "/admin/companies/[id]/company"). */
   basePath: string;
 };
 
-export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreenProps) {
+// The facilities management block, lifted out of the old standalone Sedes page so it can sit
+// under the company profile on one page. It keeps its own heading (h2, not h1) and the
+// "facilities-heading" id, because DeleteFacilityButton returns focus there after a card
+// unmounts on refresh.
+export async function FacilitiesSection({ companyId, basePath }: FacilitiesSectionProps) {
   const t = await getTranslations("facilities");
 
   // The years themselves, not just their count: each chip must state how many activity
@@ -34,19 +39,21 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
     },
   });
 
+  const dataEntryBase = basePath.replace(/\/company$/, "/data-entry");
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           {/* tabIndex -1 so focus can return here after a facility card unmounts. */}
-          <h1
+          <h2
             id="facilities-heading"
             tabIndex={-1}
-            className="text-2xl font-semibold tracking-tight outline-none"
+            className="text-lg font-semibold tracking-tight outline-none"
           >
             {t("title")}
-          </h1>
-          <p className="text-muted-foreground">{t("subtitle")}</p>
+          </h2>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <FacilityDialog companyId={companyId} />
       </div>
@@ -92,9 +99,7 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
                     {t("yearCount", { count: facility.reportingYears.length })}
                   </Badge>
                   <Button asChild variant="ghost" size="sm">
-                    <Link
-                      href={`${basePath.replace(/\/facilities$/, "/data-entry")}?facilityId=${facility.id}`}
-                    >
+                    <Link href={`${dataEntryBase}?facilityId=${facility.id}`}>
                       <ClipboardList className="size-4" aria-hidden />
                       {t("openDataEntry")}
                     </Link>
@@ -105,6 +110,6 @@ export async function FacilitiesScreen({ companyId, basePath }: FacilitiesScreen
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

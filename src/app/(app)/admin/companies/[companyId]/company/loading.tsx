@@ -1,5 +1,5 @@
-import { ScreenSkeleton } from "@/features/app-shell";
+import { CompanySkeleton } from "@/features/company";
 
 export default function Loading() {
-  return <ScreenSkeleton cards={0} />;
+  return <CompanySkeleton />;
 }
