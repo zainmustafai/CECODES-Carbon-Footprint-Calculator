@@ -19,7 +19,11 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
-  timeout: 60_000,
+  // The suite runs against `bun run dev`, not a production build, so pages compile on first
+  // hit and every query crosses the Supabase pooler. The data-entry happy path in particular
+  // does many autosave round trips over a page that now carries the full ~1700-factor picker.
+  // 90s keeps that honest without masking a real hang (a hung test still fails, just later).
+  timeout: 90_000,
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",

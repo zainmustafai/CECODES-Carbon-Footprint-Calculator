@@ -27,11 +27,15 @@ function category(page: Page, name: string | RegExp) {
 // The element names come from the live factor library, which prisma/import-factors.ts
 // replaces wholesale with CECODES's dataset. Hardcoding one would tie the suite to whichever
 // starter row happened to be seeded, so the first offered option is used instead.
+//
+// The option renders the element name, then a unit span. Reading textContent would glue them
+// ("Acetileno - Fijokg") and never match the field's "Valor anual: Acetileno - Fijo (kg)"
+// aria-label, so take just the first span, which is the element name.
 async function addFirstSource(page: Page, section: ReturnType<typeof category>) {
   await section.getByRole("button", { name: /agregar fuente/i }).click();
   const option = page.getByRole("option").first();
   await expect(option).toBeVisible();
-  const element = (await option.textContent())?.trim() ?? "";
+  const element = (await option.locator("span").first().innerText()).trim();
   await option.click();
   return element;
 }
@@ -90,8 +94,10 @@ test.describe("data entry", () => {
     await page.getByRole("button", { name: /copiar enero a todos los meses/i }).click();
     await expect(page.getByText("12 de 12 meses")).toBeVisible({ timeout: 15_000 });
 
-    // The reload is the point of this test: it proves the Decimal round trip.
-    await page.reload();
+    // The reload is the point of this test: it proves the Decimal round trip. Wait for
+    // domcontentloaded rather than the full load event: the assertions below wait for their
+    // own elements, and the dev server's HMR socket can delay `load` on this heavy page.
+    await page.reload({ waitUntil: "domcontentloaded" });
 
     await page.getByRole("tab", { name: "Alcance 1" }).click();
     await expect(

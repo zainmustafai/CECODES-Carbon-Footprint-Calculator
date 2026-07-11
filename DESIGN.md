@@ -103,7 +103,9 @@ es-CO types a decimal comma and a number input round-trips through a float.
 
 **Nothing ever feels stuck.** Every button that triggers work takes `loading`, which shows a
 spinner and sets `aria-busy`. Row actions show a loading toast that becomes the success or
-error toast. See the async-feedback table in IMPLEMENTATION.md section 4.
+error toast. A thin green progress bar (`--primary`) crosses the top of the viewport the
+instant any navigation starts and completes when the destination commits, so even a slow
+route load has immediate feedback. See the async-feedback table in IMPLEMENTATION.md section 4.
 
 ## Layout patterns
 

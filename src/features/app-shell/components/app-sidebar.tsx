@@ -107,7 +107,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
             <SidebarMenuButton
               size="lg"
               asChild
-              className="bg-white hover:bg-white active:bg-white/90 h-16 min-h-max"
+              className="bg-white hover:bg-white active:bg-white/90 h-20 min-h-max"
             >
               <Link
                 href={isAdmin ? "/admin/companies" : "/dashboard"}
@@ -124,15 +124,15 @@ export function AppSidebar({ role }: AppSidebarProps) {
                     height={30}
                     alt="Logo"
                     aria-hidden
-                    className="size-full object-cover object-left"
+                    className="size-full object-cover object-left scale-80"
                   />
                 : <Image
                     src="/logo.png"
                     alt=""
                     aria-hidden
-                    width={96}
-                    height={96}
-                    className="size-full object-cover object-left"
+                    width={200}
+                    height={200}
+                    className="mx-auto"
                   />
                 }
               </Link>

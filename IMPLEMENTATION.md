@@ -663,6 +663,13 @@ A list of things that have already cost someone an hour.
   reading `ref.current` during render. Both are real bugs, not lint noise. Use
   `useSyncExternalStore` for external state such as `matchMedia`, and the lazy
   `useState(() => ...)` initializer for a store.
+- **The App Router calls `history.pushState` from inside a React insertion effect** while it
+  commits a navigation. Scheduling a state update in that window throws "useInsertionEffect
+  must not schedule updates" and corrupts the commit, which silently breaks the navigation.
+  [navigation-progress.tsx](src/components/feedback/navigation-progress.tsx) patches
+  `pushState` to drive the top loading bar, so it defers every `setState` to a
+  `requestAnimationFrame`, never touching React state inside the patched call. Anything that
+  hooks navigation the same way must do likewise.
 
 **shadcn**
 
