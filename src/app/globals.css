@@ -62,7 +62,10 @@
   --secondary: oklch(0.96 0.02 156);
   --secondary-foreground: oklch(0.32 0.05 158);
   --muted: oklch(0.97 0.01 156);
-  --muted-foreground: oklch(0.52 0.02 158);
+  /* 0.52 rendered at 4.49:1 on the page background, a hair under AA (4.5). Darkened to 0.49
+     so quiet text (inactive tabs, captions, hints) clears the bar with margin. It is only
+     ever used on light surfaces, where darker means more contrast. */
+  --muted-foreground: oklch(0.49 0.02 158);
   --accent: oklch(0.95 0.04 156);
   --accent-foreground: oklch(0.32 0.06 158);
   --destructive: oklch(0.58 0.22 27.3);
@@ -75,14 +78,17 @@
   --chart-4: oklch(0.65 0.12 195);
   --chart-5: oklch(0.55 0.03 250);
   --radius: 0.625rem;
-  --sidebar: oklch(0.98 0.006 156);
-  --sidebar-foreground: oklch(0.28 0.02 158);
-  --sidebar-primary: oklch(0.5 0.12 157);
-  --sidebar-primary-foreground: oklch(0.99 0.01 150);
-  --sidebar-accent: oklch(0.95 0.03 156);
-  --sidebar-accent-foreground: oklch(0.32 0.06 158);
-  --sidebar-border: oklch(0.91 0.01 156);
-  --sidebar-ring: oklch(0.5 0.12 157);
+  /* The sidebar is a deep forest green surface, darker than the --primary button green.
+     Labels sit on --sidebar-accent (about 7:1); the bright --sidebar-primary is carried
+     only by the active indicator bar and icon, never by 14px text. */
+  --sidebar: oklch(0.3 0.04 158);
+  --sidebar-foreground: oklch(0.96 0.015 150);
+  --sidebar-primary: oklch(0.72 0.14 155);
+  --sidebar-primary-foreground: oklch(0.2 0.03 158);
+  --sidebar-accent: oklch(0.37 0.045 158);
+  --sidebar-accent-foreground: oklch(0.98 0.01 150);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.8 0.1 152);
 }
 
 .dark {
@@ -109,17 +115,21 @@
   --chart-3: oklch(0.65 0.13 245);
   --chart-4: oklch(0.7 0.12 195);
   --chart-5: oklch(0.65 0.03 250);
-  --sidebar: oklch(0.21 0.02 158);
-  --sidebar-foreground: oklch(0.96 0.01 150);
-  --sidebar-primary: oklch(0.62 0.13 156);
+  --sidebar: oklch(0.23 0.035 158);
+  --sidebar-foreground: oklch(0.95 0.012 150);
+  --sidebar-primary: oklch(0.7 0.14 155);
   --sidebar-primary-foreground: oklch(0.18 0.03 158);
   --sidebar-accent: oklch(0.31 0.04 158);
-  --sidebar-accent-foreground: oklch(0.96 0.01 150);
+  --sidebar-accent-foreground: oklch(0.97 0.01 150);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.13 156);
+  --sidebar-ring: oklch(0.72 0.13 155);
 }
 
 @layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
   * {
     @apply border-border outline-ring/50;
   }

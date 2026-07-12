@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
 import { isEmailInUse } from "../lib/errors";
 
 // Server-side origin for email redirect links.
@@ -21,8 +22,23 @@ export async function signInAction(input: {
   password: string;
 }): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(input);
+  const { data, error } = await supabase.auth.signInWithPassword(input);
   if (error) return { error: "invalidCredentials" };
+
+  // A deactivated account keeps working credentials, so refuse at the front door and say so
+  // plainly. This is UX, not the security boundary: requireAppUser and the scope resolvers
+  // re-read `active` on every request, which is what actually stops a live session.
+  if (data.user) {
+    const profile = await prisma.appUser.findUnique({
+      where: { id: data.user.id },
+      select: { active: true },
+    });
+    if (profile && !profile.active) {
+      await supabase.auth.signOut();
+      return { error: "accountDisabled" };
+    }
+  }
+
   return {};
 }
 

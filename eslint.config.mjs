@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The legacy prototype we reverse engineered. Git ignored, read only, not ours to fix.
+    "reference/**",
+    // Written by `prisma generate`.
+    "src/lib/generated/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

@@ -34,6 +34,17 @@ enum Role {
   CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
 }
 
+// What an admin did to a factor. IMPORTED is written by prisma/import-factors.ts; its
+// absence on every change row for a factor is what marks that factor "never edited by a
+// human", which is the signal the importer uses to decide it may safely overwrite.
+enum FactorChangeAction {
+  CREATED
+  UPDATED
+  DEACTIVATED
+  REACTIVATED
+  IMPORTED
+}
+
 // ---------------------------------------------------------------------------
 // Identity (Supabase Auth owns auth.users; we mirror role + company link here)
 // ---------------------------------------------------------------------------
@@ -44,8 +55,15 @@ model AppUser {
   role      Role     @default(COMPANY_USER)
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
+  // A deactivated user keeps their auth credentials but is refused at every server entry
+  // point (requireAppUser, resolveCompanyScope, resolveAdminScope, signInAction). The role
+  // and this flag live in Postgres, not in the JWT, so every request re-reads them and a
+  // deactivation takes effect immediately without revoking a session.
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  factorChanges EmissionFactorChange[]
 
   @@index([companyId])
   @@map("app_users")
@@ -56,13 +74,17 @@ model AppUser {
 // ---------------------------------------------------------------------------
 
 model Company {
-  id         String     @id @default(uuid())
-  name       String // Empresa
-  sector     String? // optional
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  facilities Facility[]
-  users      AppUser[]
+  id           String     @id @default(uuid())
+  name         String // Empresa
+  sector       String? // optional; slug from src/lib/sectors.ts, free text for legacy rows
+  contactEmail String? // optional; shown on reports
+  // A deactivated company blocks its own users. Admins may still open it to fix and
+  // reactivate it, which is why resolveCompanyScope checks this only on the company-user path.
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  facilities   Facility[]
+  users        AppUser[]
 
   @@map("companies")
 }
@@ -77,6 +99,7 @@ model Facility {
   updatedAt      DateTime        @updatedAt
   reportingYears ReportingYear[]
 
+  @@unique([companyId, name])
   @@index([companyId])
   @@map("facilities")
 }
@@ -91,11 +114,15 @@ model ReportingYear {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  entries ActivityEntry[]
-  targets ScopeTarget[]
-  results ResultSnapshot[]
+  entries       ActivityEntry[]
+  targets       ScopeTarget[]
+  results       ResultSnapshot[]
+  applicability CategoryApplicability[]
 
   @@unique([facilityId, year])
+  // Backs the composite foreign key from activity_entries, which makes it impossible for a
+  // child row to claim one company while its reporting year belongs to another.
+  @@unique([id, companyId])
   @@index([companyId])
   @@map("reporting_years")
 }
@@ -103,9 +130,18 @@ model ReportingYear {
 // One activity-data value.
 // Scope 2 (electricity) => 12 rows per source (month 1..12).
 // Scopes 1 & 3          => 1 row per source (month = null, i.e. annual).
+//
+// Adding a source creates its rows immediately with value = null, so the rows record that
+// the source applies to the year. `value = null` means "not reported yet"; `value = 0`
+// means the company genuinely consumed nothing. Both contribute 0 to the total, but only
+// the second is an answer.
 model ActivityEntry {
-  id              String        @id @default(uuid())
-  reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid())
+
+  // Composite foreign key. Binding companyId into the relation makes it impossible for an
+  // entry to claim one company while its reporting year belongs to another. It references
+  // ReportingYear's @@unique([id, companyId]).
+  reportingYear   ReportingYear @relation(fields: [reportingYearId, companyId], references: [id, companyId], onDelete: Cascade)
   reportingYearId String
   companyId       String // denormalized for RLS
 
@@ -120,15 +156,40 @@ model ActivityEntry {
   unit        String // consumption unit shown to the user (gal, kWh, kg, km, ...)
 
   month Int? // 1..12 for Scope 2; null = annual (Scopes 1 & 3)
-  value Decimal @db.Decimal(20, 6) // activity data - decimals allowed, never truncated
+  value Decimal? @db.Decimal(20, 6) // activity data - decimals allowed, never truncated; null = not reported
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Dedupes the 12 Scope-2 month rows. Postgres treats NULLs as distinct, so the annual
+  // (month IS NULL) rows are deduped by a partial unique index in the migration instead.
+  @@unique([reportingYearId, emissionFactorId, month])
   @@index([reportingYearId, scope])
+  @@index([reportingYearId, companyId])
   @@index([companyId])
   @@index([emissionFactorId])
   @@map("activity_entries")
+}
+
+// Whether a company declares a whole category applicable for a reporting year. This is
+// reportable data, not UI state: the GHG Protocol requires excluded categories to be
+// disclosed with a justification, so "no aplica" has to survive to the report.
+// Absence of a row means the category applies (the column default). The toggle exists to
+// let a company hide sources it does not have, not to opt in.
+model CategoryApplicability {
+  id              String        @id @default(uuid())
+  reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
+  reportingYearId String
+  companyId       String // denormalized for RLS
+  scope           Scope
+  category        String
+  applies         Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([reportingYearId, scope, category])
+  @@index([companyId])
+  @@map("category_applicability")
 }
 
 // Reduction target per scope (Meta) - inclusion pending CECODES confirmation (Req. §12.9)
@@ -152,7 +213,7 @@ model ScopeTarget {
 
 model EmissionFactorVersion {
   id           String           @id @default(uuid())
-  version      String // e.g. "v005"
+  version      String           @unique // e.g. "v005"
   date         DateTime
   preparedBy   String? // Elaboró
   reviewedBy   String? // Revisó
@@ -195,8 +256,13 @@ model EmissionFactor {
   versionId String?
 
   entries   ActivityEntry[]
+  changes   EmissionFactorChange[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  // The natural key (scope, category, subcategory, element, unit) is enforced by a hand
+  // written expression index in the migration, because a plain unique index would treat two
+  // NULL subcategories as distinct. It is not declared here: Prisma cannot express COALESCE.
 
   @@index([scope, category, subcategory])
   @@index([versionId])
@@ -204,13 +270,40 @@ model EmissionFactor {
   @@map("emission_factors")
 }
 
+// Per-factor audit trail. Requirements section 8: every change records who, when, and what.
+//
+// EmissionFactorVersion stays the library RELEASE concept (Excel "Control de Cambios"
+// parity: v001..v005). This table is the per-edit record beneath it.
+//
+// `changes` holds a field diff, { field: { from, to } }, with every Decimal serialized as a
+// string. Two full row snapshots per edit would triple the storage and force the UI to diff
+// at read time; a CREATED row stores the whole initial state as from:null, so nothing is lost.
+model EmissionFactorChange {
+  id             String             @id @default(uuid())
+  factor         EmissionFactor     @relation(fields: [factorId], references: [id], onDelete: Cascade)
+  factorId       String
+  changedBy      AppUser?           @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  changedById    String?
+  changedByEmail String // denormalized: the audit row must outlive the actor
+  action         FactorChangeAction
+  changes        Json
+  changedAt      DateTime           @default(now())
+
+  @@index([factorId, changedAt])
+  @@map("emission_factor_changes")
+}
+
 // Scope-2 national grid factor by year (SIN) - Req. §7.3. Global reference data.
 model GridElectricityFactor {
-  id        String   @id @default(uuid())
-  year      Int      @unique
-  factor    Decimal  @db.Decimal(30, 10) // kg CO2 / kWh
-  source    String? // UPME / XM
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  year           Int      @unique
+  factor         Decimal  @db.Decimal(30, 10) // kg CO2 / kWh
+  source         String? // UPME / XM
+  createdAt      DateTime @default(now())
+  // Who last touched this year, and when. A full change table is unnecessary here: the year
+  // rows are themselves the history, and the library version notes record the release.
+  updatedAt      DateTime @default(now()) @updatedAt
+  updatedByEmail String?
 
   @@map("grid_electricity_factors")
 }

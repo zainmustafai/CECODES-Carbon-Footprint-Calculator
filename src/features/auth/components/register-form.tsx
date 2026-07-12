@@ -56,7 +56,7 @@ export function RegisterForm() {
         {...register("confirmPassword")}
       />
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" className="w-full" loading={isSubmitting}>
         {t("submit")}
       </Button>
     </form>

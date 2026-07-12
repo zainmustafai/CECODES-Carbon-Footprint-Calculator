@@ -1,0 +1,63 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { createFactor, updateFactor } from "../actions/factor-actions";
+import { factorFormSchema, type FactorFormValues } from "../schemas/factor-schemas";
+
+type UseFactorFormArgs = {
+  mode: "create" | "edit";
+  factorId?: string;
+  defaultValues: FactorFormValues;
+};
+
+// The factor form has a visible submit button, so it follows the form policy: a Button
+// spinner and an inline serverError, never a loading toast. A success toast confirms the
+// write, then we navigate.
+export function useFactorForm({ mode, factorId, defaultValues }: UseFactorFormArgs) {
+  const tv = useTranslations("admin.factors.validation");
+  const te = useTranslations("admin.factors.errors");
+  const tt = useTranslations("admin.factors.toasts");
+  const router = useRouter();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const resolver = useMemo(() => zodResolver(factorFormSchema(tv)), [tv]);
+  const form = useForm<FactorFormValues>({ resolver, defaultValues });
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setServerError(null);
+
+    if (mode === "edit") {
+      if (!factorId) return;
+      // Nothing changed: skip the round trip and say so. The server also refuses to write an
+      // audit row for an empty diff, so this stays honest even for a comma-only edit.
+      if (!form.formState.isDirty) {
+        toast(tt("noChanges"));
+        return;
+      }
+      const { error } = await updateFactor({ factorId, ...values });
+      if (error) {
+        setServerError(te(error));
+        return;
+      }
+      toast.success(tt("updated"));
+      form.reset(values);
+      router.refresh();
+      return;
+    }
+
+    const { error } = await createFactor(values);
+    if (error) {
+      setServerError(te(error));
+      return;
+    }
+    toast.success(tt("created"));
+    router.push("/admin/factors");
+  });
+
+  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+}

@@ -2,8 +2,12 @@
 
 Corporate greenhouse-gas **carbon-footprint calculator + visualization dashboard** for CECODES.
 Companies self-register, enter activity data across the three GHG-Protocol scopes (Alcance 1/2/3),
-and the tool computes emissions (t CO₂e) — reproducing CECODES's Excel tool — and visualizes them.
+and the tool computes emissions (t CO₂e), reproducing CECODES's Excel tool, and visualizes them.
 
+> **Before writing code, read [IMPLEMENTATION.md](./IMPLEMENTATION.md).** It covers the
+> architecture, the conventions, the security model, and the traps.
+> [DESIGN.md](./DESIGN.md) is the design system.
+>
 > **Product docs live in [`/docs`](./docs).** Start with the requirements and the weekly plan.
 > This README covers the code/setup only.
 
@@ -12,7 +16,7 @@ and the tool computes emissions (t CO₂e) — reproducing CECODES's Excel tool 
 | Layer | Choice |
 |---|---|
 | App | **Next.js 16** (App Router, full-stack) · **React 19** |
-| Styling / UI | **Tailwind CSS v4** · **shadcn/ui** (Base UI) |
+| Styling / UI | **Tailwind CSS v4** · **shadcn/ui** (Radix UI) |
 | Charts | **Recharts** (via shadcn `chart`) |
 | Database | **Supabase Postgres** |
 | Auth & isolation | **Supabase Auth + Row-Level Security** |
@@ -30,7 +34,8 @@ and the **Prisma + RLS integration note** (validate in Phase 1).
 bun install                 # installs deps and runs `prisma generate`
 # put your Supabase values in .env.local (or .env): NEXT_PUBLIC_SUPABASE_*, DATABASE_URL, DIRECT_URL
 bun run db:deploy           # apply migrations to Supabase (no shadow DB needed)
-bun run db:seed             # starter reference data (grid factors + factor-library versions)
+bun run db:seed             # starter reference data (grid factors + factor-library versions + admin)
+bun run db:import-factors   # load CECODES's full factor library from the Excel
 bun run dev                 # http://localhost:3000
 ```
 
@@ -41,11 +46,30 @@ bun run dev                 # http://localhost:3000
 | `bun run dev` | Start the dev server |
 | `bun run build` / `bun run start` | Production build / serve |
 | `bun run lint` / `bun run typecheck` | ESLint / TypeScript check |
-| `bun run db:migrate` | Prisma migrate (dev) against `DIRECT_URL` |
+| `bun run test` / `bun run test:e2e` | Vitest unit tests / Playwright end to end |
+| `bun run db:migrate` | Prisma migrate (dev) against `DIRECT_URL`. Unused: see the migrations note |
 | `bun run db:deploy` | Apply migrations (prod) |
 | `bun run db:studio` | Prisma Studio |
-| `bun run db:seed` | Seed starter reference data |
+| `bun run db:seed` | Seed starter reference data and the single CECODES admin |
+| `bun run db:import-factors` | Import the full emission-factor library from `docs/reference/*.xlsx`. Add `--dry-run` to preview |
+| `bun run db:seed:demo` | Seed the demo companies. Guarded, see below |
 | `bun run db:generate` | Regenerate the Prisma client |
+
+### Demo data
+
+`bun run db:seed:demo` creates two demo tenants for manual QA and for showing the tool to
+CECODES. It is deliberately NOT part of `db:seed`.
+
+| Account | Company | What it exercises |
+|---|---|---|
+| `demo1@demo.cecodes.invalid` | Demo Alimentos del Valle | Two sedes, reporting years 2023 and 2024, data across all three alcances. 2024 electricity is reported for 8 of 12 months, so the "8 de 12 meses" state is real |
+| `demo2@demo.cecodes.invalid` | Demo Empresa Vacia | No sedes: every empty state in the product |
+
+Both sign in with the value of `DEMO_PASSWORD` from `.env.local`.
+
+> **There is one shared Supabase database.** `DEMO_SEED_ALLOWED=true` is the only thing that
+> stops this script from writing demo companies into production. Keep it in `.env.local` and
+> never set it in a deployed environment. The script refuses to run without it.
 
 > **Migrations:** the Supabase pooler has no shadow database, so `prisma migrate dev` isn't used.
 > To add one: edit `prisma/schema.prisma`, then generate SQL with

@@ -87,7 +87,7 @@ Reach for the primitive, do not rebuild it:
 | Status | `Badge` (`secondary` for neutral, `outline` for "coming soon") |
 | Dense data | `Table` |
 | Row actions / menus | `DropdownMenu` |
-| Destructive confirm | `AlertDialog` (never a plain `Dialog`) |
+| Destructive confirm | `ConfirmActionDialog` (an `AlertDialog` that stays open, with a spinner, until the action settles) |
 | Mobile nav | `Sheet` |
 | Identity | `Avatar` with initials fallback |
 | Toasts | `sonner` |
@@ -96,14 +96,41 @@ Reach for the primitive, do not rebuild it:
 email, lock for password), show the unit when relevant, and render errors as
 `text-sm text-destructive` below the field.
 
+**Every field uses the control its data deserves.** A sector is a `SelectField`, not free
+text. A year is `type="number"`. An email is `type="email"`. A quantity or an emission factor
+is a `DecimalField`: `type="text"` with `inputMode="decimal"`, never `type="number"`, because
+es-CO types a decimal comma and a number input round-trips through a float.
+
+**Nothing ever feels stuck.** Every button that triggers work takes `loading`, which shows a
+spinner and sets `aria-busy`. Row actions show a loading toast that becomes the success or
+error toast. A thin green progress bar (`--primary`) crosses the top of the viewport the
+instant any navigation starts and completes when the destination commits, so even a slow
+route load has immediate feedback. See the async-feedback table in IMPLEMENTATION.md section 4.
+
 ## Layout patterns
 
 - **Auth (login, register, reset):** full height split. Left is the green brand panel
   (logo, eyebrow, headline, scope pills) hidden below `lg`. Right is the form, centered and
   sized by responsive padding, not a fixed `max-w`.
-- **App shell:** a fixed left `Sidebar` (brand + nav with active state) plus a top bar
-  (page context, language toggle, user menu). Content area is `p-6 lg:p-8`. On mobile the
-  sidebar collapses into a `Sheet`.
+- **App shell:** the shadcn `sidebar` block, `variant="inset" collapsible="icon"`, plus a
+  top bar (sidebar trigger, breadcrumbs, language toggle, avatar menu). Content is
+  `p-6 lg:p-8`. Below `lg` the sidebar becomes a `Sheet`; at or above it collapses to an
+  icon rail. The sidebar is a **deep forest green** surface, darker than the `--primary`
+  button green, driven entirely by the `--sidebar*` tokens: no component hardcodes a color.
+  - The active nav item is `bg-sidebar-accent` with a near white label (about 7:1) plus a
+    bright green inset bar and icon. Never put 14px text on a bright green fill: it lands
+    near 3.2:1 and fails AA.
+  - Nav is one sidebar with role filtered groups, not one sidebar per role. An admin drilled
+    into a company gets that company's workspace under a `SidebarMenuSub`.
+- **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, and collapsible
+  category sections. Values autosave on blur, batched; there is no Guardar button. The unit
+  is always visible beside the value. The Scope 2 month grid is 1 column on a phone, 3 at
+  `md`, 4 at `lg`, with the estimated-emissions summary in an 18rem rail beside it. Twelve
+  across one line loses on every viewport.
+- **Estimated emissions:** every source shows what it currently adds up to, live. A Scope 2
+  source gets the full summary card in its rail; an annual Scope 1 or 3 source gets a single
+  compact line, because one value does not deserve a card. When a factor is missing the
+  summary says so. It never renders `0.0 t CO2e` for a source that simply has no factor.
 - **Width:** do not cap content with arbitrary `max-w-*` that leaves dead space. Fill the
   space with grids and responsive padding. Multi column on `md+`, stacked on mobile.
 - **Dashboard:** a KPI row (total plus one card per scope) over a details area (company,
