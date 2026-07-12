@@ -94,6 +94,17 @@ export async function DashboardScreen({
         </Note>
       ) : null}
 
+      {current.unpricedCount > 0 ? (
+        // Sources the engine could not price are EXCLUDED from every total above, so the
+        // headline is too low. Disclose it: an unpriced source is an unknown, not a zero.
+        <Note
+          tone="warning"
+          icon={<AlertTriangle className="size-4 text-chart-2" aria-hidden />}
+        >
+          {t("unpricedNote", { count: current.unpricedCount })}
+        </Note>
+      ) : null}
+
       <KpiCards current={current} previous={vm.previous} targets={vm.targets} />
 
       {/* Scope + category */}

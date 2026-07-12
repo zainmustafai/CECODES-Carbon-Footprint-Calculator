@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PreviewScopeGroup } from "../lib/types";
+import { NO_VALUE } from "../lib/no-value";
 import { EstimateCell } from "./preview-cells";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -22,7 +23,7 @@ export async function PreviewMonthlyTable({ group }: { group: PreviewScopeGroup 
   const format = await getFormatter();
 
   const cell = (value: string) => {
-    if (value === "") return <span className="text-muted-foreground">{"—"}</span>;
+    if (value === "") return <span className="text-muted-foreground">{NO_VALUE}</span>;
     const normalized = normalizeDecimalInput(value);
     if (normalized === "" || !isValidEntryValue(normalized)) return value;
     const parsed = Number(normalized);
@@ -67,7 +68,7 @@ export async function PreviewMonthlyTable({ group }: { group: PreviewScopeGroup 
             <TableCell className="text-right font-medium tabular-nums">
               {source.hasQuantity
                 ? format.number(source.quantity, { maximumFractionDigits: 0 })
-                : "—"}
+                : NO_VALUE}
             </TableCell>
             <TableCell className="text-right tabular-nums">
               <EstimateCell estimate={source.estimate} hasQuantity={source.hasQuantity} />

@@ -4,6 +4,10 @@ import { ADMIN_STORAGE_STATE, loadFixture, type Fixture } from "./fixture";
 
 // Admin CRUD over companies: create, edit sector, deactivate/activate, delete an empty
 // company, and confirm that deleting a company that still has data is refused.
+//
+// Creation goes through the multi-step wizard at /admin/companies/new. The header "Nueva
+// empresa" control is a LINK to that route now, not a dialog trigger. Editing still uses the
+// dialog, reached from the row-actions menu.
 
 test.use({ storageState: ADMIN_STORAGE_STATE });
 test.describe.configure({ mode: "serial" });
@@ -21,17 +25,27 @@ const card = (page: Page, name: string) =>
   page.locator('[data-slot="card"]').filter({ hasText: name });
 
 test.describe("admin companies", () => {
-  test("creates a company", async ({ page }) => {
+  test("creates a company through the onboarding wizard", async ({ page }) => {
     await page.goto("/admin/companies");
 
-    await page.getByRole("button", { name: /nueva empresa/i }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByLabel(/nombre de la empresa/i).fill(companyName);
-    await dialog.getByRole("combobox", { name: /sector/i }).click();
-    await page.getByRole("option", { name: "Manufactura" }).click();
-    await dialog.getByRole("button", { name: /^guardar$/i }).click();
+    await page.getByRole("link", { name: /nueva empresa/i }).click();
+    await page.waitForURL("**/admin/companies/new");
 
-    await expect(page.getByText(/empresa creada/i)).toBeVisible({ timeout: 15_000 });
+    // Step 1: the company itself. Both fields are required.
+    await page.getByLabel(/nombre de la empresa/i).fill(companyName);
+    await page.getByRole("combobox", { name: /sector/i }).click();
+    await page.getByRole("option", { name: "Manufactura" }).click();
+    await page.getByRole("button", { name: /siguiente/i }).click();
+
+    // Step 2 (first sede) and step 3 (first user) are both optional. Skip them: this spec
+    // owns the company-CRUD path, and the facility and user paths have their own specs.
+    await page.getByRole("button", { name: /siguiente/i }).click();
+    await page.getByRole("button", { name: /crear empresa/i }).click();
+
+    // The wizard ends on a summary screen, not back on the list.
+    await expect(page.getByText(/empresa creada/i).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("link", { name: /ver empresas/i }).click();
+
     await expect(card(page, companyName)).toBeVisible();
     await expect(card(page, companyName)).toContainText(/manufactura/i);
   });

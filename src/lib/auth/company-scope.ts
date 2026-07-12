@@ -1,13 +1,23 @@
 import { prisma } from "@/lib/prisma";
-import { getAppUser } from "@/lib/auth/server";
+import { getAppUser, getUser } from "@/lib/auth/server";
 import type { AppUser } from "@/lib/generated/prisma/client";
 
 // Prisma connects as the Postgres owner and therefore BYPASSES the RLS policies in
 // prisma/migrations/20260709120320_rls_and_auth. Those policies are inert at runtime.
 // Per-company isolation is enforced here, in server code, plus by the DB constraints
 // added in the data-entry migration. This module is the ONLY place the
-// admin-versus-company-user decision is made. Every page and every server action that
-// touches tenant data calls it first.
+// admin-versus-company-user decision is made.
+//
+// Where it is actually called, precisely (the docs used to overstate this):
+//   - EVERY Server Action that touches tenant data calls a resolver here FIRST. Actions are
+//     public POST endpoints that run no layout, so this is the only thing protecting them.
+//   - Pages do NOT call it. They guard with requireAppUser()/requireAdmin() and pass a
+//     companyId down (from the session for company routes, from the URL for admin routes).
+//     That is safe because the admin routes are admin-only and the company routes derive the
+//     id from the user's own row.
+//     CAUTION: loadDashboard() and loadPreview() accept a companyId and query Prisma with NO
+//     authorization of their own. They are safe only because of their callers. Any new caller
+//     that passes a user-supplied companyId without a guard bypasses tenant isolation.
 
 export type ScopeErrorReason = "no-profile" | "forbidden" | "not-found";
 
@@ -64,6 +74,35 @@ export async function resolveCompanyScope({
   if (!company.active) throw new ScopeError("forbidden");
 
   return { appUser, companyId: appUser.companyId, isAdmin: false };
+}
+
+export type OnboardingScope = {
+  userId: string;
+  email: string;
+  /** Null when the signup trigger has not written the profile row yet. */
+  appUser: AppUser | null;
+};
+
+// Onboarding is the one flow that runs BEFORE a company exists, so resolveCompanyScope cannot
+// apply: there is no companyId to authorize against. It still belongs in this module, because
+// this is the only place that decides who may act.
+//
+// The check that matters is `active`. A deactivated user may still hold a valid Supabase
+// session, and createCompanyAction is a public POST endpoint that runs no layout, so the
+// /account-disabled redirect in requireAppUser never fires for it. Without this guard a
+// deactivated user who was never onboarded could create a company and link themselves to it.
+export async function resolveOnboardingScope(): Promise<OnboardingScope> {
+  const user = await getUser();
+  if (!user) throw new ScopeError("no-profile");
+
+  const appUser = await getAppUser();
+  // A missing profile row is legitimate here: the signup trigger may not have run, and the
+  // action self-heals it. A profile that exists and is deactivated is not legitimate.
+  if (appUser && !appUser.active) throw new ScopeError("forbidden");
+
+  // Already having a company is NOT an authorization failure; the caller reports it as
+  // "alreadyOnboarded". Authorization stops here.
+  return { userId: user.id, email: user.email ?? "", appUser };
 }
 
 export type AdminScope = { appUser: AppUser };

@@ -139,13 +139,16 @@ src/
     form/                  TextField, PasswordField. RHF compatible via forwardRef
 
   features/
-    admin/                 Companies list, users list, factor library placeholder
+    admin/                 Companies, users, factor library (CRUD + audit), onboarding wizard
     app-shell/             Sidebar, topbar, breadcrumbs, nav config
     auth/                  Sign in, sign up, password reset
+    company/               The company page: profile + the Sedes section
     data-entry/            The core feature. See section 9
-    dashboard/             KPI frame. No real numbers yet
-    facilities/            Sedes: list, add, rename, delete
+    dashboard/             Real computed numbers. See src/lib/calc/rollup.ts
+    facilities/            Sedes CRUD. Rendered inside the company page, not its own route
     localization/          Language toggle
+    onboarding/            First company + first sede, for a self-signed-up user
+    preview/               Read-only spreadsheet of everything entered
     onboarding/            Company and first facility
 
   hooks/use-mobile.ts      matchMedia at 1024px, read via useSyncExternalStore
@@ -584,9 +587,21 @@ authorization matrix:
 - `entry-store.test.ts`: dirty tracking, rollback, the invalid draft rule, `hydrate`.
 - `shape-entries.test.ts`: month semantics, grouping, deactivated factors.
 - `gwp.test.ts`: the 2021 and 2022 boundary, `kgToTonnes`.
+- `rollup.test.ts` and `preview.test.ts`: the two worked examples from docs section 7.5, GWP
+  selection, the decimal comma, and the honest failure states. Note these assert numbers
+  re-derived **by hand**; they are not Excel parity. See section 12.
+- `map-row.test.ts`: the importer's column mapping, including the grams versus kilograms rule.
+- `factor-diff.test.ts`: the Decimal aware audit diff.
+- `messages.test.ts`: es and en key parity.
+- `conventions.test.ts`: the em dash ban, over the whole tree. It used to cover only the two
+  message JSON files, which is exactly how four em dashes reached `src/features/preview/`.
 - `company-scope.test.ts`: **the highest value file in the suite.** Admin with a valid id,
   a nonexistent id, and no id; company user with their own id, another company's id, and no
-  company; a session with no profile row.
+  company; a session with no profile row; and `resolveOnboardingScope`, which refuses a
+  deactivated user who was never onboarded.
+
+Still missing, and worth knowing: there is no `engine.test.ts` (the engine is only exercised
+transitively), no test for any Server Action, and no cross-tenant test at the HTTP layer.
 
 ### End to end, Playwright
 
@@ -693,18 +708,35 @@ A list of things that have already cost someone an hour.
 
 Named honestly, so nobody assumes otherwise.
 
-- **The calculation engine roll ups.** [engine.ts](src/lib/calc/engine.ts) computes CO2e for a
-  single source, and [preview.ts](src/lib/calc/preview.ts) uses it to show a per source
-  estimate beside the inputs. There are still no roll ups to category, scope or company, no
-  distance or spend based Scope 3 handling, and nothing writes `ResultSnapshot`. The dashboard
-  shows a real frame with zeroes, not fake numbers.
-  > The preview is **display only** and says so on screen. It parses to `number` because
-  > nothing it computes is ever stored. Do not copy that pattern into the real engine.
-- **Excel parity**, which is the project's actual acceptance test. See docs section 14.
-- **Reports**, PDF and Excel export.
+> Corrected 2026-07-12. This section previously claimed the roll ups and the dashboard did not
+> exist. They do. See [docs/COMPLETION_PLAN.md](docs/COMPLETION_PLAN.md) for the audited
+> BUILT / PARTIAL / NOT BUILT inventory, every line of which cites a file.
+
+**Built since this section was last written:** [rollup.ts](src/lib/calc/rollup.ts) rolls a year up
+to category, scope and company total, and the whole of [dashboard](src/features/dashboard/) renders
+real computed numbers from it. Also built: the factor library with its audit trail, the
+[preview](src/features/preview/) spreadsheet, and the admin onboarding wizard.
+
+Genuinely not built:
+
+- **Excel parity**, which is the project's actual acceptance test (docs section 14.1). It is not
+  merely untested, it is currently **untestable**: `docs/reference/` holds the factor library
+  workbook only. There is no filled in sample company spreadsheet with totals to compare against.
+  Obtaining one is item 0 of [docs/CLIENT_DECISION_MEMO.md](docs/CLIENT_DECISION_MEMO.md).
+- **Reports**, PDF and Excel export. `exceljs` and `@react-pdf/renderer` are dependencies and are
+  imported nowhere in `src/`.
+- **Roll up below category.** `rollupYear` stops at category; docs section 7.4 asks for element and
+  subcategory too. `RollupEntry` does not carry the fields.
+- **Per gas breakdown, uncertainty, spend based COP/USD, and unit conversions.** The columns exist
+  in the schema and are admin editable; nothing reads them.
+- **`ResultSnapshot`.** The model exists and nothing writes it. The dashboard recomputes per
+  request, so results are always fresh and never reproducible.
 - **RLS through Prisma.** Documented as inert. Making it real means a non owner role,
   `SET LOCAL role`, per transaction JWT claims, and `FORCE ROW LEVEL SECURITY`. It is a
   large change and is not required while `resolveCompanyScope` holds.
+
+> The preview is **display only** and says so on screen. It parses to `number` because nothing it
+> computes is ever stored. Do not copy that pattern into a persisted engine.
 
 ### Open questions the code deliberately leaves open
 

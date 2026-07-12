@@ -15,8 +15,7 @@ import { useDataEntryContext } from "../hooks/use-data-entry-context";
 //
 // It lives here rather than on the dashboard because this is the only screen where the
 // facility and the year are in the URL, and ScopeTarget is keyed on the reporting year. The
-// dashboard shows zeroes until the Week 3 engine lands, so a "progress toward Meta" card
-// there would be fiction.
+// dashboard consumes the target and shows progress against it (MetaVsReal, and the target KPI).
 //
 // Clearing the field deletes the target. An empty target is not a target of zero.
 export function MetaCard({ scope, initialValue }: { scope: Scope; initialValue: string }) {

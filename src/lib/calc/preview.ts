@@ -1,5 +1,6 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { computeCo2eKg } from "@/lib/calc/engine";
+import { isFuelCategory } from "@/lib/calc/ch4-rule";
 import { kgToTonnes } from "@/lib/gwp";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 
@@ -74,12 +75,18 @@ function toNumber(value: string | null): number | null {
 export function estimateSourceTonnes({
   values,
   scope,
+  category,
   factor,
   gridFactor,
   gwpSet,
 }: {
   values: string[];
   scope: Scope;
+  /**
+   * The source's category. Only used to answer "is this a fuel" for the "is-a-fuel" CH4 rule, so
+   * that this preview and rollupYear cannot disagree about the same source. See ch4-rule.ts.
+   */
+  category?: string | null;
   /** null when the factor row was deleted and emissionFactorId went SetNull. */
   factor: PreviewFactor | null;
   gridFactor: PreviewGridFactor | null;
@@ -118,7 +125,14 @@ export function estimateSourceTonnes({
 
   const kg = computeCo2eKg(
     total,
-    { co2Factor: co2, ch4Factor: ch4, n2oFactor: n2o, co2eFactor: co2e, biogenic: factor.biogenic },
+    {
+      co2Factor: co2,
+      ch4Factor: ch4,
+      n2oFactor: n2o,
+      co2eFactor: co2e,
+      biogenic: factor.biogenic,
+      isFuel: isFuelCategory(category),
+    },
     gwpSet,
   );
 

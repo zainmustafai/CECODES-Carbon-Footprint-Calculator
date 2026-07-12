@@ -173,6 +173,7 @@ export async function loadPreview(
           const estimate = estimateSourceTonnes({
             values,
             scope: source.scope,
+            category: source.category,
             factor: source.factor,
             gridFactor: gridFactorVM,
             gwpSet,

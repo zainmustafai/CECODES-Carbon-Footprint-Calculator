@@ -248,7 +248,8 @@
       "underTarget": "Dentro de la meta",
       "overTarget": "Meta superada",
       "noTarget": "Sin meta definida",
-      "setTarget": "Definir meta"
+      "setTarget": "Definir meta",
+      "variationIncomplete": "El año {year} está incompleto, así que esta comparación subestima el cambio."
     },
     "byScope": {
       "title": "Emisiones por alcance",
@@ -300,7 +301,8 @@
     "emptyBody": "Crea un año de reporte y registra el consumo de tus fuentes. Aquí verás tu huella calculada, por alcance y por categoría.",
     "emptyCta": "Ir a Ingreso de datos",
     "noYearTitle": "Este año no tiene datos",
-    "noYearBody": "Registra el consumo de {year} para ver su huella."
+    "noYearBody": "Registra el consumo de {year} para ver su huella.",
+    "unpricedNote": "{count, plural, one {# fuente no pudo calcularse} other {# fuentes no pudieron calcularse}} y quedó fuera de los totales. Los totales están incompletos."
   },
   "facilities": {
     "title": "Sedes",

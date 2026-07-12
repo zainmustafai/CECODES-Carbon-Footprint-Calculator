@@ -1,5 +1,6 @@
 import { getFormatter, getTranslations } from "next-intl/server";
 import type { SourceEstimate } from "@/lib/calc/preview";
+import { NO_VALUE } from "../lib/no-value";
 
 // The estimated tonnes for one source. An unpriced source (no factor, or Scope 2 with no grid
 // factor loaded) never shows a fake 0: it shows a dash, and the scope banner explains why.
@@ -14,7 +15,7 @@ export async function EstimateCell({
   const format = await getFormatter();
 
   if (estimate.kind !== "ok") {
-    return <span className="text-muted-foreground">{"—"}</span>;
+    return <span className="text-muted-foreground">{NO_VALUE}</span>;
   }
   if (!hasQuantity) {
     return <span className="text-muted-foreground">{t("notReported")}</span>;
@@ -34,7 +35,7 @@ export async function FactorCell({ estimate }: { estimate: SourceEstimate }) {
     return <span className="text-muted-foreground">{t("noFactor")}</span>;
   }
   if (estimate.factorValue === null) {
-    return <span className="text-muted-foreground">{"—"}</span>;
+    return <span className="text-muted-foreground">{NO_VALUE}</span>;
   }
 
   const value = Number(estimate.factorValue);

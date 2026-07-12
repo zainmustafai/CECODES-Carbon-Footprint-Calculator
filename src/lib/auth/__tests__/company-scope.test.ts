@@ -6,6 +6,7 @@ const findUniqueCompany = vi.fn();
 const findUniqueReportingYear = vi.fn();
 const findUniqueFacility = vi.fn();
 const getAppUser = vi.fn();
+const getUser = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -17,12 +18,14 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/auth/server", () => ({
   getAppUser: () => getAppUser(),
+  getUser: () => getUser(),
 }));
 
 const {
   ScopeError,
   resolveAdminScope,
   resolveCompanyScope,
+  resolveOnboardingScope,
   resolveReportingYearScope,
   scopeErrorKey,
 } = await import("@/lib/auth/company-scope");
@@ -169,6 +172,70 @@ describe("resolveAdminScope", () => {
     getAppUser.mockResolvedValue(null);
 
     await expect(resolveAdminScope()).rejects.toThrow(ScopeError);
+  });
+});
+
+// Onboarding runs BEFORE a company exists, so it cannot go through resolveCompanyScope.
+// createCompanyAction used to call requireUser(), which validates the Supabase session but
+// never reads app_users.active. Because a Server Action runs no layout, the /account-disabled
+// redirect never fired for it, so a deactivated user who had never been onboarded could POST
+// it and create a company. These tests are the regression guard.
+describe("resolveOnboardingScope", () => {
+  const SESSION = { id: "u-x", email: "x@example.com" };
+
+  it("accepts an active, unonboarded user", async () => {
+    getUser.mockResolvedValue(SESSION);
+    getAppUser.mockResolvedValue(UNONBOARDED);
+
+    const scope = await resolveOnboardingScope();
+
+    expect(scope).toMatchObject({ userId: "u-x", email: "x@example.com" });
+    expect(scope.appUser).toMatchObject({ active: true });
+  });
+
+  it("accepts a session whose profile row does not exist yet, so the action can self-heal it", async () => {
+    // The signup trigger is INSERT-only and may not have run. That is legitimate.
+    getUser.mockResolvedValue(SESSION);
+    getAppUser.mockResolvedValue(null);
+
+    const scope = await resolveOnboardingScope();
+
+    expect(scope.appUser).toBeNull();
+    expect(scope.userId).toBe("u-x");
+  });
+
+  it("REFUSES a deactivated user who was never onboarded", async () => {
+    // The whole point. A deactivated user may still hold a valid Supabase session; the flag
+    // lives in Postgres, not the JWT. Without this they could create a company for themselves.
+    getUser.mockResolvedValue(SESSION);
+    getAppUser.mockResolvedValue({ ...UNONBOARDED, active: false });
+
+    await expect(resolveOnboardingScope()).rejects.toThrow(ScopeError);
+  });
+
+  it("refuses a deactivated user who already has a company", async () => {
+    getUser.mockResolvedValue(SESSION);
+    getAppUser.mockResolvedValue(INACTIVE_USER);
+
+    await expect(resolveOnboardingScope()).rejects.toThrow(ScopeError);
+  });
+
+  it("refuses when there is no session at all", async () => {
+    getUser.mockResolvedValue(null);
+
+    await expect(resolveOnboardingScope()).rejects.toThrow(ScopeError);
+    // It must not even look at the profile row.
+    expect(getAppUser).not.toHaveBeenCalled();
+  });
+
+  it("does not treat an already-onboarded user as an authorization failure", async () => {
+    // Being onboarded already is a domain error (alreadyOnboarded), reported by the action.
+    getUser.mockResolvedValue(SESSION);
+    getAppUser.mockResolvedValue(USER_A);
+
+    const scope = await resolveOnboardingScope();
+
+    expect(scope.appUser).toMatchObject({ companyId: "company-a" });
   });
 });
 

@@ -51,6 +51,7 @@ export function useSourceEstimate({
   return estimateSourceTonnes({
     values: JSON.parse(serialized) as string[],
     scope: source.scope,
+    category: source.category,
     factor: source.factor,
     gridFactor,
     gwpSet,

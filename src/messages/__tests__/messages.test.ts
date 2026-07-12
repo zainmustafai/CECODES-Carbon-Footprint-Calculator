@@ -19,25 +19,8 @@ describe("message catalogs", () => {
     expect(enKeys.filter((k) => !esKeys.includes(k))).toEqual([]);
     expect(esKeys.filter((k) => !enKeys.includes(k))).toEqual([]);
   });
-
-  it("never contain an em dash", () => {
-    // A project convention, and one a reviewer cannot see at a glance in a 600 line JSON.
-    const offenders = [
-      ...flattenWithValues(es, "es"),
-      ...flattenWithValues(en, "en"),
-    ].filter(([, text]) => text.includes("—"));
-
-    expect(offenders).toEqual([]);
-  });
 });
 
-function flattenWithValues(
-  value: unknown,
-  prefix: string,
-): Array<[string, string]> {
-  if (typeof value === "string") return [[prefix, value]];
-  if (value === null || typeof value !== "object") return [];
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
-    flattenWithValues(child, `${prefix}.${key}`),
-  );
-}
+// The em-dash ban used to live here and covered only these two JSON files, which is how four
+// em dashes reached src/features/preview/ with the suite green. It now lives in
+// src/__tests__/conventions.test.ts, which walks the whole tree (this file included).

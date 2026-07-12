@@ -1,7 +1,7 @@
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes: APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
 # CECODES · Huella de Carbono
@@ -54,8 +54,11 @@ not evidence a feature works.
 - **RLS is inert at runtime.** Prisma connects as the database owner and bypasses every
   policy. Never claim RLS isolates tenants here.
 - Isolation = database constraints + **`src/lib/auth/company-scope.ts`**, the single
-  authorization boundary. Every page and every Server Action that touches tenant data calls
-  it first.
+  authorization boundary. **Every Server Action** that touches tenant data calls it first.
+  Pages do not: they guard with `requireAppUser()`/`requireAdmin()` and pass a `companyId`
+  down. So `loadDashboard()` and `loadPreview()` take a `companyId` and query Prisma with no
+  authorization of their own; they are safe only because of their callers. Never hand them a
+  user-supplied id without a guard.
 - **Server Actions are public POST endpoints.** A layout guard (`requireAdmin()`) protects
   rendering only. Every action re-validates with its own Zod schema (`.strict()`) and
   re-authorizes, no matter what the UI already checked.

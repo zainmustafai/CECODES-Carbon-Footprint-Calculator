@@ -150,9 +150,18 @@ export async function loadDashboard(
     });
   }
 
+  // Keep each year's completeness, not just its total. Discarding it made a year with no grid
+  // factor look like a genuine reduction rather than a hole in the data.
   const yearComparison: YearTotal[] = [...years]
     .sort((a, b) => a - b)
-    .map((y) => ({ year: y, tonnes: rollupForYear(y).totalTonnes }));
+    .map((y) => {
+      const r = rollupForYear(y);
+      return {
+        year: y,
+        tonnes: r.totalTonnes,
+        incomplete: r.missingGridFactor || r.unpricedCount > 0,
+      };
+    });
 
   const rollup = rollupForYear(year);
   const yearTotal = rollup.totalTonnes;
@@ -210,13 +219,20 @@ export async function loadDashboard(
     monthly: rollup.scope2Monthly,
     biogenicTonnes: rollup.biogenicTonnes,
     missingGridFactor: rollup.missingGridFactor,
+    unpricedCount: rollup.unpricedCount,
   };
 
-  // Year over year: the most recent year strictly below the selected one that has data.
+  // Year over year: the most recent year strictly below the selected one that has data. Reuse the
+  // already-rolled-up entry so the comparison year keeps its `incomplete` flag: comparing against
+  // a year whose Scope 2 could not be priced is not a reduction, it is a missing number.
   const previousYear = years.filter((y) => y < year).sort((a, b) => b - a)[0];
   const previous: YearTotal | null =
     previousYear !== undefined
-      ? { year: previousYear, tonnes: yearComparison.find((c) => c.year === previousYear)?.tonnes ?? 0 }
+      ? yearComparison.find((c) => c.year === previousYear) ?? {
+          year: previousYear,
+          tonnes: 0,
+          incomplete: true,
+        }
       : null;
 
   // Targets are summed per scope across the year's reporting years; actual is the scope total.

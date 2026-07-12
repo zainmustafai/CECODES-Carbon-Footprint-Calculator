@@ -1,0 +1,106 @@
+{
+  "name": "Hand-computed reference (PLACEHOLDER, not from CECODES)",
+  "origin": "hand-computed",
+  "source": "Derived by hand from Requirements section 7.5 plus the AR6 GWP table in the client's Hoja2. Replace with a real client workbook: see README.md.",
+  "year": 2024,
+  "gwpSet": "AR6",
+  "gridFactor": "0.217",
+  "toleranceTonnes": 0.000001,
+  "entries": [
+    {
+      "note": "Requirements 7.5 worked example: 10 kg of R-22 at 1960 kg CO2e/kg = 19.6 t",
+      "scope": "SCOPE_1",
+      "category": "Emisiones Fugitivas",
+      "element": "Fugas de HCFC-22 / R-22",
+      "month": null,
+      "value": "10",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": null,
+        "co2eFactor": "1960",
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Per-gas diesel. co2 151799.6079 + ch4 4.4572158 (x29.8 fossil) + n2o 24.4997298 (x273) = 151828.5648 kg",
+      "scope": "SCOPE_1",
+      "category": "Fuentes Fijas",
+      "element": "Diesel o ACPM (B2) - Fijo",
+      "month": null,
+      "value": "14957.10",
+      "factor": {
+        "co2Factor": "10.149",
+        "ch4Factor": "0.00001",
+        "n2oFactor": "0.000006",
+        "co2eFactor": null,
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Biogenic solid fuel. CH4 takes the NON-fossil GWP (27, not 29.8): co2 166492 + ch4 2.7 + n2o 2.73 = 166497.43 kg. This row is exactly where the Excel's fuel-vs-biogenic rule may disagree with ours (memo item 1).",
+      "scope": "SCOPE_1",
+      "category": "Fuentes Fijas",
+      "element": "Bagazo",
+      "month": null,
+      "value": "100",
+      "factor": {
+        "co2Factor": "1664.92",
+        "ch4Factor": "0.001",
+        "n2oFactor": "0.0001",
+        "co2eFactor": null,
+        "biogenic": true
+      }
+    },
+    {
+      "note": "Scope 2 is monthly and takes the national grid factor, not a row factor. 12 x 100000 kWh x 0.217 = 260400 kg",
+      "scope": "SCOPE_2",
+      "category": "Consumo de energia electrica",
+      "element": "Electricidad (Red Nacional - SIN)",
+      "monthlyValues": [
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000",
+        "100000"
+      ],
+      "factor": null
+    },
+    {
+      "note": "Scope 3, consolidated CO2e factor. 25000 kg x 0.7 = 17500 kg",
+      "scope": "SCOPE_3",
+      "category": "C5: Residuos generados en operaciones",
+      "element": "Residuos ordinarios",
+      "month": null,
+      "value": "25000",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": null,
+        "co2eFactor": "0.7",
+        "biogenic": false
+      }
+    }
+  ],
+  "expected": {
+    "totalTonnes": 615.8259948,
+    "byScope": {
+      "SCOPE_1": 337.9259948,
+      "SCOPE_2": 260.4,
+      "SCOPE_3": 17.5
+    },
+    "byCategory": [
+      { "scope": "SCOPE_1", "category": "Emisiones Fugitivas", "tonnes": 19.6 },
+      { "scope": "SCOPE_1", "category": "Fuentes Fijas", "tonnes": 318.3259948 },
+      { "scope": "SCOPE_2", "category": "Consumo de energia electrica", "tonnes": 260.4 },
+      { "scope": "SCOPE_3", "category": "C5: Residuos generados en operaciones", "tonnes": 17.5 }
+    ]
+  }
+}

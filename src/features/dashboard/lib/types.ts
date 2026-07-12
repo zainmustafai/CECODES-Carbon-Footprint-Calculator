@@ -19,7 +19,17 @@ export type TargetRow = {
   progressPct: number;
 };
 
-export type YearTotal = { year: number; tonnes: number };
+export type YearTotal = {
+  year: number;
+  tonnes: number;
+  /**
+   * The year's total is INCOMPLETE: some sources could not be priced (no grid factor, no factor
+   * row, an unreadable factor). Carried per year, not just for the selected one, because a
+   * prior year with a missing grid factor otherwise renders as a shorter bar and a triumphant
+   * "reduction" in the year-over-year KPI, which is a lie told with a real number.
+   */
+  incomplete: boolean;
+};
 
 export type DashboardFilters = {
   facilityId: string | null; // null means "all facilities" (company aggregate)
@@ -50,6 +60,12 @@ export type DashboardCurrent = {
   monthly: MonthlyPoint[]; // Scope 2 only, twelve points
   biogenicTonnes: number;
   missingGridFactor: boolean;
+  /**
+   * Sources excluded from every total because they could not be priced. Greater than zero means
+   * the totals on this screen are INCOMPLETE, and the screen must say so: a number that is quietly
+   * too low is worse than no number.
+   */
+  unpricedCount: number;
 };
 
 export type DashboardVM = {

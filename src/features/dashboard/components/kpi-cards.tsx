@@ -102,6 +102,14 @@ export function KpiCards({
                   tonnes: n(previous!.tonnes),
                 })}
               </p>
+              {previous!.incomplete ? (
+                // The comparison year could not be fully priced (most often: no grid factor for
+                // it). Its total is therefore too low, which shows up here as a flattering
+                // "reduction". Say so, rather than let a hole in the data read as progress.
+                <p className="text-xs text-chart-2">
+                  {t("variationIncomplete", { year: String(previous!.year) })}
+                </p>
+              ) : null}
             </>
           )}
         </CardContent>

@@ -1,5 +1,6 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { computeCo2eKg, type FactorInput } from "@/lib/calc/engine";
+import { isFuelCategory } from "@/lib/calc/ch4-rule";
 import { kgToTonnes } from "@/lib/gwp";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 
@@ -44,10 +45,33 @@ export type YearRollup = {
   byCategory: CategoryTotal[];
   /** Twelve entries, Enero to Diciembre. Only Scope 2 is captured monthly. */
   scope2Monthly: MonthlyPoint[];
-  /** Memo item: tonnes attributable to biogenic sources (GHG Protocol discloses these). */
+  /**
+   * Total CO2e of the sources FLAGGED BIOGENIC. This includes their CH4 and N2O, so it is NOT
+   * "biogenic CO2" and MUST NOT be subtracted from the headline: doing so would remove real,
+   * non-biogenic emissions. For the GHG Protocol memo item, use biogenicCo2Tonnes.
+   */
   biogenicTonnes: number;
+  /**
+   * The biogenic CO2 portion only: the memo item the GHG Protocol actually asks for, and the
+   * number to subtract if CECODES rules that biogenic CO2 sits outside the headline
+   * (Requirements 12.A5). CH4 and N2O from biomass stay in the scopes either way.
+   */
+  biogenicCo2Tonnes: number;
+  /**
+   * True when a biogenic source carried only a consolidated CO2e factor, which cannot be split
+   * back into its gases. biogenicCo2Tonnes then UNDERSTATES the memo item, and says so rather
+   * than guessing a decomposition.
+   */
+  biogenicCo2Partial: boolean;
   /** The year has no national grid factor, so its Scope 2 emissions could not be computed. */
   missingGridFactor: boolean;
+  /**
+   * Entries EXCLUDED from every total because they could not be priced: no factor row, a factor
+   * with no readable value (e.g. spend-only COP/USD), or Scope 2 with no grid factor. A non-zero
+   * count means the totals are INCOMPLETE, not that those sources emit nothing. Anything that
+   * publishes a total (an export, a report, a snapshot) must disclose this.
+   */
+  unpricedCount: number;
 };
 
 const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
@@ -62,7 +86,23 @@ function parseActivity(value: string | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function toFactorInput(factor: RollupFactor): FactorInput {
+// Whether the engine can actually turn this factor into a number. A factor row can exist and
+// still be unpriceable: an admin may fill only co2eFactorCop / co2eFactorUsd (the spend-based
+// columns), which FactorInput does not carry, and computeCo2eKg would then dutifully return 0.
+// A real emission source silently worth 0 t, in a category that looks complete, is exactly the
+// class of bug this tool exists to replace.
+function isPriceable(factor: RollupFactor): boolean {
+  return (
+    factor.co2eFactor !== null ||
+    factor.co2Factor !== null ||
+    factor.ch4Factor !== null ||
+    factor.n2oFactor !== null
+  );
+}
+
+// `category` is needed only so the engine can answer "is this a fuel", which the "is-a-fuel" CH4
+// rule depends on. Under the default rule it is unused but harmless. See lib/calc/ch4-rule.ts.
+function toFactorInput(factor: RollupFactor, category: string): FactorInput {
   const num = (value: string | null) => (value === null ? null : Number(value));
   return {
     co2Factor: num(factor.co2Factor),
@@ -70,6 +110,7 @@ function toFactorInput(factor: RollupFactor): FactorInput {
     n2oFactor: num(factor.n2oFactor),
     co2eFactor: num(factor.co2eFactor),
     biogenic: factor.biogenic,
+    isFuel: isFuelCategory(category),
   };
 }
 
@@ -83,6 +124,10 @@ export function rollupYear({
   gridFactor: string | null;
   gwpSet: GwpSet;
 }): YearRollup {
+  let unpricedCount = 0;
+  let biogenicCo2Tonnes = 0;
+  let biogenicCo2Partial = false;
+
   const byScope: ScopeTotals = { SCOPE_1: 0, SCOPE_2: 0, SCOPE_3: 0 };
   const categories = new Map<string, CategoryTotal>();
   const monthKg = new Array<number>(12).fill(0);
@@ -101,15 +146,25 @@ export function rollupYear({
       // Scope 2 does not carry a factor on the row. It is the national grid factor for the
       // year, a pure CO2 value in kg CO2/kWh (GWP of CO2 is 1).
       if (grid === null) {
+        // A year with no grid factor cannot be priced. This used to fall through and add a
+        // real 0 into byScope, byCategory and the monthly series, guarded only by the flag
+        // below. Any consumer that forgot to read the flag (an export, a snapshot writer)
+        // would then publish a fabricated zero as if it were a measurement. Excluding the
+        // entry is the honest answer: the flag says the number is incomplete, and the number
+        // itself does not lie.
         missingGridFactor = true;
-      } else {
-        kg = activity * grid;
+        unpricedCount += 1;
+        continue;
       }
-    } else if (entry.factor) {
-      kg = computeCo2eKg(activity, toFactorInput(entry.factor), gwpSet);
+      kg = activity * grid;
+    } else if (entry.factor && isPriceable(entry.factor)) {
+      kg = computeCo2eKg(activity, toFactorInput(entry.factor, entry.category), gwpSet);
     } else {
-      // A Scope 1/3 row whose factor was removed cannot be computed. Skip it rather than
-      // silently count zero into a category that would then look complete.
+      // Either the factor row was removed (onDelete SetNull), or it exists but carries no
+      // value the engine can read: the spend-based COP/USD columns are a real example, since
+      // an admin can fill only those and FactorInput cannot see them. Both cases are unpriced.
+      // Skip rather than count a zero into a category that would then look complete.
+      unpricedCount += 1;
       continue;
     }
 
@@ -131,7 +186,27 @@ export function rollupYear({
       if (reported) monthReported[entry.month - 1] = true;
     }
 
-    if (entry.factor?.biogenic) biogenicTonnes += tonnes;
+    if (entry.factor?.biogenic) {
+      // Two different numbers, and conflating them was a real bug.
+      //
+      // biogenicTonnes is the source's WHOLE CO2e, CH4 and N2O included. It answers "how much of
+      // the footprint comes from biomass".
+      //
+      // biogenicCo2Tonnes is the CO2 term alone. That is the GHG Protocol memo item, and the only
+      // number it would ever be correct to subtract from the headline: methane and N2O from
+      // burning biomass stay inside the scopes no matter how 12.A5 is answered. Subtracting the
+      // whole CO2e (which is what this used to accumulate) would quietly delete real emissions.
+      biogenicTonnes += tonnes;
+
+      if (entry.factor.co2eFactor !== null) {
+        // A consolidated CO2e factor cannot be split back into its gases. Say so rather than
+        // guess a decomposition: the memo understates, and biogenicCo2Partial admits it.
+        biogenicCo2Partial = true;
+      } else if (entry.factor.co2Factor !== null) {
+        // GWP of CO2 is 1, so the CO2 term is just activity x factor.
+        biogenicCo2Tonnes += kgToTonnes(activity * Number(entry.factor.co2Factor));
+      }
+    }
   }
 
   const scope2Monthly: MonthlyPoint[] = monthKg.map((kg, index) => ({
@@ -143,5 +218,15 @@ export function rollupYear({
   const byCategory = [...categories.values()].sort((a, b) => b.tonnes - a.tonnes);
   const totalTonnes = SCOPES.reduce((sum, scope) => sum + byScope[scope], 0);
 
-  return { totalTonnes, byScope, byCategory, scope2Monthly, biogenicTonnes, missingGridFactor };
+  return {
+    totalTonnes,
+    byScope,
+    byCategory,
+    scope2Monthly,
+    biogenicTonnes,
+    biogenicCo2Tonnes,
+    biogenicCo2Partial,
+    missingGridFactor,
+    unpricedCount,
+  };
 }

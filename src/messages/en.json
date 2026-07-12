@@ -248,7 +248,8 @@
       "underTarget": "Within target",
       "overTarget": "Target exceeded",
       "noTarget": "No target set",
-      "setTarget": "Set a target"
+      "setTarget": "Set a target",
+      "variationIncomplete": "Year {year} is incomplete, so this comparison understates the change."
     },
     "byScope": {
       "title": "Emissions by alcance",
@@ -300,7 +301,8 @@
     "emptyBody": "Create a reporting year and record your source consumption. Your calculated footprint will appear here, by alcance and by category.",
     "emptyCta": "Go to Data entry",
     "noYearTitle": "This year has no data",
-    "noYearBody": "Record {year}'s consumption to see its footprint."
+    "noYearBody": "Record {year}'s consumption to see its footprint.",
+    "unpricedNote": "{count, plural, one {# source could not be calculated} other {# sources could not be calculated}} and was left out of the totals. The totals are incomplete."
   },
   "facilities": {
     "title": "Facilities",

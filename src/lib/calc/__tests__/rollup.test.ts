@@ -102,7 +102,7 @@ describe("rollupYear: aggregation", () => {
 });
 
 describe("rollupYear: honest edge cases", () => {
-  it("flags a missing grid factor and contributes zero for Scope 2", () => {
+  it("EXCLUDES a Scope 2 entry with no grid factor rather than publishing a fabricated zero", () => {
     const r = rollupYear({
       entries: [
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", month: 1, value: "500000", factor: null },
@@ -110,8 +110,57 @@ describe("rollupYear: honest edge cases", () => {
       gridFactor: null,
       gwpSet: "AR6",
     });
+
     expect(r.missingGridFactor).toBe(true);
     expect(r.byScope.SCOPE_2).toBe(0);
+
+    // The regression that mattered. This entry used to fall through and add a REAL 0 t, which
+    // created a category row worth 0 and marked January as "reported". A consumer that forgot to
+    // check missingGridFactor (an export, a snapshot writer) would then publish that zero as if
+    // it were a measurement. 500 MWh of electricity is not zero emissions; it is an unknown.
+    expect(r.byCategory).toEqual([]);
+    expect(r.scope2Monthly[0].tonnes).toBeNull();
+    expect(r.unpricedCount).toBe(1);
+  });
+
+  it("EXCLUDES a factor the engine cannot read, such as a spend-only COP/USD row", () => {
+    // An admin can fill only co2eFactorCop / co2eFactorUsd. FactorInput cannot see those columns,
+    // so computeCo2eKg would return 0 and the source would land in the totals as 0 t with the
+    // category looking complete. It must be excluded and counted instead.
+    const spendOnly = {
+      co2Factor: null,
+      ch4Factor: null,
+      n2oFactor: null,
+      co2eFactor: null,
+      biogenic: false,
+    };
+
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_3", category: "C1: Bienes y servicios adquiridos", month: null, value: "1000000", factor: spendOnly },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+
+    expect(r.totalTonnes).toBe(0);
+    expect(r.byCategory).toEqual([]);
+    expect(r.unpricedCount).toBe(1);
+  });
+
+  it("counts every unpriced entry, so a total can say it is incomplete", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_2", category: "Consumo de energía eléctrica", month: 1, value: "100", factor: null },
+        { scope: "SCOPE_1", category: "Fuentes Fijas", month: null, value: "100", factor: null },
+        { scope: "SCOPE_1", category: "Fuentes Fijas", month: null, value: "100", factor: consolidated("10") },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+
+    expect(r.unpricedCount).toBe(2); // the Scope 2 row and the factorless Scope 1 row
+    expect(r.totalTonnes).toBeCloseTo(1, 6); // only the one priceable row
   });
 
   it("tracks biogenic tonnes as a memo without excluding them from the total", () => {
@@ -125,6 +174,52 @@ describe("rollupYear: honest edge cases", () => {
     });
     expect(r.totalTonnes).toBeCloseTo(2, 6);
     expect(r.biogenicTonnes).toBeCloseTo(1, 6);
+  });
+
+  it("separates biogenic CO2 from the biogenic source's CH4 and N2O", () => {
+    // 100 t of bagazo: co2 1664.92, ch4 0.001, n2o 0.0001, biogenic.
+    //   co2 = 100 * 1664.92          = 166492 kg   <- the ONLY part that is biogenic CO2
+    //   ch4 = 100 * 0.001  * 27      =      2.7 kg  (non-fossil GWP)
+    //   n2o = 100 * 0.0001 * 273     =      2.73 kg
+    // The whole source is 166.49743 t CO2e, but only 166.492 t of that is biogenic CO2.
+    const r = rollupYear({
+      entries: [
+        {
+          scope: "SCOPE_1",
+          category: "Fuentes Fijas",
+          month: null,
+          value: "100",
+          factor: perGas("1664.92", "0.001", "0.0001", true),
+        },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+
+    expect(r.biogenicTonnes).toBeCloseTo(166.49743, 6); // whole source, CH4 and N2O included
+    expect(r.biogenicCo2Tonnes).toBeCloseTo(166.492, 6); // the CO2 term alone
+
+    // The distinction is not academic. If CECODES rules that biogenic CO2 sits outside the
+    // headline (Requirements 12.A5), subtracting biogenicTonnes would ALSO delete the 5.43 kg of
+    // CH4 and N2O, which stay in Scope 1 under every reading of the GHG Protocol.
+    expect(r.biogenicTonnes).toBeGreaterThan(r.biogenicCo2Tonnes);
+    expect(r.biogenicCo2Partial).toBe(false);
+  });
+
+  it("admits when a biogenic CO2 memo is understated because the factor is consolidated", () => {
+    // A consolidated CO2e factor cannot be split back into its gases, so the CO2-only memo
+    // cannot be computed. Saying so beats inventing a decomposition.
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_3", category: "Residuos", month: null, value: "100", factor: consolidated("10", true) },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+
+    expect(r.biogenicTonnes).toBeCloseTo(1, 6);
+    expect(r.biogenicCo2Tonnes).toBe(0);
+    expect(r.biogenicCo2Partial).toBe(true);
   });
 
   it("skips a Scope 1 row whose factor was removed rather than counting zero", () => {
