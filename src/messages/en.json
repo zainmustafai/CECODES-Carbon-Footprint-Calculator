@@ -964,5 +964,9 @@
       "noDataTitle": "No data yet",
       "noDataBody": "Record your source consumption in Data entry and it will appear in this table."
     }
+  },
+  "reports": {
+    "exportExcel": "Export to Excel",
+    "exportCsv": "CSV"
   }
 }

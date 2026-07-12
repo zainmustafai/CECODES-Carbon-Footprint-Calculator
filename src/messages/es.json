@@ -964,5 +964,9 @@
       "noDataTitle": "Aún no hay datos",
       "noDataBody": "Registra el consumo de tus fuentes en Ingreso de datos y aparecerá en esta tabla."
     }
+  },
+  "reports": {
+    "exportExcel": "Exportar a Excel",
+    "exportCsv": "CSV"
   }
 }

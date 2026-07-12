@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Scope } from "@/lib/generated/prisma/client";
+import { ExportButtons } from "@/features/reports";
 import { loadPreview } from "../lib/load-preview";
 import { PreviewFilters } from "./preview-filters";
 import { PreviewAnnualTable } from "./preview-annual-table";
@@ -43,17 +44,30 @@ export async function PreviewScreen({
   const companyHref = basePath.replace(/\/preview$/, "/company");
   const dataEntryHref = basePath.replace(/\/preview$/, "/data-entry");
 
+  // The export is offered only when there is a facility and a year to export. Downloading an
+  // empty workbook would be a worse answer than not offering the button.
+  const canExport = vm.filters.facilityId !== null && vm.filters.year !== null && !vm.isEmpty;
+
   const header = (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-      <p className="text-muted-foreground">
-        {vm.selectedFacilityName && vm.filters.year
-          ? t("subtitleContext", {
-              facility: vm.selectedFacilityName,
-              year: String(vm.filters.year),
-            })
-          : t("subtitle")}
-      </p>
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground">
+          {vm.selectedFacilityName && vm.filters.year
+            ? t("subtitleContext", {
+                facility: vm.selectedFacilityName,
+                year: String(vm.filters.year),
+              })
+            : t("subtitle")}
+        </p>
+      </div>
+      {canExport ? (
+        <ExportButtons
+          companyId={companyId}
+          facilityId={vm.filters.facilityId!}
+          year={vm.filters.year!}
+        />
+      ) : null}
     </div>
   );
 
