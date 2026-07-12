@@ -50,7 +50,8 @@ test.afterAll(async () => {
 });
 
 test.describe("accessibility", () => {
-  for (const path of ["/dashboard", "/facilities", "/company"]) {
+  // /company covers Sedes too: it is a section of that page, not a route of its own.
+  for (const path of ["/dashboard", "/company", "/preview"]) {
     test(`has no critical or serious a11y violations on ${path}`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

@@ -47,7 +47,6 @@
   "nav": {
     "dashboard": "Tablero",
     "dataEntry": "Ingreso de datos",
-    "facilities": "Sedes",
     "company": "Empresa",
     "reports": "Reportes",
     "factorLibrary": "Biblioteca de factores",
@@ -177,13 +176,6 @@
     "contactEmail": "Contacto (opcional)",
     "contactEmailPlaceholder": "sostenibilidad@empresa.com",
     "save": "Guardar cambios",
-    "facilitiesTitle": "Plantas y sedes",
-    "facilitiesSubtitle": "Cada sede se mide por separado.",
-    "facilityCount": "{count, plural, =0 {Sin sedes} =1 {# sede} other {# sedes}}",
-    "openFacilities": "Gestionar sedes",
-    "yearsLabel": "Años de reporte",
-    "noYears": "Sin años de reporte",
-    "noFacilities": "Aún no hay sedes. Agrégalas desde la pantalla de Sedes.",
     "sectors": {
       "agroindustria-alimentos": "Agroindustria y alimentos",
       "manufactura": "Manufactura",

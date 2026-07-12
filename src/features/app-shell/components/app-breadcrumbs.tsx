@@ -20,7 +20,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   dashboard: "dashboard",
   "data-entry": "dataEntry",
   preview: "preview",
-  facilities: "facilities",
+  // No "facilities" segment: Sedes is a section of the company page, not a route.
   company: "company",
   reports: "reports",
   companies: "companies",

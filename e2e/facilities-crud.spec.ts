@@ -5,6 +5,8 @@ import { db, loadFixture, type Fixture } from "./fixture";
 // Facility create/rename/delete, plus the year-guarded delete flow. The fixture facility is
 // never touched: the has-years path runs on a second facility this spec owns, so the shared
 // facility other specs depend on keeps its clean state.
+//
+// Sedes has no route of its own: it is the section beneath the profile on /company.
 
 test.describe.configure({ mode: "serial" });
 
@@ -35,7 +37,7 @@ const card = (page: Page, name: string) =>
 
 test.describe("facilities", () => {
   test("creates, renames, and deletes a facility", async ({ page }) => {
-    await page.goto("/facilities");
+    await page.goto("/company");
 
     // Create.
     await page.getByRole("button", { name: /agregar sede/i }).click();
@@ -70,7 +72,7 @@ test.describe("facilities", () => {
   test("refuses to delete a facility with reporting years until the year is removed", async ({
     page,
   }) => {
-    await page.goto("/facilities");
+    await page.goto("/company");
 
     // A second facility, used entirely within this test.
     await page.getByRole("button", { name: /agregar sede/i }).click();
@@ -92,7 +94,7 @@ test.describe("facilities", () => {
     await page.waitForURL(/[?&]year=2023/);
 
     // Deleting the facility is refused while a year exists.
-    await page.goto("/facilities");
+    await page.goto("/company");
     await page.getByRole("button", { name: `Eliminar: ${nameB}`, exact: true }).click();
     const refuse = page.getByRole("alertdialog");
     await refuse.getByRole("button", { name: /^eliminar$/i }).click();
