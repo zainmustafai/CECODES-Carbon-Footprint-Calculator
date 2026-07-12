@@ -119,18 +119,41 @@ trail.
 
 ---
 
-## 6. The Scope 3 travel factors look inverted
+## 6. The Scope 3 travel factors were inverted. We have corrected them. Please countersign.
 
-**The question.** Your own change log flags this: the kilometre conversion appears to **multiply** by
-1.609 where it should **divide** (1.609 is the km-per-mile conversion). Please confirm the correct
-factors.
+**This one is no longer a question.** We confirmed it from your own workbook, and we have applied the
+fix. We need your signature, not your answer.
 
-**Cost of getting it wrong.** Business-travel and commuting emissions are off by a factor of roughly
-2.6.
+**What we found.** On sheet `C6 Viajes C7 Desplazamiento Col`, rows 3 to 15 hold the source factors
+in **per-mile** units, and rows 17 to 22 convert them to **per-km** by multiplying by 1.609:
 
-**Our default.** Per your instruction, **we will correct the inversion ourselves** and ask you to
-countersign the corrected values. The change will be made through the admin factor library, so it
-carries a full audit trail showing who changed what and when.
+```
+D4  = 0.297                    kg CO2 per milla-vehiculo   (Coche de pasajeros)
+D18 = (D4 * $K$5) = 0.477873   kg CO2 per km-vehiculo      <- multiplied by 1.609
+```
+
+A factor expressed **per mile** converts to **per km** by **dividing** by 1.609, because one mile is
+1.609 km, so a mile's emissions are spread across 1.609 km:
+
+```
+0.297 / 1.609 = 0.184587   kg CO2 per km-vehiculo          <- the correct value
+```
+
+The sheet itself shows the confusion: cell `O10` converts a **distance** correctly
+(`2300 miles x 1.609 = 3700 km`), and the same multiplication is then applied to a **factor per
+distance**, where it must divide. Your own scratch cell `N4` (`= I4/K5`) divides. This matches the
+note in your change log.
+
+**The impact.** All 9 travel and commuting factors (private car, van, motorcycle, bus, metro,
+commuter rail, and the three air-travel bands) were overstated by **1.609 squared, about 2.59x**, in
+every gas column (CO2, CH4, N2O).
+
+**What we did.** Divided each by 1.609 squared, which reproduces your per-mile source values
+exactly. The change was applied through the factor library's audit trail, so each factor's history
+in the tool now shows `IMPORTED -> UPDATED` with a from/to for every column. It is fully reversible.
+
+**What we need from you.** Confirmation that this is correct, so we can record it as agreed rather
+than as our unilateral change.
 
 ---
 

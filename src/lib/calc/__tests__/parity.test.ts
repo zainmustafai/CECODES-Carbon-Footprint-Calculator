@@ -34,6 +34,7 @@ type FixtureEntry = {
   note?: string;
   scope: Scope;
   category: string;
+  subcategory?: string | null;
   element: string;
   /** Scopes 1 and 3: one annual value, month null. */
   month?: number | null;
@@ -79,25 +80,23 @@ function toRollupEntries(fixture: Fixture): RollupEntry[] {
         }
       : null;
 
+    const common = {
+      scope: entry.scope,
+      category: entry.category,
+      subcategory: entry.subcategory ?? null,
+      element: entry.element,
+      factor,
+    };
+
     if (entry.monthlyValues) {
       return entry.monthlyValues.map((value, index) => ({
-        scope: entry.scope,
-        category: entry.category,
+        ...common,
         month: index + 1,
         value,
-        factor,
       }));
     }
 
-    return [
-      {
-        scope: entry.scope,
-        category: entry.category,
-        month: entry.month ?? null,
-        value: entry.value ?? null,
-        factor,
-      },
-    ];
+    return [{ ...common, month: entry.month ?? null, value: entry.value ?? null }];
   });
 }
 

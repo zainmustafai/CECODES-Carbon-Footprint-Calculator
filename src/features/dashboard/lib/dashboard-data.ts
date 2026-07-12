@@ -89,6 +89,10 @@ export async function loadDashboard(
         reportingYearId: true,
         scope: true,
         category: true,
+        // The finer levels of the Requirements 7.4 hierarchy. The entry snapshots them at write
+        // time, so they survive a factor being renamed or deleted.
+        subcategory: true,
+        element: true,
         month: true,
         value: true,
         updatedAt: true,
@@ -130,6 +134,8 @@ export async function loadDashboard(
       (entriesByReportingYear.get(id) ?? []).map((e) => ({
         scope: e.scope,
         category: e.category,
+        subcategory: e.subcategory,
+        element: e.element,
         month: e.month,
         value: e.value === null ? null : e.value.toString(),
         factor: e.emissionFactor

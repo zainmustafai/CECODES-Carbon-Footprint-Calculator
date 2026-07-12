@@ -24,6 +24,9 @@ export type RollupFactor = {
 export type RollupEntry = {
   scope: Scope;
   category: string;
+  /** Null is normal: plenty of the library's categories have no subcategory level. */
+  subcategory: string | null;
+  element: string;
   month: number | null;
   /** Activity data as a Decimal string, or null when not reported. */
   value: string | null;
@@ -35,6 +38,21 @@ export type ScopeTotals = Record<Scope, number>;
 
 export type CategoryTotal = { scope: Scope; category: string; tonnes: number };
 
+export type SubcategoryTotal = {
+  scope: Scope;
+  category: string;
+  subcategory: string | null;
+  tonnes: number;
+};
+
+export type ElementTotal = {
+  scope: Scope;
+  category: string;
+  subcategory: string | null;
+  element: string;
+  tonnes: number;
+};
+
 /** One month of the Scope 2 trend. tonnes is null when no month was reported (a gap, not 0). */
 export type MonthlyPoint = { month: number; tonnes: number | null };
 
@@ -43,6 +61,16 @@ export type YearRollup = {
   byScope: ScopeTotals;
   /** Per (scope, category), largest first. */
   byCategory: CategoryTotal[];
+  /**
+   * The rest of the hierarchy Requirements 7.4 asks for:
+   * element -> subcategory -> category -> scope -> company. Largest first.
+   *
+   * These exist so that the report/export and any dashboard drill-down read from the SAME engine
+   * as the headline totals. The alternative (each surface grouping the raw entries itself) is how
+   * you end up with two engines that disagree, which already happened once here.
+   */
+  bySubcategory: SubcategoryTotal[];
+  byElement: ElementTotal[];
   /** Twelve entries, Enero to Diciembre. Only Scope 2 is captured monthly. */
   scope2Monthly: MonthlyPoint[];
   /**
@@ -130,6 +158,8 @@ export function rollupYear({
 
   const byScope: ScopeTotals = { SCOPE_1: 0, SCOPE_2: 0, SCOPE_3: 0 };
   const categories = new Map<string, CategoryTotal>();
+  const subcategories = new Map<string, SubcategoryTotal>();
+  const elements = new Map<string, ElementTotal>();
   const monthKg = new Array<number>(12).fill(0);
   const monthReported = new Array<boolean>(12).fill(false);
   let biogenicTonnes = 0;
@@ -176,6 +206,32 @@ export function rollupYear({
     if (existing) existing.tonnes += tonnes;
     else categories.set(key, { scope: entry.scope, category: entry.category, tonnes });
 
+    // The finer levels are the same tonnes, keyed more precisely. Sub-totals therefore add up to
+    // the category total by construction, which is what makes a drill-down trustworthy.
+    const subKey = `${key}::${entry.subcategory ?? ""}`;
+    const sub = subcategories.get(subKey);
+    if (sub) sub.tonnes += tonnes;
+    else
+      subcategories.set(subKey, {
+        scope: entry.scope,
+        category: entry.category,
+        subcategory: entry.subcategory,
+        tonnes,
+      });
+
+    // Keyed on the element, so a source split across twelve months collapses into one row.
+    const elementKey = `${subKey}::${entry.element}`;
+    const element = elements.get(elementKey);
+    if (element) element.tonnes += tonnes;
+    else
+      elements.set(elementKey, {
+        scope: entry.scope,
+        category: entry.category,
+        subcategory: entry.subcategory,
+        element: entry.element,
+        tonnes,
+      });
+
     if (
       entry.scope === "SCOPE_2" &&
       entry.month != null &&
@@ -215,13 +271,18 @@ export function rollupYear({
     tonnes: monthReported[index] ? kgToTonnes(kg) : null,
   }));
 
-  const byCategory = [...categories.values()].sort((a, b) => b.tonnes - a.tonnes);
+  const byTonnesDesc = <T extends { tonnes: number }>(a: T, b: T) => b.tonnes - a.tonnes;
+  const byCategory = [...categories.values()].sort(byTonnesDesc);
+  const bySubcategory = [...subcategories.values()].sort(byTonnesDesc);
+  const byElement = [...elements.values()].sort(byTonnesDesc);
   const totalTonnes = SCOPES.reduce((sum, scope) => sum + byScope[scope], 0);
 
   return {
     totalTonnes,
     byScope,
     byCategory,
+    bySubcategory,
+    byElement,
     scope2Monthly,
     biogenicTonnes,
     biogenicCo2Tonnes,
