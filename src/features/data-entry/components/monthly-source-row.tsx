@@ -18,6 +18,7 @@ import type { SourceVM } from "../lib/types";
 import { domId } from "../lib/dom-id";
 import { useReportedCount } from "../hooks/use-reported-count";
 import { useSourceActions } from "../hooks/use-source-actions";
+import { useSourceEstimate } from "../hooks/use-source-estimate";
 import { ValueField } from "./value-field";
 import { DeleteSourceButton } from "./delete-source-button";
 import { SourceSummary } from "./source-summary";
@@ -27,6 +28,9 @@ import { SourceSummary } from "./source-summary";
 // beside it only from xl, because at lg with the sidebar open 4 columns plus an 18rem rail
 // squeezed each input to about 74px.
 //
+// Twelve inputs and a real rail: this is the one place the summary card earns its space, so it
+// keeps the card while the annual row moved to a disclosure.
+//
 // Arrow keys are deliberately NOT bound to move between month fields: they must move the
 // text caret inside the input. Tab order runs Enero to Diciembre, then Copiar Enero.
 export function MonthlySourceRow({
@@ -34,6 +38,8 @@ export function MonthlySourceRow({
   gridFactor,
   gwpSet,
   year,
+  hintId,
+  gridWarningShown = false,
   defaultOpen = false,
   onDeleted,
 }: {
@@ -41,6 +47,10 @@ export function MonthlySourceRow({
   gridFactor: PreviewGridFactor | null;
   gwpSet: GwpSet;
   year: number;
+  /** The scope panel's shared "non-negative, decimals allowed" hint. */
+  hintId?: string;
+  /** The panel banner already states the missing grid factor; do not repeat the sentence here. */
+  gridWarningShown?: boolean;
   defaultOpen?: boolean;
   onDeleted?: () => void;
 }) {
@@ -49,6 +59,7 @@ export function MonthlySourceRow({
   const tv = useTranslations("dataEntry");
   const [open, setOpen] = useState(defaultOpen);
   const { copyJanuary, isPending } = useSourceActions();
+  const estimate = useSourceEstimate({ source, gridFactor, gwpSet });
 
   const entryIds = source.cells.map((cell) => cell.entryId);
   const reported = useReportedCount(entryIds);
@@ -66,7 +77,7 @@ export function MonthlySourceRow({
       ? t("copyJanuaryNothingEmpty")
       : null;
 
-  const hintId = domId("hint", source.emissionFactorId || source.element);
+  const copyHintId = domId("copy", source.emissionFactorId || source.element);
 
   const copyButton = (
     <Button
@@ -74,6 +85,7 @@ export function MonthlySourceRow({
       size="sm"
       loading={isPending}
       disabled={!canCopy}
+      aria-describedby={copyDisabledReason ? copyHintId : undefined}
       onClick={() => void copyJanuary(source.emissionFactorId)}
     >
       <Copy className="size-4" aria-hidden />
@@ -139,29 +151,32 @@ export function MonthlySourceRow({
               ))}
             </div>
 
-            <p id={hintId} className="text-xs text-muted-foreground">
-              {tv("valueHint")}
-            </p>
-
-            {/* A disabled button explains itself, or it reads as broken. Tooltips do not fire
-                on disabled elements, so the span carries the trigger. */}
+            {/* A disabled button explains itself, or it reads as broken. Tooltips do not fire on
+                disabled elements, and a disabled button is not focusable either, so the reason
+                was pointer-only. The sr-only paragraph puts it back in the reading order and
+                aria-describedby ties it to the button. */}
             {copyDisabledReason ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-block">{copyButton}</span>
-                </TooltipTrigger>
-                <TooltipContent>{copyDisabledReason}</TooltipContent>
-              </Tooltip>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block">{copyButton}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{copyDisabledReason}</TooltipContent>
+                </Tooltip>
+                <p id={copyHintId} className="sr-only">
+                  {copyDisabledReason}
+                </p>
+              </>
             ) : (
               copyButton
             )}
           </div>
 
           <SourceSummary
-            source={source}
-            gridFactor={gridFactor}
+            estimate={estimate}
             gwpSet={gwpSet}
             year={year}
+            conciseWarning={gridWarningShown}
           />
         </div>
       </CollapsibleContent>

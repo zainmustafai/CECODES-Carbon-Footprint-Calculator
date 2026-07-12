@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +13,17 @@ type TextFieldProps = React.ComponentProps<"input"> & {
 
 // Presentational field: label + shadcn Input (optional leading icon) + error text.
 // Wire it with RHF's register().
+//
+// The DOM id is generated, NOT taken from the field name. It used to be `id ?? name`, and the
+// moment two forms with a same-named field shared a page (the company profile and the facility
+// dialog both have a "name"), the document carried two id="name" elements. A <label for="name">
+// binds to the FIRST match in the document, so the facility dialog's "Planta" label silently
+// pointed at the company profile's input: the wrong control for a mouse click, and the wrong
+// announcement for a screen reader. useId is per-instance, so it cannot collide.
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
   function TextField({ label, error, startIcon, id, name, className, ...props }, ref) {
-    const fieldId = id ?? name;
+    const generatedId = React.useId();
+    const fieldId = id ?? generatedId;
     const errorId = error ? `${fieldId}-error` : undefined;
 
     return (

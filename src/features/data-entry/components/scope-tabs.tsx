@@ -5,13 +5,13 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FEATURE_SCOPE_TARGETS } from "@/lib/feature-flags";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { PreviewGridFactor } from "@/lib/calc/preview";
 import { findCategory } from "../lib/group-factors";
+import { domId } from "../lib/dom-id";
 import type { GroupedFactors, ScopeVM } from "../lib/types";
 import { CategorySection } from "./category-section";
-import { MetaCard } from "./meta-card";
+import { ScopeToolbar } from "./scope-toolbar";
 
 type ScopeTabsProps = {
   scopes: ScopeVM[];
@@ -81,6 +81,12 @@ export function ScopeTabs({
           (a, b) => Number(b.sources.length > 0) - Number(a.sources.length > 0),
         );
 
+        // One format hint per panel, and every field in the panel points at it. It lives inside
+        // the TabsContent on purpose: Radix unmounts the inactive panels, so a single hint above
+        // the Tabs would leave two thirds of the aria-describedby idrefs dangling.
+        const hintId = domId("hint", scope.scope);
+        const gridWarningShown = scope.scope === "SCOPE_2" && Boolean(missingGridFactorYear);
+
         return (
           <TabsContent key={scope.scope} value={scope.scope} className="space-y-4">
             {scope.scope === "SCOPE_2" && missingGridFactorYear ? (
@@ -102,6 +108,14 @@ export function ScopeTabs({
               </div>
             ) : null}
 
+            {/* The format rule, stated once for the panel, and the Meta as a single row. Both
+                are chrome: they sit above the data without competing with it. */}
+            <ScopeToolbar
+              scope={scope.scope}
+              hintId={hintId}
+              target={targets[scope.scope] ?? ""}
+            />
+
             {!hasAnySource ? (
               <p className="text-sm text-muted-foreground">{t("empty.noSourcesInScope")}</p>
             ) : null}
@@ -119,15 +133,11 @@ export function ScopeTabs({
                   gridFactor={gridFactor}
                   gwpSet={gwpSet}
                   year={year}
+                  hintId={hintId}
+                  gridWarningShown={gridWarningShown}
                 />
               ))
             )}
-
-            {/* The Meta is real, but it is not the task this screen exists for. It sits after
-                the data so entering consumption keeps the hero position. */}
-            {FEATURE_SCOPE_TARGETS ? (
-              <MetaCard scope={scope.scope} initialValue={targets[scope.scope] ?? ""} />
-            ) : null}
           </TabsContent>
         );
       })}

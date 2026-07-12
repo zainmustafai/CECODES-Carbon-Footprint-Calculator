@@ -7,6 +7,11 @@ import { db, loadFixture, type Fixture } from "./fixture";
 // facility other specs depend on keeps its clean state.
 //
 // Sedes has no route of its own: it is the section beneath the profile on /company.
+//
+// The card assertions carry an explicit 15s, as the toasts already did. /company runs two queries
+// and re-renders a heavier tree than the old standalone Sedes page, so a router.refresh() in dev
+// mode regularly outlasts Playwright's default 5s expect timeout. The write itself lands
+// immediately (the toast proves it); it is the RSC round trip that is slow.
 
 test.describe.configure({ mode: "serial" });
 
@@ -47,7 +52,7 @@ test.describe("facilities", () => {
     await dialog.getByRole("button", { name: /agregar sede/i }).click();
 
     await expect(page.getByText(/sede agregada/i)).toBeVisible({ timeout: 15_000 });
-    await expect(card(page, nameA)).toBeVisible();
+    await expect(card(page, nameA)).toBeVisible({ timeout: 15_000 });
 
     // Rename.
     await page.getByRole("button", { name: `Editar: ${nameA}`, exact: true }).click();
@@ -56,7 +61,7 @@ test.describe("facilities", () => {
     await editDialog.getByRole("button", { name: /guardar cambios/i }).click();
 
     await expect(page.getByText(/sede actualizada/i)).toBeVisible({ timeout: 15_000 });
-    await expect(card(page, nameARenamed)).toBeVisible();
+    await expect(card(page, nameARenamed)).toBeVisible({ timeout: 15_000 });
 
     // Delete: the confirm dialog stays open while the delete is in flight, then the card goes.
     await page.getByRole("button", { name: `Eliminar: ${nameARenamed}`, exact: true }).click();
@@ -66,7 +71,7 @@ test.describe("facilities", () => {
     await expect(confirm).toBeVisible(); // still open during the server round trip
 
     await expect(page.getByText(/sede eliminada/i)).toBeVisible({ timeout: 15_000 });
-    await expect(card(page, nameARenamed)).toHaveCount(0);
+    await expect(card(page, nameARenamed)).toHaveCount(0, { timeout: 15_000 });
   });
 
   test("refuses to delete a facility with reporting years until the year is removed", async ({
@@ -118,6 +123,6 @@ test.describe("facilities", () => {
     const del = page.getByRole("alertdialog");
     await del.getByRole("button", { name: /^eliminar$/i }).click();
     await expect(page.getByText(/sede eliminada/i)).toBeVisible({ timeout: 15_000 });
-    await expect(card(page, nameB)).toHaveCount(0);
+    await expect(card(page, nameB)).toHaveCount(0, { timeout: 15_000 });
   });
 });

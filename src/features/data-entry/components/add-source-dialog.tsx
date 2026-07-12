@@ -21,6 +21,10 @@ type AddSourceDialogProps = {
   category: FactorCategory | undefined;
   existingFactorIds: string[];
   disabled?: boolean;
+  /** Runs once the add has settled. An empty category renders as a one-line row, so adding the
+   *  first source turns the section into a card and unmounts this very trigger; focus would
+   *  otherwise fall to <body>. */
+  onAdded?: () => void;
 };
 
 // Fold accents away before matching: the factor library carries the Excel's accented Spanish
@@ -41,7 +45,7 @@ function accentInsensitiveFilter(value: string, search: string): number {
 // The trigger takes a ref: it is the stable element that a deleted source row hands focus
 // back to, since the row (and its delete button) unmounts on the refresh.
 export const AddSourceDialog = forwardRef<HTMLButtonElement, AddSourceDialogProps>(
-  function AddSourceDialog({ category, existingFactorIds, disabled }, ref) {
+  function AddSourceDialog({ category, existingFactorIds, disabled, onAdded }, ref) {
     const t = useTranslations("dataEntry.addSource");
     const [open, setOpen] = useState(false);
     const { add, isPending } = useSourceActions();
@@ -77,7 +81,7 @@ export const AddSourceDialog = forwardRef<HTMLButtonElement, AddSourceDialogProp
                         disabled={isAdded}
                         onSelect={() => {
                           if (isAdded) return;
-                          void add(option.id);
+                          void add(option.id).then(() => onAdded?.());
                           setOpen(false);
                         }}
                       >

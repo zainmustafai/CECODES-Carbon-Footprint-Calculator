@@ -4,6 +4,7 @@ import {
   E2E_COMPANY_PREFIX,
   E2E_EMAIL_DOMAIN,
   E2E_PASSWORD,
+  E2E_YEAR,
   FIXTURE_PATH,
   db,
   purgeE2E,
@@ -76,6 +77,32 @@ export default async function globalSetup() {
     [adminUserId, adminEmail],
   );
 
+  // A SECOND company, with a facility and a reporting year, which nobody signs in as. It exists
+  // only so the cross-tenant spec has real ids to attack with. Proving isolation against ids that
+  // do not exist proves nothing: "not found" and "not yours" must be indistinguishable to the
+  // caller, and only a real foreign row can tell the two apart.
+  const victimName = `${E2E_COMPANY_PREFIX}victima ${suffix}`;
+  const victim = await client.query<{ id: string }>(
+    `INSERT INTO companies (id, name, sector, "createdAt", "updatedAt")
+     VALUES (gen_random_uuid()::text, $1, 'E2E', now(), now()) RETURNING id`,
+    [victimName],
+  );
+  const victimCompanyId = victim.rows[0].id;
+
+  const victimFacility = await client.query<{ id: string }>(
+    `INSERT INTO facilities (id, "companyId", name, location, "createdAt", "updatedAt")
+     VALUES (gen_random_uuid()::text, $1, 'Planta Victima', 'Medellín, Colombia', now(), now())
+     RETURNING id`,
+    [victimCompanyId],
+  );
+  const victimFacilityId = victimFacility.rows[0].id;
+
+  const victimYear = await client.query<{ id: string }>(
+    `INSERT INTO reporting_years (id, "facilityId", "companyId", year, "gwpSet", "createdAt", "updatedAt")
+     VALUES (gen_random_uuid()::text, $1, $2, $3, 'AR6', now(), now()) RETURNING id`,
+    [victimFacilityId, victimCompanyId, E2E_YEAR],
+  );
+
   const fixture: Fixture = {
     email,
     companyId,
@@ -84,6 +111,11 @@ export default async function globalSetup() {
     userId,
     adminEmail,
     adminUserId,
+
+    victimCompanyId,
+    victimCompanyName: victimName,
+    victimFacilityId,
+    victimReportingYearId: victimYear.rows[0].id,
   };
 
   mkdirSync("e2e/.auth", { recursive: true });

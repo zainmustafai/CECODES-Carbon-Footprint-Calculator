@@ -23,8 +23,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// See the note in data-entry.spec.ts: an empty category is a single line whose name is a plain
+// h2, and only a category holding data wraps that h2 around a collapsible trigger button.
 function category(page: Page, name: string | RegExp) {
-  return page.locator("section").filter({ has: page.getByRole("button", { name }) });
+  return page.locator("section").filter({ has: page.getByRole("heading", { name }) });
 }
 
 async function ensureYear(facilityId: string, companyId: string, year: number, gwp: string) {
@@ -60,8 +62,10 @@ test.describe("data entry edge cases", () => {
     await page.goto(`/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR}`);
     await page.getByRole("tab", { name: "Alcance 1" }).click();
 
+    // The category name is the heading. On an empty category the first button is "Agregar
+    // fuente", not the name, so the heading is what identifies it.
     const firstSection = page.locator("section").first();
-    const name = (await firstSection.getByRole("button").first().textContent())?.trim() ?? "";
+    const name = (await firstSection.getByRole("heading").first().innerText()).trim();
     expect(name).not.toBe("");
 
     const toggle = firstSection.getByRole("switch");
@@ -92,8 +96,6 @@ test.describe("data entry edge cases", () => {
     await page.getByRole("tab", { name: "Alcance 1" }).click();
 
     const stationary = category(page, /^Fuentes Fijas$/);
-    await stationary.getByRole("button", { name: /^Fuentes Fijas$/ }).click();
-
     await stationary.getByRole("button", { name: /agregar fuente/i }).click();
     const option = page.getByRole("option").first();
     await expect(option).toBeVisible();

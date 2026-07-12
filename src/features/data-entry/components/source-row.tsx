@@ -7,9 +7,14 @@ import type { PreviewGridFactor } from "@/lib/calc/preview";
 import type { SourceVM } from "../lib/types";
 import { ValueField } from "./value-field";
 import { DeleteSourceButton } from "./delete-source-button";
-import { SourceSummary } from "./source-summary";
+import { EstimatePopover } from "./estimate-popover";
 
-// Alcance 1 and Alcance 3: a single annual value per source.
+// Alcance 1 and Alcance 3: a single annual value per source, on a single line.
+//
+// DESIGN.md: "an annual Scope 1 or 3 source gets a single compact line, because one value does
+// not deserve a card". The estimate used to trail the row as a third line of labelled facts
+// (Emisiones estimadas, Factor aplicado, Conjunto GWP), which buried the input. The number now
+// sits on the row as the trigger, and the rest of the facts live inside it.
 export function SourceRow({
   source,
   gridFactor,
@@ -22,7 +27,7 @@ export function SourceRow({
   gridFactor: PreviewGridFactor | null;
   gwpSet: GwpSet;
   year: number;
-  /** The category's shared "non-negative, decimals allowed" hint. */
+  /** The scope panel's shared "non-negative, decimals allowed" hint. */
   hintId?: string;
   onDeleted?: () => void;
 }) {
@@ -31,31 +36,37 @@ export function SourceRow({
   if (!cell) return null;
 
   return (
-    <div className="space-y-2 border-t py-3 first:border-t-0">
-      <div className="flex flex-col gap-3 md:grid md:grid-cols-[1fr_14rem_auto] md:items-center">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-medium">{source.element}</span>
-            {source.biogenic ? <Badge variant="outline">{t("biogenic")}</Badge> : null}
-            {source.factorActive ? null : (
-              <Badge variant="secondary">{t("factorInactive")}</Badge>
-            )}
-          </div>
-          {source.subcategory ? (
-            <p className="truncate text-xs text-muted-foreground">{source.subcategory}</p>
-          ) : null}
+    <div className="flex flex-col gap-2 border-t py-2 first:border-t-0 md:grid md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-center md:gap-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-medium">{source.element}</span>
+          {source.biogenic ? <Badge variant="outline">{t("biogenic")}</Badge> : null}
+          {source.factorActive ? null : (
+            <Badge variant="secondary">{t("factorInactive")}</Badge>
+          )}
         </div>
+        {source.subcategory ? (
+          <p className="truncate text-xs text-muted-foreground">{source.subcategory}</p>
+        ) : null}
+      </div>
 
-        {/* On a phone the value and the delete button share one row. From md the wrapper
-            dissolves (display: contents) and both become grid cells of their own. */}
-        <div className="flex items-center gap-2 md:contents">
-          <ValueField
-            className="flex-1"
-            entryId={cell.entryId}
-            unit={source.unit}
-            label={`${t("annualValue")}: ${source.element}`}
-            placeholder={t("notReported")}
-            describedBy={hintId}
+      {/* On a phone the value, the estimate and the delete button share one row. From md the
+          wrapper dissolves (display: contents) and each becomes a grid cell of its own. */}
+      <div className="flex items-center gap-1 md:contents">
+        <ValueField
+          className="flex-1"
+          entryId={cell.entryId}
+          unit={source.unit}
+          label={`${t("annualValue")}: ${source.element}`}
+          placeholder={t("notReported")}
+          describedBy={hintId}
+        />
+        <div className="flex shrink-0 items-center justify-end gap-0.5">
+          <EstimatePopover
+            source={source}
+            gridFactor={gridFactor}
+            gwpSet={gwpSet}
+            year={year}
           />
           <DeleteSourceButton
             emissionFactorId={source.emissionFactorId}
@@ -64,14 +75,6 @@ export function SourceRow({
           />
         </div>
       </div>
-
-      <SourceSummary
-        source={source}
-        gridFactor={gridFactor}
-        gwpSet={gwpSet}
-        year={year}
-        variant="compact"
-      />
     </div>
   );
 }

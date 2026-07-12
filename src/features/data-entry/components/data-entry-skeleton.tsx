@@ -1,10 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Matches the real data-entry layout: page header, the sticky context bar (two selects plus
-// the save pill), the scope tabs, and collapsible category blocks.
+// Matches the real data-entry layout: page header, the sticky context bar (two selects plus the
+// save pill), the scope tabs, the scope toolbar (the format hint and the Meta row), and then the
+// categories: a card for the one carrying data, single lines for the rest of the taxonomy.
 //
-// The generic ScreenSkeleton renders a KPI card grid, which this screen does not have. Using
-// it here made the page visibly jump when the real content arrived.
+// This file is a layout contract, not decoration. The generic ScreenSkeleton renders a KPI card
+// grid, which this screen does not have, and using it here made the page visibly jump when the
+// real content arrived. Keep the resting shapes below in step with the real screen.
 export function DataEntrySkeleton() {
   return (
     <div className="space-y-8">
@@ -36,10 +38,20 @@ export function DataEntrySkeleton() {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      {/* collapsible category sections */}
       <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 rounded-lg" />
+        {/* scope toolbar: the format hint on the left, the Meta row on the right */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <Skeleton className="h-4 w-72 max-w-full" />
+          <div className="flex items-end gap-2">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+
+        {/* the category carrying data is a card; the empty rest of the taxonomy are one-liners */}
+        <Skeleton className="h-28 rounded-lg" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 rounded-lg" />
         ))}
       </div>
     </div>

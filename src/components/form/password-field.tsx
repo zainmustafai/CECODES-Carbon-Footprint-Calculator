@@ -19,7 +19,11 @@ export const PasswordField = React.forwardRef<HTMLInputElement, PasswordFieldPro
     ref,
   ) {
     const [show, setShow] = React.useState(false);
-    const fieldId = id ?? name;
+    // Generated, never the field name. See the note in text-field.tsx: a sign-in form and a
+    // change-password form on one page would both hold a "password", and the duplicate DOM id
+    // would bind one label to the other's input.
+    const generatedId = React.useId();
+    const fieldId = id ?? generatedId;
     const errorId = error ? `${fieldId}-error` : undefined;
 
     return (

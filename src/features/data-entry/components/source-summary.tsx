@@ -3,38 +3,54 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import type { GwpSet } from "@/lib/generated/prisma/client";
-import type { PreviewGridFactor } from "@/lib/calc/preview";
+import type { SourceEstimate } from "@/lib/calc/preview";
 import { cn } from "@/lib/utils";
-import { useSourceEstimate } from "../hooks/use-source-estimate";
-import type { SourceVM } from "../lib/types";
 
-// "Resumen del elemento": the estimated emissions of one source, live as the user types,
-// plus the factor that produced them.
+// "Resumen del elemento": the estimated emissions of one source, plus the factor that produced
+// them and where that factor came from.
 //
-// It is explicitly labelled an estimate. The authoritative totals come from the engine and
-// land on the dashboard. When a factor is missing it says so, rather than showing 0.0 t,
-// which would be indistinguishable from a company that emitted nothing.
+// It is explicitly labelled an estimate. The authoritative totals come from the engine and land
+// on the dashboard. When a factor is missing it says so, rather than showing 0.0 t, which would
+// be indistinguishable from a company that emitted nothing.
+//
+// PRESENTATIONAL on purpose. The caller computes the estimate with useSourceEstimate and passes
+// it in. That matters: this body also renders inside a Popover, and PopoverContent only mounts
+// when it opens, so calling the hook in here would mount and unmount a subscription with the
+// popover and change hook order between the two callers.
 export function SourceSummary({
-  source,
-  gridFactor,
+  estimate,
   gwpSet,
   year,
-  variant = "card",
+  conciseWarning = false,
   className,
 }: {
-  source: SourceVM;
-  gridFactor: PreviewGridFactor | null;
+  estimate: SourceEstimate;
   gwpSet: GwpSet;
   year: number;
-  /** "card" for the Scope 2 month grid rail; "compact" for a single annual row. */
-  variant?: "card" | "compact";
+  /** The scope panel already carries the missing-grid-factor sentence in its banner. Repeating
+   *  the whole sentence under every source turned one problem into N+1 messages, so under the
+   *  banner each source states it short. The full sentence is one scroll away, once. */
+  conciseWarning?: boolean;
   className?: string;
 }) {
   const t = useTranslations("dataEntry.summary");
   const format = useFormatter();
-  const estimate = useSourceEstimate({ source, gridFactor, gwpSet });
 
   if (estimate.kind !== "ok") {
+    if (estimate.kind === "missingGridFactor" && conciseWarning) {
+      return (
+        <p
+          className={cn(
+            "flex items-center gap-2 text-xs text-muted-foreground",
+            className,
+          )}
+        >
+          <AlertTriangle className="size-3.5 shrink-0 text-chart-2" aria-hidden />
+          {t("missingGridFactorShort")}
+        </p>
+      );
+    }
+
     return (
       <div
         role="status"
@@ -59,8 +75,8 @@ export function SourceSummary({
     ? format.number(estimate.tonnes, { maximumFractionDigits: 2 })
     : null;
 
-  // "Factor aplicado: kg CO2/gal" without the number told the user nothing. The value is
-  // what lets them audit the estimate against the factor library or the Excel.
+  // "Factor aplicado: kg CO2/gal" without the number told the user nothing. The value is what
+  // lets them audit the estimate against the factor library or the Excel.
   const factorLabel = [
     estimate.factorValue !== null
       ? format.number(Number(estimate.factorValue), { maximumFractionDigits: 4 })
@@ -69,26 +85,6 @@ export function SourceSummary({
   ]
     .filter(Boolean)
     .join(" ");
-
-  // One annual value does not deserve a whole card beside it.
-  if (variant === "compact") {
-    return (
-      <p className={cn("text-xs text-muted-foreground", className)}>
-        <span className="font-medium">{t("estimated")}:</span>{" "}
-        <span className="font-mono tabular-nums text-foreground">
-          {tonnes !== null ? `${tonnes} t CO2e` : t("notReportedYet")}
-        </span>
-        {factorLabel ? (
-          <span className="ml-2 whitespace-nowrap">
-            {t("factorApplied")}: <span className="font-mono">{factorLabel}</span>
-          </span>
-        ) : null}
-        <span className="ml-2 whitespace-nowrap">
-          {t("gwpSet")}: <span className="font-mono">{gwpSet}</span>
-        </span>
-      </p>
-    );
-  }
 
   return (
     <div className={cn("rounded-lg border bg-muted/30 p-3", className)}>

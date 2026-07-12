@@ -67,7 +67,8 @@
       "company": "Company",
       "admin": "CECODES admin"
     },
-    "preview": "Summary"
+    "preview": "Summary",
+    "goHome": "Go to home"
   },
   "auth": {
     "brand": {
@@ -383,7 +384,9 @@
       "lockedBySources": "To mark it as not applicable, delete its sources first.",
       "noSources": "No sources added in this category yet.",
       "sourceCount": "{count, plural, =1 {# source} other {# sources}}",
-      "noSourcesShort": "No sources"
+      "noSourcesShort": "No sources",
+      "notApplicableShort": "Not applicable",
+      "appliesAria": "Does the {category} category apply?"
     },
     "addSource": {
       "trigger": "Add source",
@@ -409,7 +412,9 @@
       "factorSource": "Factor source",
       "unknownSource": "No source recorded",
       "missingGridFactor": "No grid factor for {year}. Emissions will compute once an administrator loads it.",
+      "missingGridFactorShort": "No grid factor",
       "noFactor": "This element has no emission factor loaded.",
+      "noFactorShort": "No factor",
       "note": "Reference estimate. Official totals are calculated on the Dashboard.",
       "notReportedYet": "Nothing reported yet"
     },
@@ -417,6 +422,7 @@
       "title": "Reduction target",
       "label": "Target for {scope}",
       "help": "Annual target for this alcance, in tonnes of CO2e. Progress will appear on the Dashboard.",
+      "helpAria": "About the reduction target",
       "save": "Save target",
       "validation": {
         "format": "Enter a non-negative number with up to 6 decimals."

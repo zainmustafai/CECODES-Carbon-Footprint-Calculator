@@ -122,15 +122,31 @@ route load has immediate feedback. See the async-feedback table in IMPLEMENTATIO
     near 3.2:1 and fails AA.
   - Nav is one sidebar with role filtered groups, not one sidebar per role. An admin drilled
     into a company gets that company's workspace under a `SidebarMenuSub`.
-- **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, and collapsible
-  category sections. Values autosave on blur, batched; there is no Guardar button. The unit
-  is always visible beside the value. The Scope 2 month grid is 1 column on a phone, 3 at
-  `md`, 4 at `lg`, with the estimated-emissions summary in an 18rem rail beside it. Twelve
+- **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, then a scope
+  toolbar and the category list. Values autosave on blur, batched; there is no Guardar button.
+  The unit is always visible beside the value. The Scope 2 month grid is 1 column on a phone,
+  3 at `md`, 4 at `lg`, with the estimated-emissions summary in an 18rem rail beside it. Twelve
   across one line loses on every viewport.
-- **Estimated emissions:** every source shows what it currently adds up to, live. A Scope 2
-  source gets the full summary card in its rail; an annual Scope 1 or 3 source gets a single
-  compact line, because one value does not deserve a card. When a factor is missing the
-  summary says so. It never renders `0.0 t CO2e` for a source that simply has no factor.
+  - **A category earns its space.** One holding sources is a collapsible card you work inside.
+    An empty one is a single line: name, `¿Aplica?`, `Agregar fuente`. Most of the taxonomy is
+    empty for any given company, and rendering all of it as cards buried the few that matter.
+    `¿Aplica?` stays reachable on that line: "no aplica" is reportable data, not UI state.
+  - **The scope toolbar** carries the quiet chrome: the number-format hint, stated once per
+    panel and never once per category, plus the Meta as a single row. It has to live inside the
+    `TabsContent`: every field points at that hint through `aria-describedby`, and the inactive
+    panels are unmounted.
+- **Estimated emissions:** every source shows what it currently adds up to, live, and the
+  number stays on the row, because it is the answer the user came for. What produced it (Factor
+  aplicado, Conjunto GWP, Fuente del factor, and the "estimación referencial" note) sits behind
+  a disclosure on that number. A Scope 2 source keeps the full summary card in its rail, where
+  twelve inputs earn it; an annual Scope 1 or 3 source is a single line, because one value does
+  not deserve a card. Three labelled facts strung across the row buried the input.
+  - Use a **Popover, not a Tooltip**, for anything the user must be able to read. A Tooltip here
+    only ever explains why a control is in the state it is in, and it cannot be reached by
+    keyboard on a disabled control, so a disabled control also states its reason in `sr-only`
+    text wired through `aria-describedby`.
+  - When a factor is missing the summary says so. It never renders `0.0 t CO2e` for a source
+    that simply has no factor, and it never repeats the panel's warning under every source.
 - **Width:** do not cap content with arbitrary `max-w-*` that leaves dead space. Fill the
   space with grids and responsive padding. Multi column on `md+`, stacked on mobile.
 - **Dashboard:** a KPI row (total plus one card per scope) over a details area (company,

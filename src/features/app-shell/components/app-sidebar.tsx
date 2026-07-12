@@ -113,6 +113,10 @@ export function AppSidebar({ role }: AppSidebarProps) {
                 href={isAdmin ? "/admin/companies" : "/dashboard"}
                 onClick={close}
                 className="flex flex-col items-stretch"
+                // Both images below are decorative (aria-hidden), which left this link with NO
+                // accessible name at all: a screen reader announced it as just "link". axe flags
+                // it as link-name, serious, and it appears on every page that has a sidebar.
+                aria-label={t("goHome")}
               >
                 {/* The logo is a wide navy lockup; the icon sits in its leftmost square,
                     so an object-left cover crop yields the brand mark. The white chip is

@@ -167,6 +167,23 @@ asserts the create-dialog that the wizard replaced) and four em dashes were intr
 **D11. `package.json:12` still ships `"db:migrate": "prisma migrate dev"`** against the one shared
 Supabase database. It does not work here and can prompt to reset. Delete it.
 
+**D13. `notFound()` serves a 200, not a 404.** A company user hitting `/admin/companies` correctly
+lands on the not-found page and sees no admin content, so tenant isolation holds. But the HTTP status
+is **200**: the `(app)` layout (sidebar, topbar) has already streamed by the time the page calls
+`notFound()`, so the response is committed before the 404 can be set. Not an isolation failure, and
+an attacker learns nothing from a 200 that renders "Página no encontrada", but the status code lies
+to monitoring and to any API client. Found by `e2e/cross-tenant.spec.ts`; worth fixing by moving the
+admin guard into a layout or `proxy.ts` so the refusal happens before the shell renders.
+
+**D14. The e2e suite poisoned its own session (fixed).** `auth.spec.ts` ran its logout test against
+the SHARED company-user storage state. Supabase's `signOut()` revokes the refresh token server-side
+and globally, so every spec Playwright ran afterwards (alphabetically: company-profile, cross-tenant,
+data-entry, facilities-crud, meta) silently loaded a dead session and got bounced to `/login`. They
+failed on assertions unrelated to what they tested, and some passed **vacuously**: an isolation test
+asserting "the victim's name is not on this page" passes beautifully when the page is the login
+screen. The logout test now provisions a disposable user of its own. This single flaw accounted for
+most of the suite's redness.
+
 **D12. Stale docs.** `IMPLEMENTATION.md:696` ("no roll ups ... the dashboard shows zeroes"),
 `IMPLEMENTATION.md:142` ("factor library placeholder", "no real numbers yet"),
 `src/features/data-entry/components/meta-card.tsx:18` ("Week 3 engine"), and `IMPLEMENTATION.md:582`

@@ -36,6 +36,14 @@ export type Fixture = {
   userId: string;
   adminEmail: string;
   adminUserId: string;
+
+  // A SECOND tenant, which the signed-in user must never be able to reach. Nothing signs in as
+  // it; it exists purely to be attacked. Without a real second company, "the data is isolated"
+  // is an assertion nobody has ever tested over HTTP.
+  victimCompanyId: string;
+  victimCompanyName: string;
+  victimFacilityId: string;
+  victimReportingYearId: string;
 };
 
 function requireEnv(name: string): string {

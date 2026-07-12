@@ -64,8 +64,11 @@ test.describe("accessibility", () => {
     await page.goto(`/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-    // Expand one category so the scan covers its controls.
-    await page.locator("section").first().getByRole("button").first().click();
+    // No expanding needed any more. A category with no sources renders as a single line that
+    // already exposes its controls (the ¿Aplica? switch, which names itself since there is no
+    // room for a visible label, and "Agregar fuente"), so the scan reaches them directly. The
+    // scope toolbar (the format hint and the Meta row) is in the scan for the same reason.
+    await expect(page.locator("section").first().getByRole("switch")).toBeVisible();
 
     expect(await seriousViolations(page)).toEqual([]);
   });

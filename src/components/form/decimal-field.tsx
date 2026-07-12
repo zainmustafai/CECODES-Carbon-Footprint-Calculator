@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import {
   InputGroup,
@@ -27,7 +29,10 @@ export const DecimalField = React.forwardRef<HTMLInputElement, DecimalFieldProps
     { label, unit, error, hint, id, name, className, ...props },
     ref,
   ) {
-    const fieldId = id ?? name;
+    // Generated, never the field name: two forms sharing a page can hold the same field name, and
+    // duplicate DOM ids silently bind a label to the wrong input. See the note in text-field.tsx.
+    const generatedId = React.useId();
+    const fieldId = id ?? generatedId;
     const errorId = error ? `${fieldId}-error` : undefined;
     const hintId = hint ? `${fieldId}-hint` : undefined;
     const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;

@@ -67,7 +67,8 @@
       "company": "Empresa",
       "admin": "Administrador CECODES"
     },
-    "preview": "Resumen"
+    "preview": "Resumen",
+    "goHome": "Ir al inicio"
   },
   "auth": {
     "brand": {
@@ -383,7 +384,9 @@
       "lockedBySources": "Para marcarla como no aplica, elimina primero sus fuentes.",
       "noSources": "Aún no agregas fuentes en esta categoría.",
       "sourceCount": "{count, plural, =1 {# fuente} other {# fuentes}}",
-      "noSourcesShort": "Sin fuentes"
+      "noSourcesShort": "Sin fuentes",
+      "notApplicableShort": "No aplica",
+      "appliesAria": "¿Aplica la categoría {category}?"
     },
     "addSource": {
       "trigger": "Agregar fuente",
@@ -409,7 +412,9 @@
       "factorSource": "Fuente del factor",
       "unknownSource": "Sin fuente registrada",
       "missingGridFactor": "Sin factor de red para {year}. Las emisiones se calcularán cuando el administrador cargue el factor.",
+      "missingGridFactorShort": "Sin factor de red",
       "noFactor": "Este elemento no tiene un factor de emisión cargado.",
+      "noFactorShort": "Sin factor",
       "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
       "notReportedYet": "Sin registrar aún"
     },
@@ -417,6 +422,7 @@
       "title": "Meta de reducción",
       "label": "Meta para {scope}",
       "help": "Meta anual para este alcance, en toneladas de CO2e. El avance se mostrará en el Tablero.",
+      "helpAria": "Sobre la meta de reducción",
       "save": "Guardar meta",
       "validation": {
         "format": "Ingresa un número no negativo, con hasta 6 decimales."

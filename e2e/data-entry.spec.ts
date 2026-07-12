@@ -20,8 +20,12 @@ test.beforeAll(async () => {
 // Anchored on the timestamp: the idle label must never satisfy "a save has landed".
 const SAVED = /^Guardado \d{1,2}:\d{2}/;
 
+// Located by its heading, not by a button: a category with no sources renders as a single line
+// (an h2, the ¿Aplica? switch and "Agregar fuente"), and only a category holding data becomes a
+// collapsible card whose h2 wraps a trigger button. The heading is the one thing both states
+// share.
 function category(page: Page, name: string | RegExp) {
-  return page.locator("section").filter({ has: page.getByRole("button", { name }) });
+  return page.locator("section").filter({ has: page.getByRole("heading", { name }) });
 }
 
 // The element names come from the live factor library, which prisma/import-factors.ts
@@ -60,10 +64,10 @@ test.describe("data entry", () => {
 
     await page.waitForURL(`**/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR}`);
 
-    // Alcance 1: a single annual value.
+    // Alcance 1: a single annual value. An empty category needs no expanding: it is one line and
+    // "Agregar fuente" sits right on it.
     await page.getByRole("tab", { name: "Alcance 1" }).click();
     const stationary = category(page, /^Fuentes Fijas$/);
-    await stationary.getByRole("button", { name: /^Fuentes Fijas$/ }).click();
     annualElement = await addFirstSource(page, stationary);
 
     const annual = page.getByLabel(new RegExp(`valor anual: ${escapeRegExp(annualElement)}`, "i"));
@@ -71,13 +75,16 @@ test.describe("data entry", () => {
     await annual.blur();
     await expect(page.getByText(SAVED)).toBeVisible({ timeout: 15_000 });
 
-    // The estimated-emissions summary appears as soon as a value exists.
-    await expect(stationary.getByText(/emisiones estimadas/i).first()).toBeVisible();
+    // The estimated emissions are the disclosure trigger on the row: its accessible name is
+    // "Emisiones estimadas: 1,23 t CO2e". Asserting the button proves both that the estimate
+    // rendered and that the details behind it are reachable.
+    await expect(
+      stationary.getByRole("button", { name: /emisiones estimadas/i }).first(),
+    ).toBeVisible();
 
     // Alcance 2: the twelve-month grid, then copy Enero across.
     await page.getByRole("tab", { name: "Alcance 2" }).click();
     const electricity = category(page, /^Consumo de energía eléctrica$/);
-    await electricity.getByRole("button", { name: /^Consumo de energía eléctrica$/ }).click();
     await electricity.getByRole("button", { name: /agregar fuente/i }).click();
     await page.getByRole("option", { name: /Electricidad \(Red Nacional - SIN\)/ }).click();
 
@@ -128,8 +135,14 @@ test.describe("data entry", () => {
 
 test.describe("authorization", () => {
   test("a company user cannot reach the admin area", async ({ page }) => {
-    const response = await page.goto("/admin/companies");
-    expect(response?.status()).toBe(404);
+    // Asserts the content, not the status code. requireAdmin() calls notFound() and the not-found
+    // page is what renders, but the HTTP status is 200: the (app) layout has already streamed by
+    // the time the page throws, so the response is committed before the 404 can be set. Nothing
+    // admin is served either way. See e2e/cross-tenant.spec.ts, which owns this properly.
+    await page.goto("/admin/companies");
+
+    await expect(page.getByText(/página no encontrada/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^empresas$/i })).toHaveCount(0);
   });
 });
 
