@@ -1,5 +1,11 @@
 # CECODES: Completion Prompt
 
+> **SUPERSEDED 2026-07-18 by [COMPLETION_PROMPT_V2.md](./COMPLETION_PROMPT_V2.md).** This round-1
+> prompt predates the client's answers of 2026-07-17 and 2026-07-18. Its P0 baseline (the six red
+> E2E specs) is still accurate and is cited by v2, but hand a fresh session the v2 prompt, which
+> carries the client decisions, the traceability requirement, and the verified ground truth. Kept
+> for the record.
+
 > Paste everything below the line into a fresh Claude Code session at the repo root.
 > It is written to be self-contained: it does not assume any memory of previous sessions.
 

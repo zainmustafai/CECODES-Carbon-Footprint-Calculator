@@ -144,13 +144,23 @@ async function seedAdmin() {
 }
 
 async function main() {
-  for (const g of gridFactors) {
-    await prisma.gridElectricityFactor.upsert({
-      where: { year: g.year },
-      update: { factor: g.factor, source: "UPME/XM (SIN)" },
-      create: { year: g.year, factor: g.factor, source: "UPME/XM (SIN)" },
-    });
-  }
+  // Create only, NEVER update. A CECODES admin may have resolved a conflict between this seeded
+  // value and their workbook (see resolveGridFactor in factor-actions.ts); re-running the seed must
+  // not silently revert that decision and drop the updatedByEmail stamp that records who made it.
+  // The importer already refuses to overwrite grid factors for the same reason: it reports the
+  // conflict (GRID WARN) and leaves the resolution to a human. This is what CLIENT_DECISION_MEMO
+  // item 5 promises CECODES: "never overwrites these silently".
+  //
+  // Correcting a seeded value is therefore an admin action, not a seed rerun. To change a value
+  // here, change it in the admin UI; edit this list only for years that do not exist yet.
+  await prisma.gridElectricityFactor.createMany({
+    data: gridFactors.map((g) => ({
+      year: g.year,
+      factor: g.factor,
+      source: "UPME/XM (SIN)",
+    })),
+    skipDuplicates: true,
+  });
 
   for (const v of versions) {
     const existing = await prisma.emissionFactorVersion.findFirst({

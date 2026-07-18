@@ -697,7 +697,7 @@
         "factorsSection": "Factores de emisión",
         "factorsHelp": "Usa los factores por gas cuando existan. Si el factor ya viene en CO2e, usa el campo consolidado.",
         "metadata": "Metadatos",
-        "metadataHelp": "Fuente, incertidumbre y vigencia. Se muestran al usuario junto al elemento.",
+        "metadataHelp": "Fuente, incertidumbre y vigencia. Se registran con el factor; no se muestran en el Tablero.",
         "factorRequired": "Ingresa al menos un factor de emisión.",
         "scope2Note": "El Alcance 2 toma su factor de la pestaña Red eléctrica, por año. Aquí no se captura factor."
       },

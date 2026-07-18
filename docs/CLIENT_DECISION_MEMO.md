@@ -1,5 +1,23 @@
 # CECODES Carbon Footprint Tool: Decisions We Need From You
 
+> **ANSWERED 2026-07-17. This is round 1 and is kept for the record: the defaults stated below are
+> no longer all live.** CECODES answered all ten items. Read
+> [CLIENT_DECISION_MEMO_ROUND2.md](./CLIENT_DECISION_MEMO_ROUND2.md) for what is still open, and
+> Requirements §12 for the decision log with their answers quoted.
+>
+> **Do not implement from this document.** Three items changed materially:
+> - **Item 1 (CH4):** they chose the **fuel** rule, not our biogenic default. It is **not yet
+>   applied**: their library has no "is a fuel" column, so the rule cannot be executed until they
+>   mark which categories are combustibles (round-2 item 3).
+> - **Item 5 (grid factors):** our question was **malformed**. Both disputed values are in their
+>   workbook, on two different sheets, so "use your Excel's values" selects nothing. Re-asked as
+>   round-2 item 2. Also: the dispute is at least 7 years, not 5.
+> - **Item 10 (uncertainty):** they **reversed** our "internal for v1" default. It goes in the PDF.
+>
+> **Item 6 is countersigned and verified applied** (2026-07-12, audit trail `correccion-km-1609`).
+> **Item 0 is still blocking.** A new blocker appeared that this memo never asked about: **there is
+> no 2025 grid electricity factor anywhere**, in our seed or their workbook (round-2 item 1).
+
 **To:** CECODES
 **Re:** Open decisions blocking "full parity" and final acceptance
 **Related:** Requirements §12 (open decisions) and §14 (definition of done)

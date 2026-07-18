@@ -1,5 +1,11 @@
 # CECODES Completion Plan
 
+> **SUPERSEDED 2026-07-17 by [COMPLETION_PLAN_V2.md](./COMPLETION_PLAN_V2.md). Do not plan from
+> this document.** It predates CECODES's answers to the decision memo, and its inventory is stale:
+> the parity harness, the full §7.4 roll-up, the Excel/CSV export and the cross-tenant E2E are all
+> listed here as NOT BUILT and now exist. Its defect list (D1 to D14) is still useful as history,
+> but re-audit which defects survive before acting on any of them. Kept for the record.
+
 **Status:** approved. **Scope:** take the app from its current state to delivery-ready.
 
 This plan is grounded in a seven-agent read-only codebase audit plus an adversarial verification

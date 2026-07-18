@@ -697,7 +697,7 @@
         "factorsSection": "Emission factors",
         "factorsHelp": "Use the per-gas factors where they exist. If the factor already comes as CO2e, use the consolidated field.",
         "metadata": "Metadata",
-        "metadataHelp": "Source, uncertainty and validity. Shown to the user next to the element.",
+        "metadataHelp": "Source, uncertainty and validity. Recorded with the factor; not shown on the dashboard.",
         "factorRequired": "Enter at least one emission factor.",
         "scope2Note": "Alcance 2 takes its factor from the Grid electricity tab, by year. No factor is captured here."
       },
