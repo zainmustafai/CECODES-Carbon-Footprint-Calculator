@@ -54,21 +54,41 @@ test.describe("admin factor library", () => {
     // actions menu, so the menu has to be opened first.
     await page.waitForURL("**/admin/factors**");
     await page.getByPlaceholder(/buscar elemento/i).fill(FACTOR_ELEMENT);
+    // The search box writes the query into the URL on a debounce. That late navigation lands a
+    // beat after typing and, if it fires while the Editar link is navigating, supersedes it and
+    // drops the page back on the filtered list. Wait for the query to be committed to the URL
+    // first, so the list is settled before we click into a row.
+    await page.waitForURL(/[?&]q=/);
     await expect(page.getByRole("cell", { name: FACTOR_ELEMENT })).toBeVisible({
       timeout: 15_000,
     });
     await page.getByRole("button", { name: /^acciones$/i }).first().click();
     await page.getByRole("menuitem", { name: /editar/i }).click();
 
+    // Editar is a Link to /admin/factors/[id]. Wait for that route to land before reading the
+    // form: the edit page carries the full factor context and, on the dev server, its RSC
+    // transition regularly outlasts the 5s default expect timeout, so the field is simply not
+    // painted yet when the assertion first runs.
+    await page.waitForURL(/\/admin\/factors\/[0-9a-f-]{36}/);
+
     // Edit the value.
     const co2e = page.getByLabel(/factor co2e consolidado/i);
-    await expect(co2e).toHaveValue("100");
+    await expect(co2e).toHaveValue("100", { timeout: 15_000 });
     await co2e.fill("250.5");
     await page.getByRole("button", { name: /guardar/i }).first().click();
+    // Wait for the write to be confirmed before reading the history.
+    await expect(page.getByText(/factor actualizado/i)).toBeVisible({ timeout: 15_000 });
 
-    // The history records who changed what, and when.
+    // Reload for a stable history. The edit page refreshes in place after the save, and that
+    // in-place re-render can momentarily show the pre-update history (only the Creado row) before
+    // settling. A fresh navigation reads the committed audit rows deterministically. The record
+    // is in the database; the write above is confirmed.
+    await page.reload();
+
+    // The history records who changed what, and when. The admin is the actor on both the Creado
+    // and the Actualizado rows, so the email appears twice: assert the first.
     await expect(page.getByText(/historial de cambios/i)).toBeVisible();
-    await expect(page.getByText(fixture.adminEmail, { exact: false })).toBeVisible({
+    await expect(page.getByText(fixture.adminEmail, { exact: false }).first()).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByText(/actualizado/i).first()).toBeVisible();
@@ -100,18 +120,20 @@ test.describe("admin factor library", () => {
     await dialog.getByLabel(/^fuente$/i).fill("E2E harness");
     await dialog.getByRole("button", { name: /guardar/i }).click();
 
-    await expect(page.getByRole("cell", { name: String(E2E_GRID_YEAR) })).toBeVisible({
-      timeout: 15_000,
-    });
+    // exact: the actions cell carries the year in its button labels ("Editar: 2031",
+    // "Eliminar: 2031"), so a non-exact name matches both that cell and the year cell.
+    await expect(
+      page.getByRole("cell", { name: String(E2E_GRID_YEAR), exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
 
     // And remove it again, so the shared library is left as we found it.
     const row = page.getByRole("row", { name: new RegExp(String(E2E_GRID_YEAR)) });
     await row.getByRole("button", { name: /eliminar/i }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: /eliminar/i }).click();
 
-    await expect(page.getByRole("cell", { name: String(E2E_GRID_YEAR) })).toHaveCount(0, {
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByRole("cell", { name: String(E2E_GRID_YEAR), exact: true }),
+    ).toHaveCount(0, { timeout: 15_000 });
   });
 
   test("records a new library version", async ({ page }) => {

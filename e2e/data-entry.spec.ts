@@ -88,10 +88,9 @@ test.describe("data entry", () => {
     await electricity.getByRole("button", { name: /agregar fuente/i }).click();
     await page.getByRole("option", { name: /Electricidad \(Red Nacional - SIN\)/ }).click();
 
-    // exact, or this also matches the delete button's aria-label.
-    await page
-      .getByRole("button", { name: "Electricidad (Red Nacional - SIN)", exact: true })
-      .click();
+    // A monthly source that is the only one in its category opens itself (category-section.tsx
+    // passes defaultOpen for a single source), so the twelve month fields are already visible.
+    // Clicking the source heading here would TOGGLE it shut and the month fields would vanish.
     const january = page.getByLabel(/^enero \(kWh\)$/i);
     await january.fill("102000");
     await january.blur();

@@ -90,6 +90,12 @@ test.describe("admin users", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: /^activar$/i }).click();
     await expect(page.getByText(/usuario activado/i)).toBeVisible({ timeout: 15_000 });
 
+    // Reactivation and deletion are two independent admin operations. After the reactivation
+    // action, the in-place re-render from revalidatePath("/admin/users") can leave the client
+    // table stale (the just-reactivated row not repainted), so reload the list before the second
+    // operation. The row is in the database (the write succeeded), and the query has no filter or
+    // pagination, so a fresh navigation renders it deterministically.
+    await page.goto("/admin/users");
     await userRow(page).getByRole("button", { name: /acciones/i }).click();
     await page.getByRole("menuitem", { name: /eliminar/i }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: /^eliminar$/i }).click();

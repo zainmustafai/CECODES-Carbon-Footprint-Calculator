@@ -22,8 +22,15 @@ export default defineConfig({
   // The suite runs against `bun run dev`, not a production build, so pages compile on first
   // hit and every query crosses the Supabase pooler. The data-entry happy path in particular
   // does many autosave round trips over a page that now carries the full ~1700-factor picker.
-  // 90s keeps that honest without masking a real hang (a hung test still fails, just later).
-  timeout: 90_000,
+  // 120s keeps that honest without masking a real hang (a hung test still fails, just later).
+  // The suite is dev-server bound, so late in a long run a cold segment compile can push a
+  // legitimate navigation past 90s; the extra headroom absorbs that without hiding a true hang.
+  timeout: 120_000,
+  // The per-assertion default is 5s, which is tight for a dev server that recompiles a segment
+  // on first hit and crosses the Supabase pooler on every query. Raising it to 10s removes the
+  // borderline flakes on filtered lists and post-mutation re-renders without weakening any check:
+  // a truly missing element still fails, 5s later. See COMPLETION_PROMPT's note on RSC timing.
+  expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",

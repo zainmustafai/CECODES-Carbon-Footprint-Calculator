@@ -38,8 +38,13 @@ export function useOnboarding() {
       return;
     }
     toast.success(tt("created"));
-    router.push("/dashboard");
+    // Refresh BEFORE navigating. The client router prefetched /dashboard while this user still
+    // had no company, and that cached RSC redirects straight back to /onboarding. Pushing first
+    // serves that stale entry and bounces the user back to the form they just completed.
+    // Invalidating the cache first means the push fetches a fresh /dashboard that sees the new
+    // company and renders it.
     router.refresh();
+    router.push("/dashboard");
   });
 
   return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };

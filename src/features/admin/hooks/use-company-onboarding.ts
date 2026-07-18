@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,7 +81,31 @@ export function useCompanyOnboarding() {
     });
   }
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  // createCompany has no natural idempotency key (Company.name is deliberately not unique), so a
+  // double submission creates two real companies. The submit button disables on isSubmitting, but
+  // that is a re-render behind the click: a synchronous second invocation of the handler fires
+  // both server actions before the disable lands. This ref rejects the re-entry outright, and it
+  // also protects a real admin who double-clicks. Verified from an e2e trace: one click, two
+  // createCompany POSTs, two identical company cards.
+  const submittingRef = useRef(false);
+  const submit = form.handleSubmit(createAll);
+
+  // The ref guard lives in the event handler, where reading a ref is allowed, rather than inside
+  // the handleSubmit callback (which the React Compiler treats as render-time). One click was
+  // producing two createCompany POSTs and two identical companies; the submit button disables on
+  // isSubmitting, but that is a render behind the click, so a synchronous re-entry slips past it.
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    if (submittingRef.current) {
+      event.preventDefault();
+      return;
+    }
+    submittingRef.current = true;
+    void submit(event).finally(() => {
+      submittingRef.current = false;
+    });
+  }
+
+  async function createAll(values: CompanyOnboardingValues) {
     setServerError(null);
     const toastId = toast.loading(tt("creating"));
 
@@ -136,7 +160,7 @@ export function useCompanyOnboarding() {
       userError,
     });
     router.refresh();
-  });
+  }
 
   function restart() {
     form.reset();

@@ -28,6 +28,13 @@ export function useFactorForm({ mode, factorId, defaultValues }: UseFactorFormAr
   const resolver = useMemo(() => zodResolver(factorFormSchema(tv)), [tv]);
   const form = useForm<FactorFormValues>({ resolver, defaultValues });
 
+  // Read isDirty DURING render, not only inside the submit handler. formState is a Proxy that
+  // enables tracking for a field only when that field is read during render; a value read only
+  // in a callback is never subscribed and stays false. Without this, editing a factor and
+  // saving silently no-ops as "sin cambios" even though the field changed. Destructuring here is
+  // the subscription.
+  const { isDirty, isSubmitting } = form.formState;
+
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
 
@@ -35,7 +42,7 @@ export function useFactorForm({ mode, factorId, defaultValues }: UseFactorFormAr
       if (!factorId) return;
       // Nothing changed: skip the round trip and say so. The server also refuses to write an
       // audit row for an empty diff, so this stays honest even for a comma-only edit.
-      if (!form.formState.isDirty) {
+      if (!isDirty) {
         toast(tt("noChanges"));
         return;
       }
@@ -59,5 +66,5 @@ export function useFactorForm({ mode, factorId, defaultValues }: UseFactorFormAr
     router.push("/admin/factors");
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

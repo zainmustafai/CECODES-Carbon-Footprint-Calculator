@@ -46,6 +46,12 @@ test.describe("admin companies", () => {
     await expect(page.getByText(/empresa creada/i).first()).toBeVisible({ timeout: 20_000 });
     await page.getByRole("link", { name: /ver empresas/i }).click();
 
+    // Wait for the list to actually land before asserting. The summary screen renders its own
+    // cards, so until it unmounts, card(companyName) matches both the summary card and the list
+    // card and trips strict mode. The list URL and its heading are the signal it has arrived.
+    await page.waitForURL(/\/admin\/companies$/);
+    await expect(page.getByRole("heading", { name: /^empresas$/i })).toBeVisible();
+
     await expect(card(page, companyName)).toBeVisible();
     await expect(card(page, companyName)).toContainText(/manufactura/i);
   });
@@ -73,6 +79,11 @@ test.describe("admin companies", () => {
     await expect(page.getByText(/empresa desactivada/i)).toBeVisible({ timeout: 15_000 });
     await expect(card(page, companyName).getByText(/inactiva/i)).toBeVisible();
 
+    // Reactivation is a second, independent operation. Reload between the two: the in-place
+    // re-render after the deactivate action leaves the confirm dialog's backdrop briefly over the
+    // card, so clicking its actions button races an obscured element and hangs. A fresh list is
+    // deterministic (the company is in the database either way).
+    await page.goto("/admin/companies");
     await card(page, companyName).getByRole("button", { name: /acciones/i }).click();
     await page.getByRole("menuitem", { name: /activar/i }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: /^activar$/i }).click();

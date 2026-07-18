@@ -99,7 +99,11 @@ test.describe("data entry edge cases", () => {
     await stationary.getByRole("button", { name: /agregar fuente/i }).click();
     const option = page.getByRole("option").first();
     await expect(option).toBeVisible();
-    element = (await option.textContent())?.trim() ?? "";
+    // Take only the element name from the first span. textContent glues the name to the unit
+    // span ("Acetileno - Fijokg"), which then never matches the field's "Valor anual: Acetileno
+    // - Fijo (kg)" aria-label used by the value-validation step below. Same reason as the note
+    // in data-entry.spec.ts.
+    element = (await option.locator("span").first().innerText()).trim();
     await option.click();
 
     await expect(page.getByText(/fuente agregada/i)).toBeVisible({ timeout: 15_000 });
