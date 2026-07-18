@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Download links for the current facility and year.
@@ -21,7 +21,7 @@ export async function ExportButtons({
 }) {
   const t = await getTranslations("reports");
 
-  const params = (format: "xlsx" | "csv") => {
+  const params = (format: "xlsx" | "csv" | "pdf") => {
     const query = new URLSearchParams({
       facilityId,
       year: String(year),
@@ -35,6 +35,12 @@ export async function ExportButtons({
     <div className="flex flex-wrap gap-2">
       <Button asChild variant="outline" size="sm">
         {/* download so the browser saves it instead of navigating to a binary blob. */}
+        <Link href={params("pdf")} download prefetch={false}>
+          <FileDown className="size-4" aria-hidden />
+          {t("exportPdf")}
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
         <Link href={params("xlsx")} download prefetch={false}>
           <FileSpreadsheet className="size-4" aria-hidden />
           {t("exportExcel")}

@@ -999,6 +999,7 @@
     }
   },
   "reports": {
+    "exportPdf": "Download PDF",
     "exportExcel": "Export to Excel",
     "exportCsv": "CSV"
   }

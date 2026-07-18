@@ -67,6 +67,7 @@ export async function loadReport(
             co2eFactor: true,
             factorUnit: true,
             biogenic: true,
+            uncertaintyPct: true,
           },
         },
       },
@@ -123,7 +124,13 @@ export async function loadReport(
 
   const meta = new Map<
     string,
-    { unit: string; factorValue: string | null; factorUnit: string | null; quantity: number }
+    {
+      unit: string;
+      factorValue: string | null;
+      factorUnit: string | null;
+      quantity: number;
+      uncertaintyPct: string | null;
+    }
   >();
 
   for (const entry of entries) {
@@ -150,6 +157,9 @@ export async function loadReport(
             factor?.n2oFactor?.toString() ??
             null,
       factorUnit: entry.scope === "SCOPE_2" ? "kg CO2/kWh" : factor?.factorUnit ?? null,
+      // Grid electricity carries no uncertainty in the library; only per-element factors do.
+      uncertaintyPct:
+        entry.scope === "SCOPE_2" ? null : factor?.uncertaintyPct?.toString() ?? null,
     });
   }
 
@@ -168,6 +178,7 @@ export async function loadReport(
       factorValue: m?.factorValue ?? null,
       factorUnit: m?.factorUnit ?? null,
       tonnes: element.tonnes,
+      uncertaintyPct: m?.uncertaintyPct ?? null,
     };
   });
 

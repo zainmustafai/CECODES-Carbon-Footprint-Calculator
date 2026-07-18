@@ -125,6 +125,15 @@ test.describe("cross-tenant isolation", () => {
     expect(ok.status()).toBe(200);
     expect(ok.headers()["content-type"]).toContain("spreadsheetml.sheet");
     expect(ok.headers()["content-disposition"]).toContain("attachment");
+
+    // The PDF report goes through the same authorized route; confirm it serves a real PDF.
+    const pdf = await request.get("/api/reports/export", {
+      params: { facilityId: fixture.facilityId, year: E2E_YEAR, format: "pdf" },
+    });
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toContain("application/pdf");
+    const bytes = await pdf.body();
+    expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
   });
 
   test("a foreign facility cannot be reached through the data-entry query string", async ({

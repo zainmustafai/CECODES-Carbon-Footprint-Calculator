@@ -723,8 +723,10 @@ Genuinely not built:
   merely untested, it is currently **untestable**: `docs/reference/` holds the factor library
   workbook only. There is no filled in sample company spreadsheet with totals to compare against.
   Obtaining one is item 0 of [docs/CLIENT_DECISION_MEMO.md](docs/CLIENT_DECISION_MEMO.md).
-- **Reports**, PDF and Excel export. `exceljs` and `@react-pdf/renderer` are dependencies and are
-  imported nowhere in `src/`.
+- ~~**Reports**, PDF and Excel export.~~ **BUILT.** Excel/CSV (`exceljs`, `build-workbook.ts`) and
+  PDF (`@react-pdf/renderer`, `build-pdf.tsx`) all ship through `src/app/api/reports/export/route.ts`.
+  The PDF adds a per-element uncertainty list, per CECODES's decision to disclose uncertainty in the
+  report rather than on the dashboard.
 - **Roll up below category.** `rollupYear` stops at category; docs section 7.4 asks for element and
   subcategory too. `RollupEntry` does not carry the fields.
 - **Per gas breakdown, uncertainty, spend based COP/USD, and unit conversions.** The columns exist

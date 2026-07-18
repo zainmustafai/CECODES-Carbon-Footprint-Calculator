@@ -34,6 +34,13 @@ export type ResultRow = {
   factorValue: string | null;
   factorUnit: string | null;
   tonnes: number;
+  /**
+   * The factor's uncertainty, as a +/- percentage string, or null when the library has none for
+   * this element. Coverage is partial (roughly Scope 1 only), so the PDF shows null as "no
+   * disponible". This is a per-element figure only: CECODES has not defined a method for combining
+   * uncertainties into a scope or total, and the report never invents one.
+   */
+  uncertaintyPct: string | null;
 };
 
 export type ScopeTotal = { scope: Scope; tonnes: number };

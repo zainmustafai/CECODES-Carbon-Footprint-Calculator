@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ScopeError, resolveCompanyScope } from "@/lib/auth/company-scope";
 import { loadReport } from "@/features/reports/lib/load-report";
 import { buildCsv, buildWorkbook } from "@/features/reports/lib/build-workbook";
+import { buildPdf } from "@/features/reports/lib/build-pdf";
 
 // The Excel / CSV export (Requirements 10, 14.7).
 //
@@ -23,7 +24,7 @@ const querySchema = z
     companyId: z.uuid().optional(),
     facilityId: z.uuid(),
     year: z.coerce.number().int().min(1990).max(2100),
-    format: z.enum(["xlsx", "csv"]).default("xlsx"),
+    format: z.enum(["xlsx", "csv", "pdf"]).default("xlsx"),
   })
   .strict();
 
@@ -52,6 +53,17 @@ export async function GET(request: NextRequest) {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="huella-${stamp}.csv"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (format === "pdf") {
+      const pdf = await buildPdf(vm);
+      return new NextResponse(pdf as unknown as ArrayBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="huella-${stamp}.pdf"`,
           "Cache-Control": "no-store",
         },
       });

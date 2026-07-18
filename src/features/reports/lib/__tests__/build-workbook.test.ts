@@ -44,6 +44,7 @@ const base: ReportVM = {
       factorValue: "10.149",
       factorUnit: "kg CO2/gal",
       tonnes: 10.149,
+      uncertaintyPct: "5",
     },
   ],
   byScope: [
