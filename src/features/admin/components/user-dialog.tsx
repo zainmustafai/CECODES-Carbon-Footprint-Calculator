@@ -116,6 +116,33 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
               </>
             )}
 
+            {/* Identity and contact, for traceability. Optional, and shown in both create and
+                edit so an admin can fill them in later. */}
+            <TextField
+              label={t("name")}
+              autoComplete="off"
+              placeholder={t("namePlaceholder")}
+              {...form.register("name")}
+              error={form.formState.errors.name?.message}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label={t("position")}
+                autoComplete="off"
+                placeholder={t("positionPlaceholder")}
+                {...form.register("position")}
+                error={form.formState.errors.position?.message}
+              />
+              <TextField
+                label={t("phone")}
+                type="tel"
+                autoComplete="off"
+                placeholder={t("phonePlaceholder")}
+                {...form.register("phone")}
+                error={form.formState.errors.phone?.message}
+              />
+            </div>
+
             <Controller
               control={form.control}
               name="role"

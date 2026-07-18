@@ -28,6 +28,9 @@ export async function UsersScreen() {
       select: {
         id: true,
         email: true,
+        name: true,
+        phone: true,
+        position: true,
         role: true,
         active: true,
         createdAt: true,
@@ -62,6 +65,8 @@ export async function UsersScreen() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("email")}</TableHead>
+                <TableHead>{t("person")}</TableHead>
+                <TableHead>{t("phone")}</TableHead>
                 <TableHead>{t("role")}</TableHead>
                 <TableHead>{t("company")}</TableHead>
                 <TableHead>{t("status")}</TableHead>
@@ -84,6 +89,21 @@ export async function UsersScreen() {
                           <Badge variant="outline">{t("you")}</Badge>
                         ) : null}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {user.name ? (
+                        <div className="flex flex-col">
+                          <span>{user.name}</span>
+                          {user.position ? (
+                            <span className="text-xs text-muted-foreground">{user.position}</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">{t("noPerson")}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {user.phone ?? t("noPhone")}
                     </TableCell>
                     <TableCell>
                       <Badge variant={isAdmin ? "default" : "secondary"}>
@@ -114,6 +134,9 @@ export async function UsersScreen() {
                             role: user.role,
                             companyId: user.company?.id ?? null,
                             active: user.active,
+                            name: user.name,
+                            phone: user.phone,
+                            position: user.position,
                           }}
                           companies={companies}
                         />

@@ -58,12 +58,17 @@ export async function createUser(input: {
   tempPassword: string;
   role: "COMPANY_USER" | "CECODES_ADMIN";
   companyId?: string | null;
+  name?: string;
+  phone?: string;
+  position?: string;
 }): Promise<{ error?: string; userId?: string }> {
   const parsed = createUserInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
-  const { email, tempPassword, role } = parsed.data;
+  const { email, tempPassword, role, name, phone, position } = parsed.data;
   // An admin owns no company; force the invariant here too, never only in the schema.
   const companyId = role === "CECODES_ADMIN" ? null : parsed.data.companyId ?? null;
+  // Empty contact fields store as NULL, never "".
+  const contact = { name: name ?? null, phone: phone ?? null, position: position ?? null };
 
   try {
     await resolveAdminScope();
@@ -118,8 +123,8 @@ export async function createUser(input: {
     //    path, where the trigger never fired).
     await prisma.appUser.upsert({
       where: { id: userId },
-      update: { email, role, companyId, active: true },
-      create: { id: userId, email, role, companyId, active: true },
+      update: { email, role, companyId, active: true, ...contact },
+      create: { id: userId, email, role, companyId, active: true, ...contact },
     });
 
     revalidatePath("/admin/users");
@@ -131,16 +136,21 @@ export async function createUser(input: {
   }
 }
 
-// Changes a user's role and company. Email and the password are not editable here.
+// Changes a user's role, company, and contact details. Email and the password are not editable
+// here.
 export async function updateUser(input: {
   userId: string;
   role: "COMPANY_USER" | "CECODES_ADMIN";
   companyId?: string | null;
+  name?: string;
+  phone?: string;
+  position?: string;
 }): Promise<{ error?: string }> {
   const parsed = updateUserInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
-  const { userId, role } = parsed.data;
+  const { userId, role, name, phone, position } = parsed.data;
   const companyId = role === "CECODES_ADMIN" ? null : parsed.data.companyId ?? null;
+  const contact = { name: name ?? null, phone: phone ?? null, position: position ?? null };
 
   try {
     const scope = await resolveAdminScope();
@@ -159,7 +169,7 @@ export async function updateUser(input: {
     // unchecked count is a silent HTTP 200 on a write that touched nobody.
     const updated = await prisma.appUser.updateMany({
       where: { id: userId },
-      data: { role, companyId },
+      data: { role, companyId, ...contact },
     });
     if (updated.count !== 1) throw new ScopeError("not-found");
 

@@ -30,7 +30,7 @@ enum GwpSet {
 }
 
 enum Role {
-  COMPANY_USER  // Usuario Empresa - sees only their own company
+  COMPANY_USER // Usuario Empresa - sees only their own company
   CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
 }
 
@@ -52,6 +52,14 @@ enum FactorChangeAction {
 model AppUser {
   id        String   @id // = Supabase auth user id (uuid)
   email     String   @unique
+  // Contact and identity for traceability. CECODES asked for these (2026-07-18) so that when a
+  // company has several people using the tool and a figure is wrong, they know who to reach.
+  // Nullable: they did not exist when earlier users were created, and /register only takes an
+  // email and password. Position (cargo) is kept alongside the name because a role outlives the
+  // person who holds it.
+  name      String?
+  phone     String?
+  position  String?
   role      Role     @default(COMPANY_USER)
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
@@ -64,6 +72,7 @@ model AppUser {
   updatedAt DateTime @updatedAt
 
   factorChanges EmissionFactorChange[]
+  entryChanges  ActivityEntryChange[]
 
   @@index([companyId])
   @@map("app_users")
@@ -115,6 +124,7 @@ model ReportingYear {
   updatedAt  DateTime @updatedAt
 
   entries       ActivityEntry[]
+  entryChanges  ActivityEntryChange[]
   targets       ScopeTarget[]
   results       ResultSnapshot[]
   applicability CategoryApplicability[]
@@ -257,8 +267,8 @@ model EmissionFactor {
 
   entries   ActivityEntry[]
   changes   EmissionFactorChange[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
 
   // The natural key (scope, category, subcategory, element, unit) is enforced by a hand
   // written expression index in the migration, because a plain unique index would treat two
@@ -291,6 +301,46 @@ model EmissionFactorChange {
 
   @@index([factorId, changedAt])
   @@map("emission_factor_changes")
+}
+
+enum EntryChangeAction {
+  SOURCE_ADDED // a source (element) was added to a reporting year
+  VALUE_SET // an activity value was entered or changed
+  VALUE_CLEARED // an activity value was emptied back to "not reported"
+  COPIED // January was copied across the empty Scope-2 months
+  SOURCE_REMOVED // a source and all its rows were deleted
+}
+
+// The audit trail for tenant data entry: who entered or changed which number, and when. This is
+// CECODES's traceability requirement (2026-07-18): with several people per company, a wrong
+// figure must point back to a person. It answers "who typed this, and what was it before".
+//
+// Deliberately NOT foreign-keyed to activity_entries. removeSource hard-deletes rows, and an FK
+// would either cascade the audit away with them or block the delete; the log must OUTLIVE the
+// rows it describes. It is instead keyed by the natural coordinates (reporting year, source,
+// month) and carries a denormalized element label, so a change stays legible after its source is
+// gone or its factor is renamed. The composite FK to reporting_years binds companyId to the year,
+// exactly as activity_entries does, so a spoofed companyId matches nothing.
+model ActivityEntryChange {
+  id               String            @id @default(uuid())
+  reportingYear    ReportingYear     @relation(fields: [reportingYearId, companyId], references: [id, companyId], onDelete: Cascade)
+  reportingYearId  String
+  companyId        String // denormalized for RLS and tenant-scoped reads
+  emissionFactorId String? // which source; null-tolerant so a later factor delete cannot orphan the row
+  scope            Scope
+  element          String // denormalized, human-readable, survives a factor rename or removal
+  month            Int? // 1..12 for a monthly cell, null for an annual value or a source-level event
+  changedBy        AppUser?          @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  changedById      String?
+  changedByEmail   String // denormalized: the audit row must outlive the actor
+  action           EntryChangeAction
+  changes          Json // { value: { from, to } } for value edits; {} for structural events
+  changedAt        DateTime          @default(now())
+
+  @@index([reportingYearId, changedAt])
+  @@index([companyId, changedAt])
+  @@index([reportingYearId, emissionFactorId, month])
+  @@map("activity_entry_changes")
 }
 
 // Scope-2 national grid factor by year (SIN) - Req. §7.3. Global reference data.

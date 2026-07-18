@@ -22,6 +22,9 @@ export type EditableUser = {
   id: string;
   role: Role;
   companyId: string | null;
+  name: string | null;
+  phone: string | null;
+  position: string | null;
 };
 
 // One form covers create and edit. The values are the create superset; in edit mode the
@@ -58,6 +61,9 @@ export function useUserForm({
       tempPassword: "",
       role: user?.role ?? "COMPANY_USER",
       companyId: user?.companyId ?? NO_COMPANY,
+      name: user?.name ?? "",
+      phone: user?.phone ?? "",
+      position: user?.position ?? "",
     },
   });
 
@@ -73,13 +79,15 @@ export function useUserForm({
         ? null
         : values.companyId;
 
+    const contact = { name: values.name, phone: values.phone, position: values.position };
     const { error } = user
-      ? await updateUser({ userId: user.id, role: values.role, companyId })
+      ? await updateUser({ userId: user.id, role: values.role, companyId, ...contact })
       : await createUser({
           email: values.email,
           tempPassword: values.tempPassword,
           role: values.role,
           companyId,
+          ...contact,
         });
 
     if (error) {
@@ -90,8 +98,24 @@ export function useUserForm({
     toast.success(tt(user ? "updated" : "created"));
     form.reset(
       user
-        ? { email: "", tempPassword: "", role: values.role, companyId: values.companyId }
-        : { email: "", tempPassword: "", role: "COMPANY_USER", companyId: NO_COMPANY },
+        ? {
+            email: "",
+            tempPassword: "",
+            role: values.role,
+            companyId: values.companyId,
+            name: values.name,
+            phone: values.phone,
+            position: values.position,
+          }
+        : {
+            email: "",
+            tempPassword: "",
+            role: "COMPANY_USER",
+            companyId: NO_COMPANY,
+            name: "",
+            phone: "",
+            position: "",
+          },
     );
     onDone?.();
     router.refresh();

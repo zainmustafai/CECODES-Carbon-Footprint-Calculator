@@ -569,6 +569,10 @@
       "subtitle": "Accounts with access to the platform.",
       "empty": "No users yet.",
       "email": "Email",
+      "person": "Person",
+      "noPerson": "No name",
+      "phone": "Phone",
+      "noPhone": "No phone",
       "role": "Role",
       "company": "Company",
       "noCompany": "No company",
@@ -581,6 +585,11 @@
       "editTitle": "Edit user",
       "dialogSubtitle": "The user can sign in immediately with the temporary password.",
       "emailPlaceholder": "person@company.com",
+      "name": "Name",
+      "namePlaceholder": "First and last name",
+      "position": "Position",
+      "positionPlaceholder": "Head of Sustainability",
+      "phonePlaceholder": "+57 300 000 0000",
       "tempPassword": "Temporary password",
       "tempPasswordHelp": "Share it with the person. They can change it through password reset.",
       "generate": "Generate",
@@ -946,6 +955,19 @@
     "missingGridNote": "Year {year} has no electricity grid factor loaded, so Scope 2 cannot be estimated. An admin can load it in the factor library.",
     "biogenicNote": "Includes {tonnes} t CO2e from biogenic sources, which the GHG Protocol reports separately.",
     "footnote": "Reference estimate. Official totals are calculated on the Dashboard.",
+    "changes": {
+      "title": "Change history",
+      "subtitle": "Who entered or changed each figure, and when.",
+      "by": "by {who}",
+      "blank": "(empty)",
+      "actions": {
+        "SOURCE_ADDED": "Source added",
+        "VALUE_SET": "Value entered",
+        "VALUE_CLEARED": "Value cleared",
+        "COPIED": "January copied",
+        "SOURCE_REMOVED": "Source removed"
+      }
+    },
     "monthsShort": {
       "1": "Jan",
       "2": "Feb",

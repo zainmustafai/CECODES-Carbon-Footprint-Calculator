@@ -569,6 +569,10 @@
       "subtitle": "Cuentas con acceso a la plataforma.",
       "empty": "Aún no hay usuarios.",
       "email": "Correo",
+      "person": "Persona",
+      "noPerson": "Sin nombre",
+      "phone": "Teléfono",
+      "noPhone": "Sin teléfono",
       "role": "Rol",
       "company": "Empresa",
       "noCompany": "Sin empresa",
@@ -581,6 +585,11 @@
       "editTitle": "Editar usuario",
       "dialogSubtitle": "El usuario podrá entrar de inmediato con la contraseña temporal.",
       "emailPlaceholder": "persona@empresa.com",
+      "name": "Nombre",
+      "namePlaceholder": "Nombre y apellido",
+      "position": "Cargo",
+      "positionPlaceholder": "Jefe de Sostenibilidad",
+      "phonePlaceholder": "+57 300 000 0000",
       "tempPassword": "Contraseña temporal",
       "tempPasswordHelp": "Compártela con la persona. Podrá cambiarla desde recuperar contraseña.",
       "generate": "Generar",
@@ -946,6 +955,19 @@
     "missingGridNote": "El año {year} no tiene factor de red eléctrica cargado, así que el Alcance 2 no se puede estimar. Un administrador puede cargarlo en la biblioteca de factores.",
     "biogenicNote": "Incluye {tonnes} t CO2e de fuentes biogénicas, que el Protocolo GHG reporta por separado.",
     "footnote": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
+    "changes": {
+      "title": "Historial de cambios",
+      "subtitle": "Quién ingresó o modificó cada dato, y cuándo.",
+      "by": "por {who}",
+      "blank": "(vacío)",
+      "actions": {
+        "SOURCE_ADDED": "Fuente agregada",
+        "VALUE_SET": "Valor ingresado",
+        "VALUE_CLEARED": "Valor borrado",
+        "COPIED": "Enero copiado",
+        "SOURCE_REMOVED": "Fuente eliminada"
+      }
+    },
     "monthsShort": {
       "1": "Ene",
       "2": "Feb",

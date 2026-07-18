@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   ScopeError,
@@ -33,6 +34,18 @@ function isUniqueViolation(error: unknown): boolean {
 function revalidate(scope: ReportingYearScope) {
   revalidatePath("/data-entry");
   revalidatePath(`/admin/companies/${scope.companyId}/data-entry`);
+}
+
+// The columns every audit row shares: which year, which company, and who did it. The actor is
+// taken from the resolved scope (scope.appUser), never from the client, and the email is
+// denormalized so the row still names them after the account is deleted.
+function auditKey(scope: ReportingYearScope, reportingYearId: string) {
+  return {
+    reportingYearId,
+    companyId: scope.companyId,
+    changedById: scope.appUser.id,
+    changedByEmail: scope.appUser.email,
+  } as const;
 }
 
 // Adding a source materializes its rows straight away, with value = null. The rows are what
@@ -99,6 +112,18 @@ export async function addSource(input: {
           applies: true,
         },
       });
+
+      await tx.activityEntryChange.create({
+        data: {
+          ...auditKey(scope, reportingYearId),
+          emissionFactorId: factor.id,
+          scope: factor.scope,
+          element: factor.element,
+          month: null,
+          action: "SOURCE_ADDED",
+          changes: {},
+        },
+      });
     });
 
     revalidate(scope);
@@ -119,10 +144,36 @@ export async function removeSource(input: {
 
   try {
     const scope = await resolveReportingYearScope(reportingYearId);
-    const deleted = await prisma.activityEntry.deleteMany({
-      where: { reportingYearId, companyId: scope.companyId, emissionFactorId },
+
+    await prisma.$transaction(async (tx) => {
+      // Read the rows before deleting: their element/scope describe the source, and any
+      // non-null values are real data being destroyed, which the audit should preserve so
+      // "who deleted this" also captures "what was lost".
+      const rows = await tx.activityEntry.findMany({
+        where: { reportingYearId, companyId: scope.companyId, emissionFactorId },
+        select: { scope: true, element: true, month: true, value: true },
+      });
+      if (rows.length === 0) throw new ScopeError("not-found");
+
+      await tx.activityEntry.deleteMany({
+        where: { reportingYearId, companyId: scope.companyId, emissionFactorId },
+      });
+
+      const removed = rows
+        .filter((r) => r.value !== null)
+        .map((r) => ({ month: r.month, value: r.value!.toString() }));
+      await tx.activityEntryChange.create({
+        data: {
+          ...auditKey(scope, reportingYearId),
+          emissionFactorId,
+          scope: rows[0].scope,
+          element: rows[0].element,
+          month: null,
+          action: "SOURCE_REMOVED",
+          changes: { removed },
+        },
+      });
     });
-    if (deleted.count === 0) throw new ScopeError("not-found");
 
     revalidate(scope);
     return {};
@@ -145,7 +196,17 @@ export async function saveEntryValues(input: {
     const scope = await resolveReportingYearScope(reportingYearId);
 
     await prisma.$transaction(async (tx) => {
+      const changes: Prisma.ActivityEntryChangeCreateManyInput[] = [];
       for (const { entryId, value } of values) {
+        // Read the current row first: the scope check is the same one the update needs, and its
+        // old value is the "from" side of the audit. Selecting by the tenant-scoped key means a
+        // cross-tenant entryId returns nothing and is rejected before any write.
+        const before = await tx.activityEntry.findFirst({
+          where: { id: entryId, reportingYearId, companyId: scope.companyId },
+          select: { value: true, scope: true, element: true, month: true, emissionFactorId: true },
+        });
+        if (!before) throw new ScopeError("forbidden");
+
         // updateMany returns { count: 0 } rather than throwing when nothing matches, so an
         // unchecked count would report success on a cross-tenant write.
         const result = await tx.activityEntry.updateMany({
@@ -153,7 +214,21 @@ export async function saveEntryValues(input: {
           data: { value },
         });
         if (result.count !== 1) throw new ScopeError("forbidden");
+
+        const from = before.value === null ? null : before.value.toString();
+        const to = value === null ? null : String(value);
+        if (from === to) continue; // an autosave batch can include unchanged cells; do not log them
+        changes.push({
+          ...auditKey(scope, reportingYearId),
+          emissionFactorId: before.emissionFactorId,
+          scope: before.scope,
+          element: before.element,
+          month: before.month,
+          action: to === null ? "VALUE_CLEARED" : "VALUE_SET",
+          changes: { value: { from, to } },
+        });
       }
+      if (changes.length > 0) await tx.activityEntryChange.createMany({ data: changes });
     });
 
     // No revalidatePath: this is the hot path and the client already holds the value.
@@ -177,23 +252,43 @@ export async function copyJanuaryToAll(input: {
 
     const january = await prisma.activityEntry.findFirst({
       where: { reportingYearId, companyId: scope.companyId, emissionFactorId, month: 1 },
-      select: { value: true },
+      select: { value: true, scope: true, element: true },
     });
     if (!january || january.value === null) return { error: "januaryEmpty" };
+    // Capture the non-null value in a local: TS does not carry the null-narrowing of a property
+    // access into the transaction closure below.
+    const januaryValue = january.value;
 
-    // Only the UNREPORTED months (value IS NULL). This used to overwrite months 2..12
-    // wholesale, so one tap could silently destroy eleven distinct reported values with no
-    // undo. As a fill-the-gaps action it is non-destructive by construction, which is also
-    // why it needs no confirmation dialog.
-    await prisma.activityEntry.updateMany({
-      where: {
-        reportingYearId,
-        companyId: scope.companyId,
-        emissionFactorId,
-        month: { not: 1 },
-        value: null,
-      },
-      data: { value: january.value },
+    await prisma.$transaction(async (tx) => {
+      // Only the UNREPORTED months (value IS NULL). This used to overwrite months 2..12
+      // wholesale, so one tap could silently destroy eleven distinct reported values with no
+      // undo. As a fill-the-gaps action it is non-destructive by construction, which is also
+      // why it needs no confirmation dialog.
+      const filled = await tx.activityEntry.updateMany({
+        where: {
+          reportingYearId,
+          companyId: scope.companyId,
+          emissionFactorId,
+          month: { not: 1 },
+          value: null,
+        },
+        data: { value: januaryValue },
+      });
+
+      // Nothing to log if every month was already filled.
+      if (filled.count > 0) {
+        await tx.activityEntryChange.create({
+          data: {
+            ...auditKey(scope, reportingYearId),
+            emissionFactorId,
+            scope: january.scope,
+            element: january.element,
+            month: null,
+            action: "COPIED",
+            changes: { value: januaryValue.toString(), months: filled.count },
+          },
+        });
+      }
     });
 
     revalidate(scope);

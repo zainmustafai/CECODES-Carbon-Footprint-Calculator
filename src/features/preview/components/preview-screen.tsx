@@ -12,6 +12,7 @@ import {
 import type { Scope } from "@/lib/generated/prisma/client";
 import { ExportButtons } from "@/features/reports";
 import { loadPreview } from "../lib/load-preview";
+import { EntryChangeLog } from "./entry-change-log";
 import { PreviewFilters } from "./preview-filters";
 import { PreviewAnnualTable } from "./preview-annual-table";
 import { PreviewMonthlyTable } from "./preview-monthly-table";
@@ -225,6 +226,13 @@ export async function PreviewScreen({
           })}
         </Note>
       ) : null}
+
+      {/* Who entered or changed each number, for this sede-year. */}
+      <EntryChangeLog
+        companyId={companyId}
+        facilityId={vm.filters.facilityId}
+        year={vm.filters.year}
+      />
 
       <p className="text-xs text-muted-foreground">{t("footnote")}</p>
     </div>
