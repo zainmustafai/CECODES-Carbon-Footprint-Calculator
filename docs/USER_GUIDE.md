@@ -82,6 +82,8 @@ An administrator sees the same screens a company user does, just reached from th
 2. Type your email and password, then click **Ingresar**.
 3. Forgot your password? Click **¿Olvidaste tu contraseña?** and a reset link is emailed to you.
 
+![The sign-in screen (Iniciar sesión)](images/guide/01-login.png)
+
 If your account was switched off you will see **Cuenta desactivada**. If your whole company was
 switched off you will see **Empresa desactivada**. In both cases the data is kept; contact
 CECODES to switch it back on.
@@ -113,17 +115,25 @@ then three controls on the right:
 
 ## 5. First time setup
 
-The very first time a new company signs in, the tool asks for two things on one form
-(**Configura tu empresa**):
+**CECODES sets up your account.** So that a company always has one clean record (and never a
+duplicate created by a second employee signing up separately), the CECODES team creates your
+**company** *(empresa)*, your **first sede**, and each person's login. You do not create the
+company yourself; you receive a sign-in and a temporary password.
 
-1. **Nombre de la empresa** (required) and **Sector** (optional).
-2. The company's **first sede**: **Planta** (the site name) and **Ubicación** (where it is).
+The first time you sign in, you land straight on your **dashboard** *(Tablero)*. It is empty until
+you enter data, which is exactly what the next sections walk you through. From there you can add
+more sedes yourself (section 6) whenever you need them.
 
-Click **Crear empresa** and you are ready. You can add more sedes later.
+![A brand-new company's dashboard, before any data is entered](images/guide/07-empty-dashboard.png)
+
+> If you ever reach a screen that says your account has no company yet, it means your login has
+> not been linked to a company. Contact CECODES and they will connect it.
 
 ---
 
 ## 6. Your company and its sedes (Empresa)
+
+![The Empresa screen: company profile and the list of sedes](images/guide/06-company.png)
 
 The **Empresa** screen holds two things:
 
@@ -158,6 +168,8 @@ silently change.
 ## 8. Entering data (Ingreso de datos)
 
 This is the screen your users will spend all their time on.
+
+![Data entry, Alcance 1: one annual value per source](images/guide/03-data-entry-scope1.png)
 
 ### Step 1: choose where and when
 
@@ -200,6 +212,8 @@ This is where **Alcance 2 is different from the others**:
   year. The unit (`gal`, `kg`, `km`) is shown inside the box.
 - **Alcance 2 (electricity)**: **twelve boxes**, Enero to Diciembre, because electricity is
   reported month by month. A badge tracks your progress, for example **"8 de 12 meses"**.
+
+![Data entry, Alcance 2: the twelve-month electricity grid](images/guide/04-data-entry-scope2.png)
 
 **Shortcut:** if your electricity is about the same every month, type Enero and click **Copiar
 Enero a los meses vacíos**. It fills **only the empty months** and never overwrites a month you
@@ -244,6 +258,8 @@ Colombia's power mix changes. A CECODES administrator loads it, one value per ye
 If the year you are working in has no grid factor yet, you will see a yellow notice. **Keep
 entering your kWh anyway.** The emissions will calculate the moment the administrator loads the
 factor.
+
+![Alcance 2 for a year with no grid factor loaded: the warning, with the kWh still accepted](images/guide/08-missing-grid-factor.png)
 
 ---
 
@@ -297,6 +313,8 @@ coma (,) o punto (.). No uses separador de miles."*
 **Resumen** shows everything you entered as one table, which is the easiest way to check a year
 before you trust it.
 
+![The Resumen screen: totals, per-scope tables, and the export buttons](images/guide/05-resumen.png)
+
 At the top: your **Total estimado** and a card per alcance. Below: one table per alcance, listing
 each element with its **Unidad**, **Cantidad**, **Factor**, and **t CO2e**. Alcance 2 gets the
 twelve months across the table.
@@ -305,7 +323,10 @@ Pick the **Sede** and **Año** with the two filters at the top.
 
 **To export**, use the buttons at the top right:
 
-- **Exportar a Excel** downloads a workbook.
+- **Descargar PDF** downloads a readable report: the totals, the breakdown by scope and category,
+  and a per-element uncertainty table (the ± range of each factor, where the library has one).
+- **Exportar a Excel** downloads a workbook you can sum and pivot, and diff against your own
+  spreadsheet.
 - **CSV** downloads a plain text version.
 
 The buttons appear only when there is actually a sede, a year, and some data to export.
@@ -314,11 +335,18 @@ You will also see a note when a year has **no grid factor**, and a note about **
 emissions when relevant (emissions from biological material, which the greenhouse gas standard
 reports separately).
 
+**Who changed what.** At the bottom of Resumen, a **Historial de cambios** panel lists who entered
+or changed each number, and when, for this sede and year. If several people from your company use
+the tool, this is how you find out who to ask about a particular figure. It appears once data has
+been entered through the tool.
+
 ---
 
 ## 11. Reading the dashboard (Tablero)
 
 The **Tablero** is read only: it answers four questions.
+
+![The dashboard (Tablero): total footprint, year over year, target progress, and the breakdowns](images/guide/02-dashboard.png)
 
 **How big is our footprint?** The **Huella total** card, in t CO2e.
 
