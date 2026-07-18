@@ -2,10 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, db, supabaseAdmin } from "./fixture";
 
-// A brand new user with no company is provisioned directly through the Supabase admin API,
-// signs in through the real /login UI, and is routed to /onboarding by the dashboard guard.
-// The signup trigger writes the app_users row; deleting the auth user does NOT remove it, so
-// the profile row and any company this user creates are cleaned up explicitly.
+// Self-serve onboarding is disabled (FEATURE_SELF_ONBOARDING): a self-registered colleague would
+// create a DUPLICATE company instead of joining their own, so CECODES provisions every account.
+// A brand new user with no company is provisioned through the Supabase admin API, signs in through
+// the real /login UI, is routed to /onboarding by the dashboard guard, and must be told to contact
+// CECODES rather than shown a company-creation form. The signup trigger writes the app_users row;
+// deleting the auth user does NOT remove it, so the profile row is cleaned up explicitly.
 
 test.describe.configure({ mode: "serial" });
 
@@ -52,36 +54,24 @@ test.describe("onboarding", () => {
     await page.getByRole("button", { name: /ingresar/i }).click();
 
     await page.waitForURL("**/onboarding");
-    await expect(page.getByRole("heading", { name: /configura tu empresa/i })).toBeVisible();
   });
 
-  test("submitting empty shows validation errors", async () => {
-    await page.getByRole("button", { name: /crear empresa/i }).click();
-
-    await expect(page.getByText(/el nombre de la empresa es obligatorio/i)).toBeVisible();
-    await expect(page.getByText(/el nombre de la planta es obligatorio/i)).toBeVisible();
-    await expect(page.getByText(/la ubicación es obligatoria/i)).toBeVisible();
+  test("is told to contact CECODES, and is offered no company-creation form", async () => {
+    await expect(
+      page.getByRole("heading", { name: /tu cuenta aún no tiene empresa/i }),
+    ).toBeVisible();
+    // The self-serve form is gone: no company-name field and no create button.
+    await expect(page.getByRole("button", { name: /crear empresa/i })).toHaveCount(0);
+    await expect(page.getByLabel(/nombre de la empresa/i)).toHaveCount(0);
   });
 
-  test("the sector field is a curated Select, not a free-text input", async () => {
-    const sector = page.getByRole("combobox", { name: /sector/i });
-    await expect(sector).toBeVisible();
-
-    await sector.click();
-    // Curated options straight from src/lib/sectors.ts.
-    await expect(page.getByRole("option", { name: "Manufactura" })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Energía" })).toBeVisible();
-    await page.getByRole("option", { name: "Manufactura" }).click();
-  });
-
-  test("completing company and first facility lands on the dashboard", async () => {
-    await page.getByLabel(/nombre de la empresa/i).fill(companyName);
-    await page.getByLabel(/^planta$/i).fill("Planta Onboarding");
-    await page.getByLabel(/ubicación/i).fill("Bogotá, Colombia");
-
-    await page.getByRole("button", { name: /crear empresa/i }).click();
-
-    await page.waitForURL("**/dashboard");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  test("no company was created for this user", async () => {
+    const client = await db();
+    const rows = await client.query<{ count: string }>(
+      `SELECT count(*)::text FROM companies WHERE name = $1`,
+      [companyName],
+    );
+    await client.end();
+    expect(rows.rows[0].count).toBe("0");
   });
 });

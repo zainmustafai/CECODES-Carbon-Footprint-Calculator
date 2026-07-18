@@ -159,7 +159,12 @@
     "errors": {
       "alreadyOnboarded": "Ya tienes una empresa configurada.",
       "facilityExists": "Ya existe una sede con ese nombre en esta empresa.",
+      "selfOnboardingDisabled": "El registro de empresas lo gestiona CECODES. Escríbenos para vincular tu cuenta.",
       "generic": "No se pudo crear la empresa. Inténtalo de nuevo."
+    },
+    "blocked": {
+      "title": "Tu cuenta aún no tiene empresa",
+      "body": "El alta de empresas y usuarios la realiza el equipo de CECODES. Escríbenos y vincularemos tu cuenta a tu empresa."
     },
     "toasts": {
       "created": "Empresa creada."

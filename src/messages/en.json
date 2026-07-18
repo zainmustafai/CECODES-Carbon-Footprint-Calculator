@@ -159,7 +159,12 @@
     "errors": {
       "alreadyOnboarded": "You already have a company set up.",
       "facilityExists": "A sede with that name already exists in this company.",
+      "selfOnboardingDisabled": "Company setup is handled by CECODES. Contact us to link your account.",
       "generic": "The company could not be created. Please try again."
+    },
+    "blocked": {
+      "title": "Your account has no company yet",
+      "body": "CECODES sets up companies and user accounts. Contact us and we will link your account to your company."
     },
     "toasts": {
       "created": "Company created."

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveOnboardingScope, scopeErrorKey } from "@/lib/auth/company-scope";
+import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
 
 // Server-side validation (do not trust the client resolver). .strict() so an unknown key
 // cannot ride into the write.
@@ -37,6 +38,11 @@ export async function createCompanyAction(input: {
   facilityName: string;
   facilityLocation: string;
 }): Promise<{ error?: string }> {
+  // Self-serve company creation is closed (see FEATURE_SELF_ONBOARDING): it would let a
+  // self-registered colleague spawn a duplicate company. This is a public POST endpoint, so the
+  // gate lives here, not only in the UI that hides the form.
+  if (!FEATURE_SELF_ONBOARDING) return { error: "selfOnboardingDisabled" };
+
   const parsed = serverSchema.safeParse(input);
   if (!parsed.success) return { error: "generic" };
   const { companyName, sector, facilityName, facilityLocation } = parsed.data;
