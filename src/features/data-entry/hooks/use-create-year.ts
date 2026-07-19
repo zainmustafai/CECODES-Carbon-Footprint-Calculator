@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { createReportingYear } from "../actions/reporting-years";
 import {
   reportingYearFormSchema,
@@ -33,7 +34,7 @@ export function useCreateYear({
     defaultValues: { year: new Date().getFullYear() },
   });
 
-  const onSubmit = form.handleSubmit(async ({ year }) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ year }) => {
     setServerError(null);
     const { error } = await createReportingYear({ facilityId, year });
     if (error) {
@@ -46,5 +47,5 @@ export function useCreateYear({
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

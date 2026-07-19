@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useToastAction } from "@/hooks/use-toast-action";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { deleteGridFactor, upsertGridFactor } from "../actions/factor-actions";
 import {
   gridFactorFormSchema,
@@ -40,7 +41,7 @@ export function useGridFactorForm({
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     const { error } = await upsertGridFactor(values);
     if (error) {
@@ -53,7 +54,7 @@ export function useGridFactorForm({
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }
 
 // Deleting a grid-factor year is an imperative row action, so it uses the toast standard.

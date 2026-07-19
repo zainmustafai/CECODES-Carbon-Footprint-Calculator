@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createFactor, updateFactor } from "../actions/factor-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { factorFormSchema, type FactorFormValues } from "../schemas/factor-schemas";
 
 type UseFactorFormArgs = {
@@ -32,10 +33,11 @@ export function useFactorForm({ mode, factorId, defaultValues }: UseFactorFormAr
   // enables tracking for a field only when that field is read during render; a value read only
   // in a callback is never subscribed and stays false. Without this, editing a factor and
   // saving silently no-ops as "sin cambios" even though the field changed. Destructuring here is
-  // the subscription.
-  const { isDirty, isSubmitting } = form.formState;
+  // the subscription. isSubmitting comes from useFormSubmit instead: the same Proxy read is
+  // unreliable for it under the React Compiler (see use-form-submit.ts).
+  const { isDirty } = form.formState;
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
 
     if (mode === "edit") {

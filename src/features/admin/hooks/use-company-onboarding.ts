@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -88,13 +88,36 @@ export function useCompanyOnboarding() {
   // also protects a real admin who double-clicks. Verified from an e2e trace: one click, two
   // createCompany POSTs, two identical company cards.
   const submittingRef = useRef(false);
-  const submit = form.handleSubmit(createAll);
+  // The visual pending state rides a transition, not form.formState.isSubmitting, which is
+  // stale under the React Compiler (see use-form-submit.ts). createAll runs inside the
+  // transition so the button spins for the whole multi-step create; the handleSubmit promise
+  // still resolves when it settles (or when validation fails), which is what resets the ref.
+  const [isSubmitting, startTransition] = useTransition();
+  const submit = form.handleSubmit(
+    (values) =>
+      new Promise<void>((resolve) => {
+        startTransition(async () => {
+          try {
+            await createAll(values);
+          } finally {
+            resolve();
+          }
+        });
+      }),
+  );
 
   // The ref guard lives in the event handler, where reading a ref is allowed, rather than inside
   // the handleSubmit callback (which the React Compiler treats as render-time). One click was
   // producing two createCompany POSTs and two identical companies; the submit button disables on
   // isSubmitting, but that is a render behind the click, so a synchronous re-entry slips past it.
   function onSubmit(event: FormEvent<HTMLFormElement>) {
+    // Only the last step may submit. The wizard is one form, so a stray submit from an earlier
+    // step (a pointer sequence that straddles the Siguiente -> Crear empresa step change) would
+    // otherwise create the company before the admin finished, now that the button truly disables.
+    if (!isLastStep) {
+      event.preventDefault();
+      return;
+    }
     if (submittingRef.current) {
       event.preventDefault();
       return;
@@ -178,7 +201,7 @@ export function useCompanyOnboarding() {
     back,
     fillGeneratedPassword,
     onSubmit,
-    isSubmitting: form.formState.isSubmitting,
+    isSubmitting,
     serverError,
     result,
     restart,

@@ -11,6 +11,7 @@ import {
   type OnboardingValues,
 } from "../schemas/onboarding-schema";
 import { createCompanyAction } from "../actions/onboarding-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 
 export function useOnboarding() {
   const tv = useTranslations("onboarding.validation");
@@ -30,7 +31,7 @@ export function useOnboarding() {
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     const { error } = await createCompanyAction(values);
     if (error) {
@@ -47,5 +48,5 @@ export function useOnboarding() {
     router.push("/dashboard");
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

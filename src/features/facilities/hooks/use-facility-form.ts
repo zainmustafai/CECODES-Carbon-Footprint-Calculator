@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createFacility, updateFacility } from "../actions/facility-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { facilityFormSchema, type FacilityFormValues } from "../schemas/facility-schema";
 
 type UseFacilityFormArgs = {
@@ -28,7 +29,7 @@ export function useFacilityForm({ companyId, facility, onDone }: UseFacilityForm
     defaultValues: { name: facility?.name ?? "", location: facility?.location ?? "" },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     const { error } = facility
       ? await updateFacility({ facilityId: facility.id, ...values })
@@ -45,5 +46,5 @@ export function useFacilityForm({ companyId, facility, onDone }: UseFacilityForm
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

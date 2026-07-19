@@ -1001,6 +1001,14 @@
   "reports": {
     "exportPdf": "Descargar PDF",
     "exportExcel": "Exportar a Excel",
-    "exportCsv": "CSV"
+    "exportCsv": "CSV",
+    "generating": "Generando el reporte",
+    "downloaded": "Reporte descargado",
+    "errors": {
+      "generic": "No se pudo generar el reporte. Intenta de nuevo.",
+      "forbidden": "No tienes acceso a este reporte.",
+      "notFound": "No hay datos para este reporte.",
+      "badRequest": "No se pudo generar el reporte. Intenta de nuevo."
+    }
   }
 }

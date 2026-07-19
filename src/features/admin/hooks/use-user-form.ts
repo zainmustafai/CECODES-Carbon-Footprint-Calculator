@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { generateTempPassword } from "@/lib/generate-password";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { createUser, updateUser } from "../actions/user-actions";
 import {
   NO_COMPANY,
@@ -71,7 +72,7 @@ export function useUserForm({
   // React compiler skip memoizing this whole hook. useWatch subscribes to the one field.
   const role = useWatch({ control: form.control, name: "role" });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     // Map the "no company" sentinel to null, and force null for an admin.
     const companyId =
@@ -144,7 +145,7 @@ export function useUserForm({
     setRole,
     fillGeneratedPassword,
     onSubmit,
-    isSubmitting: form.formState.isSubmitting,
+    isSubmitting,
     serverError,
   };
 }

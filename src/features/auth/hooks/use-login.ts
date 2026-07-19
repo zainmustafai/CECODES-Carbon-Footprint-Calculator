@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { loginSchema, type LoginValues } from "../schemas/auth-schemas";
 import { signInAction } from "../actions/auth-actions";
 
@@ -20,7 +21,10 @@ export function useLogin() {
     defaultValues: { email: "", password: "" },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  // useFormSubmit drives the pending state from a transition so the button reliably disables
+  // and spins (form.formState.isSubmitting does not under the React Compiler), and stays
+  // pending through the push to /dashboard so it never goes idle while that page loads.
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     const { error } = await signInAction(values);
     if (error) {
@@ -31,5 +35,5 @@ export function useLogin() {
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

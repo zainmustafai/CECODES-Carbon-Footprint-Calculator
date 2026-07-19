@@ -10,6 +10,7 @@ import {
   type ForgotPasswordValues,
 } from "../schemas/auth-schemas";
 import { requestPasswordResetAction } from "../actions/auth-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 
 export function useForgotPassword() {
   const tv = useTranslations("auth.validation");
@@ -22,7 +23,7 @@ export function useForgotPassword() {
     defaultValues: { email: "" },
   });
 
-  const onSubmit = form.handleSubmit(async ({ email }) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ email }) => {
     await requestPasswordResetAction(email);
     // Always report success - never reveal whether the account exists.
     setSentEmail(email);
@@ -32,7 +33,7 @@ export function useForgotPassword() {
   return {
     form,
     onSubmit,
-    isSubmitting: form.formState.isSubmitting,
+    isSubmitting,
     sent: sentEmail !== null,
     sentEmail,
   };

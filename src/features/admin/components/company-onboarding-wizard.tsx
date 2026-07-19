@@ -179,12 +179,17 @@ export function CompanyOnboardingWizard() {
               </Button>
             )}
 
+            {/* Distinct keys, so React mounts a fresh submit node instead of reusing the
+                "Siguiente" node and only flipping its type. A pointer sequence that straddles
+                the step change would otherwise land a submit on what the user clicked as
+                "Siguiente"; the reused node also let that hide behind a button that never
+                disabled. Separate identities keep the last step's submit its own control. */}
             {isLastStep ? (
-              <Button type="submit" loading={isSubmitting}>
+              <Button key="submit" type="submit" loading={isSubmitting}>
                 {t("submit")}
               </Button>
             ) : (
-              <Button type="button" onClick={next}>
+              <Button key="next" type="button" onClick={next}>
                 {t("next")}
                 <ArrowRight className="size-4" aria-hidden />
               </Button>

@@ -11,6 +11,7 @@ import {
   type ResetPasswordValues,
 } from "../schemas/auth-schemas";
 import { updatePasswordAction } from "../actions/auth-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 
 export function useResetPassword() {
   const tv = useTranslations("auth.validation");
@@ -25,7 +26,7 @@ export function useResetPassword() {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
-  const onSubmit = form.handleSubmit(async ({ password }) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ password }) => {
     setServerError(null);
     const { error } = await updatePasswordAction(password);
     if (error) {
@@ -37,5 +38,5 @@ export function useResetPassword() {
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

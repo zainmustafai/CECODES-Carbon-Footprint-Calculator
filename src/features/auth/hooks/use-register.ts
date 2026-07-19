@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { registerSchema, type RegisterValues } from "../schemas/auth-schemas";
 import { signUpAction } from "../actions/auth-actions";
 
@@ -23,7 +24,7 @@ export function useRegister() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
-  const onSubmit = form.handleSubmit(async ({ email, password }) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ email, password }) => {
     setServerError(null);
     const { error, needsConfirmation } = await signUpAction({ email, password });
 
@@ -46,7 +47,7 @@ export function useRegister() {
   return {
     form,
     onSubmit,
-    isSubmitting: form.formState.isSubmitting,
+    isSubmitting,
     serverError,
     awaitingConfirmation: submittedEmail !== null,
     submittedEmail,

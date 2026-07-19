@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { updateCompanyProfile } from "../actions/company-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import {
   companyProfileSchema,
   type CompanyProfileValues,
@@ -32,7 +33,7 @@ export function useCompanyProfileForm({
     defaultValues: defaults,
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
 
     const { error } = await updateCompanyProfile({
@@ -52,5 +53,5 @@ export function useCompanyProfileForm({
     router.refresh();
   });
 
-  return { form, onSubmit, serverError, isSubmitting: form.formState.isSubmitting };
+  return { form, onSubmit, serverError, isSubmitting };
 }

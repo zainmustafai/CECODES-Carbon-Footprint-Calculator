@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { createFactorVersion } from "../actions/factor-actions";
 import { versionFormSchema, type VersionFormValues } from "../schemas/factor-schemas";
 
@@ -31,7 +32,7 @@ export function useVersionForm({ onDone }: { onDone?: () => void }) {
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     const { error } = await createFactorVersion(values);
     if (error) {
@@ -44,5 +45,5 @@ export function useVersionForm({ onDone }: { onDone?: () => void }) {
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }

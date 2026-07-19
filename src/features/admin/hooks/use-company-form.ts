@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createCompany, updateCompany } from "../actions/company-actions";
+import { useFormSubmit } from "@/hooks/use-form-submit";
 import { companyFormSchema, type CompanyFormValues } from "../schemas/company-schemas";
 
 type UseCompanyFormArgs = {
@@ -30,7 +31,7 @@ export function useCompanyForm({ company, onDone }: UseCompanyFormArgs) {
     defaultValues: { name: company?.name ?? "", sector: company?.sector ?? "" },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
     // An empty (or whitespace-only) sector means "none chosen": omit it so the action
     // records null instead of an empty string.
@@ -54,5 +55,5 @@ export function useCompanyForm({ company, onDone }: UseCompanyFormArgs) {
     router.refresh();
   });
 
-  return { form, onSubmit, isSubmitting: form.formState.isSubmitting, serverError };
+  return { form, onSubmit, isSubmitting, serverError };
 }
