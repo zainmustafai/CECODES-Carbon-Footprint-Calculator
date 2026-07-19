@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "../lib/factor-library-cache";
 import {
   ScopeError,
   resolveAdminScope,
@@ -94,6 +95,7 @@ export async function createFactor(input: unknown): Promise<{
     });
 
     revalidatePath("/admin/factors");
+    updateTag(FACTOR_LIBRARY_TAG); // read-your-own-writes: the next render fetches fresh, not stale
     return { factorId: created.id };
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "factorExists" };
@@ -139,6 +141,7 @@ export async function updateFactor(input: unknown): Promise<{ error?: string }> 
 
     revalidatePath("/admin/factors");
     revalidatePath(`/admin/factors/${factorId}`);
+    updateTag(FACTOR_LIBRARY_TAG); // read-your-own-writes: the next render fetches fresh, not stale
     return {};
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "factorExists" };
@@ -178,6 +181,7 @@ export async function setFactorActive(input: unknown): Promise<{ error?: string 
 
     revalidatePath("/admin/factors");
     revalidatePath(`/admin/factors/${factorId}`);
+    updateTag(FACTOR_LIBRARY_TAG); // read-your-own-writes: the next render fetches fresh, not stale
     return {};
   } catch (error) {
     return { error: scopeErrorKey(error) };
@@ -212,6 +216,7 @@ export async function createFactorVersion(input: unknown): Promise<{ error?: str
     });
 
     revalidatePath("/admin/factors");
+    updateTag(FACTOR_LIBRARY_TAG); // read-your-own-writes: the next render fetches fresh, not stale
     return {};
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "versionExists" };
@@ -237,6 +242,7 @@ export async function upsertGridFactor(input: unknown): Promise<{ error?: string
     // so it clears on the next visit to the data-entry screen for that year.
     revalidatePath("/admin/factors");
     revalidatePath("/data-entry");
+    updateTag(GRID_FACTORS_TAG);
     return {};
   } catch (error) {
     return { error: scopeErrorKey(error) };
@@ -259,6 +265,7 @@ export async function deleteGridFactor(input: unknown): Promise<{ error?: string
 
     revalidatePath("/admin/factors");
     revalidatePath("/data-entry");
+    updateTag(GRID_FACTORS_TAG);
     return {};
   } catch (error) {
     return { error: scopeErrorKey(error) };

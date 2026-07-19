@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
-import { Prisma, type Scope } from "@/lib/generated/prisma/client";
+import { type Scope } from "@/lib/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import { FactorFilters } from "./factor-filters";
 import { FactorTable } from "./factor-table";
@@ -11,8 +11,11 @@ import { TablePagination } from "./table-pagination";
 import { GridFactorDialog } from "./grid-factor-dialog";
 import { GridFactorsTable } from "./grid-factors-table";
 import { VersionsTable } from "./versions-table";
-
-const PAGE_SIZE = 50;
+import {
+  getFactorLibraryPage,
+  getGridFactors,
+  type FactorFilters as FactorFilterValues,
+} from "../lib/factor-library-cache";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type Tab = "library" | "grid" | "versions";
@@ -115,49 +118,25 @@ async function LibraryTab({ searchParams }: { searchParams: SearchParams }) {
     Number.parseInt(first(searchParams.page) ?? "1", 10) || 1,
   );
 
-  const where: Prisma.EmissionFactorWhereInput = {};
-  if (q) {
-    where.OR = [
-      { element: { contains: q, mode: "insensitive" } },
-      { category: { contains: q, mode: "insensitive" } },
-      { subcategory: { contains: q, mode: "insensitive" } },
-    ];
-  }
-  if (scopeParam && isScope(scopeParam)) where.scope = scopeParam;
-  if (categoryParam && categoryParam !== "all") where.category = categoryParam;
-  if (statusParam === "active") where.active = true;
-  else if (statusParam === "inactive") where.active = false;
+  // The library is shared, non-tenant reference data, so this read is cached and tag-invalidated
+  // (see factor-library-cache.ts). The where clause is built entirely from these URL params, which
+  // are the cache key; nothing here reads a session or a companyId.
+  const filters: FactorFilterValues = {
+    q,
+    scope: scopeParam && isScope(scopeParam) ? scopeParam : null,
+    category: categoryParam && categoryParam !== "all" ? categoryParam : null,
+    status:
+      statusParam === "inactive" ? "inactive" : statusParam === "all" ? "all" : "active",
+    page: requestedPage,
+  };
 
-  const [total, totalAll, categoryRows] = await Promise.all([
-    prisma.emissionFactor.count({ where }),
-    prisma.emissionFactor.count(),
-    prisma.emissionFactor.findMany({
-      distinct: ["category"],
-      select: { category: true },
-      orderBy: { category: "asc" },
-    }),
-  ]);
-  const categories = categoryRows.map((row) => row.category);
-
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(requestedPage, pages);
-
-  const factors = await prisma.emissionFactor.findMany({
-    where,
-    orderBy: [
-      { scope: "asc" },
-      { category: "asc" },
-      { subcategory: "asc" },
-      { element: "asc" },
-    ],
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  });
+  const { total, totalAll, categories, factors, page, pages } =
+    await getFactorLibraryPage(filters);
 
   const baseParams: Record<string, string> = { tab: "library" };
   if (q) baseParams.q = q;
-  if (scopeParam && isScope(scopeParam)) baseParams.scope = scopeParam;
-  if (categoryParam && categoryParam !== "all") baseParams.category = categoryParam;
+  if (filters.scope) baseParams.scope = filters.scope;
+  if (filters.category) baseParams.category = filters.category;
   if (statusParam !== "active") baseParams.status = statusParam;
 
   return (
@@ -179,16 +158,8 @@ async function LibraryTab({ searchParams }: { searchParams: SearchParams }) {
 
 async function GridTab() {
   const t = await getTranslations("admin.factors.grid");
-  const rows = await prisma.gridElectricityFactor.findMany({
-    orderBy: { year: "desc" },
-  });
-  const gridFactors = rows.map((row) => ({
-    year: row.year,
-    factor: row.factor.toString(),
-    source: row.source,
-    updatedByEmail: row.updatedByEmail,
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  // Also shared, non-tenant reference data: cached and invalidated on the grid mutations.
+  const gridFactors = await getGridFactors();
 
   return (
     <div className="space-y-6">

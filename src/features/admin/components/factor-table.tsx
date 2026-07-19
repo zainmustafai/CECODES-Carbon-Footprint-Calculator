@@ -8,38 +8,40 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { EmissionFactor } from "@/lib/generated/prisma/client";
+import type { Scope } from "@/lib/generated/prisma/client";
+import type { CachedFactor } from "../lib/factor-library-cache";
 import { FactorRowActions } from "./factor-row-actions";
 
-function scopeNumber(scope: EmissionFactor["scope"]): string {
+function scopeNumber(scope: Scope): string {
   return scope === "SCOPE_1" ? "1" : scope === "SCOPE_2" ? "2" : "3";
 }
 
 type FactorDisplay = { value: string; unit: string | null; perGas: boolean };
 
 // Picks the one factor to show. Per-gas rows lead with CO2 and flag that other gases exist;
-// the consolidated and spend-based factors are shown as-is. A Scope 2 element has none.
-function factorDisplay(factor: EmissionFactor): FactorDisplay | null {
+// the consolidated and spend-based factors are shown as-is. A Scope 2 element has none. The
+// factor fields already crossed as strings from the cached loader.
+function factorDisplay(factor: CachedFactor): FactorDisplay | null {
   if (factor.co2Factor !== null) {
     return {
-      value: factor.co2Factor.toString(),
+      value: factor.co2Factor,
       unit: factor.factorUnit,
       perGas: factor.ch4Factor !== null || factor.n2oFactor !== null,
     };
   }
   if (factor.co2eFactor !== null) {
-    return { value: factor.co2eFactor.toString(), unit: factor.factorUnit, perGas: false };
+    return { value: factor.co2eFactor, unit: factor.factorUnit, perGas: false };
   }
   if (factor.co2eFactorCop !== null) {
-    return { value: factor.co2eFactorCop.toString(), unit: factor.factorUnit, perGas: false };
+    return { value: factor.co2eFactorCop, unit: factor.factorUnit, perGas: false };
   }
   if (factor.co2eFactorUsd !== null) {
-    return { value: factor.co2eFactorUsd.toString(), unit: factor.factorUnit, perGas: false };
+    return { value: factor.co2eFactorUsd, unit: factor.factorUnit, perGas: false };
   }
   return null;
 }
 
-export async function FactorTable({ factors }: { factors: EmissionFactor[] }) {
+export async function FactorTable({ factors }: { factors: CachedFactor[] }) {
   const t = await getTranslations("admin.factors.table");
   const ts = await getTranslations("admin.factors.status");
 
