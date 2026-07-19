@@ -17,6 +17,7 @@
     "db:studio": "prisma studio",
     "db:seed": "bun prisma/seed.ts",
     "db:seed:demo": "bun prisma/seed-demo.ts",
+    "db:seed:prod": "bun prisma/seed-prod.ts",
     "db:import-factors": "bun prisma/import-factors.ts",
     "db:fix-travel-factors": "bun prisma/fix-travel-factors.ts"
   },
