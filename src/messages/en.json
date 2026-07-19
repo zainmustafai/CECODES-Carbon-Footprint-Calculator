@@ -54,6 +54,7 @@
     "companies": "Companies",
     "users": "Users",
     "onboarding": "Setup",
+    "home": "Home",
     "administration": "Administration",
     "workspace": "My company",
     "myCompany": "My company",
@@ -508,6 +509,57 @@
     }
   },
   "admin": {
+    "overview": {
+      "title": "Admin overview",
+      "subtitle": "The platform at a glance: who needs a nudge and whether the data is trustworthy.",
+      "kpi": {
+        "companies": "Companies",
+        "companiesCaption": "{active} active · {inactive} inactive",
+        "users": "Users",
+        "usersCaption": "Across all companies",
+        "reporting": "Reporting {year}",
+        "reportingCaption": "Active companies with {year} data",
+        "factors": "Factors",
+        "factorsCaption": "Version {version}",
+        "factorsNoVersion": "No version recorded"
+      },
+      "portfolio": {
+        "title": "Portfolio status",
+        "empty": "No active companies",
+        "activeCompanies": "active",
+        "reporting": "Reporting",
+        "reportingHint": "Data entered",
+        "started": "Started",
+        "startedHint": "Year created, no data",
+        "noData": "No activity",
+        "noDataHint": "No reporting year"
+      },
+      "attention": {
+        "title": "Need follow-up",
+        "empty": "All up to date. Nothing pending.",
+        "sedeYear": "{sede} · {year}",
+        "more": "and {count} more",
+        "kinds": {
+          "emptyYear": "Empty year",
+          "stalled": "No data",
+          "missingGridFactor": "Grid factor missing",
+          "scope2Incomplete": "Scope 2: {count, plural, one {# month unreported} other {# months unreported}}"
+        }
+      },
+      "library": {
+        "title": "Factor library",
+        "factors": "Factors",
+        "version": "Current version",
+        "noVersion": "No version",
+        "recentChanges": "Changes (30 days)",
+        "recentChangesValue": "{count, plural, one {# change} other {# changes}}",
+        "open": "Open library"
+      },
+      "activity": {
+        "title": "Recent activity",
+        "viewAll": "View all"
+      }
+    },
     "traceability": {
       "title": "Traceability",
       "subtitle": "Who changed which figure, in which company, and when.",

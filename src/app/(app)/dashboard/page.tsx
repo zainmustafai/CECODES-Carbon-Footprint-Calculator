@@ -11,8 +11,8 @@ export default async function Page({
   const appUser = await requireAppUser();
   if (!appUser) redirect("/onboarding");
   // An admin has no company, so this dashboard would render nothing but an empty state.
-  // Their home is the company list.
-  if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
+  // Their home is the admin overview.
+  if (appUser.role === "CECODES_ADMIN") redirect("/admin");
   if (!appUser.companyId) redirect("/onboarding");
   if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
 

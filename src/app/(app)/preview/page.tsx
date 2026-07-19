@@ -11,7 +11,7 @@ export default async function Page({
   const appUser = await requireAppUser();
   if (!appUser) redirect("/onboarding");
   // An admin has no company of their own. They preview through /admin/companies/[id].
-  if (appUser.role === "CECODES_ADMIN") redirect("/admin/companies");
+  if (appUser.role === "CECODES_ADMIN") redirect("/admin");
   if (!appUser.companyId) redirect("/onboarding");
   if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
 

@@ -35,7 +35,8 @@ import {
 const ACTIVE =
   "data-active:shadow-[inset_2px_0_0_var(--sidebar-primary)] data-active:[&_svg]:text-sidebar-primary";
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, href: string, exact = false) {
+  if (exact) return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -75,7 +76,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
       );
     }
 
-    const active = isActive(pathname, href);
+    const active = isActive(pathname, href, item.exact);
     return (
       <SidebarMenuItem key={item.key}>
         <SidebarMenuButton
@@ -110,7 +111,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
               className="bg-white hover:bg-white active:bg-white/90 h-20 min-h-max"
             >
               <Link
-                href={isAdmin ? "/admin/companies" : "/dashboard"}
+                href={isAdmin ? "/admin" : "/dashboard"}
                 onClick={close}
                 className="flex flex-col items-stretch"
                 // Both images below are decorative (aria-hidden), which left this link with NO

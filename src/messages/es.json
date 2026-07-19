@@ -54,6 +54,7 @@
     "companies": "Empresas",
     "users": "Usuarios",
     "onboarding": "Configuración",
+    "home": "Inicio",
     "administration": "Administración",
     "workspace": "Mi empresa",
     "myCompany": "Mi empresa",
@@ -508,6 +509,57 @@
     }
   },
   "admin": {
+    "overview": {
+      "title": "Panel de administración",
+      "subtitle": "El estado de la plataforma de un vistazo: a quién acompañar y si los datos son confiables.",
+      "kpi": {
+        "companies": "Empresas",
+        "companiesCaption": "{active} activas · {inactive} inactivas",
+        "users": "Usuarios",
+        "usersCaption": "En todas las empresas",
+        "reporting": "Reportando {year}",
+        "reportingCaption": "Empresas activas con datos de {year}",
+        "factors": "Factores",
+        "factorsCaption": "Versión {version}",
+        "factorsNoVersion": "Sin versión registrada"
+      },
+      "portfolio": {
+        "title": "Estado del portafolio",
+        "empty": "Sin empresas activas",
+        "activeCompanies": "activas",
+        "reporting": "Reportando",
+        "reportingHint": "Con datos ingresados",
+        "started": "Iniciadas",
+        "startedHint": "Con año creado, sin datos",
+        "noData": "Sin actividad",
+        "noDataHint": "Sin año de reporte"
+      },
+      "attention": {
+        "title": "Requieren seguimiento",
+        "empty": "Todo al día. No hay pendientes.",
+        "sedeYear": "{sede} · {year}",
+        "more": "y {count} más",
+        "kinds": {
+          "emptyYear": "Año vacío",
+          "stalled": "Sin datos",
+          "missingGridFactor": "Falta factor de red",
+          "scope2Incomplete": "Alcance 2: {count, plural, one {# mes sin registrar} other {# meses sin registrar}}"
+        }
+      },
+      "library": {
+        "title": "Biblioteca de factores",
+        "factors": "Factores",
+        "version": "Versión actual",
+        "noVersion": "Sin versión",
+        "recentChanges": "Cambios (30 días)",
+        "recentChangesValue": "{count, plural, one {# cambio} other {# cambios}}",
+        "open": "Abrir biblioteca"
+      },
+      "activity": {
+        "title": "Actividad reciente",
+        "viewAll": "Ver todo"
+      }
+    },
     "traceability": {
       "title": "Trazabilidad",
       "subtitle": "Quién cambió qué dato, en qué empresa, y cuándo.",

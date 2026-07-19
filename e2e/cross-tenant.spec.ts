@@ -51,6 +51,7 @@ const NOT_FOUND_COPY = /página no encontrada/i;
 test.describe("cross-tenant isolation", () => {
   test("the admin area is invisible to a company user", async ({ page }) => {
     for (const path of [
+      "/admin",
       "/admin/companies",
       "/admin/users",
       "/admin/factors",
@@ -60,6 +61,7 @@ test.describe("cross-tenant isolation", () => {
 
       await expect(page.getByText(NOT_FOUND_COPY), `${path} must not render`).toBeVisible();
       // The admin screens' own headings must be nowhere on the page.
+      await expect(page.getByRole("heading", { name: /panel de administración/i })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: /^empresas$/i })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: /^usuarios$/i })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: /biblioteca de factores/i })).toHaveCount(0);
