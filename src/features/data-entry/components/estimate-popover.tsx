@@ -46,13 +46,11 @@ export function EstimatePopover({
 
   const warn = estimate.kind !== "ok";
   const label =
-    estimate.kind === "missingGridFactor"
-      ? t("missingGridFactorShort")
-      : estimate.kind === "noFactor"
-        ? t("noFactorShort")
-        : estimate.hasValues
-          ? `${format.number(estimate.tonnes, { maximumFractionDigits: 2 })} t CO2e`
-          : t("notReportedYet");
+    estimate.kind === "missingGridFactor" ? t("missingGridFactorShort")
+    : estimate.kind === "noFactor" ? t("noFactorShort")
+    : estimate.hasValues ?
+      `${format.number(estimate.tonnes, { maximumFractionDigits: 2 })} t CO2e`
+    : t("notReportedYet");
 
   return (
     <Popover>
@@ -62,29 +60,39 @@ export function EstimatePopover({
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 max-w-[11rem] gap-1 px-2 font-mono text-xs tabular-nums"
+          className="gap-1 px-2 max-w-44 h-8 font-mono tabular-nums text-xs"
         >
-          {warn ? (
-            <AlertTriangle className="size-3.5 shrink-0 text-chart-2" aria-hidden />
-          ) : null}
+          {warn ?
+            <AlertTriangle
+              className="size-3.5 text-chart-2 shrink-0"
+              aria-hidden
+            />
+          : null}
           <span className="sr-only">{t("estimated")}: </span>
           <span className="truncate">{label}</span>
-          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <ChevronDown
+            className="size-3.5 text-muted-foreground shrink-0"
+            aria-hidden
+          />
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-80 gap-3" aria-label={t("title")}>
+      <PopoverContent
+        align="end"
+        className="gap-3 w-80"
+        aria-label={t("title")}
+      >
         <div>
           <PopoverTitle>{source.element}</PopoverTitle>
-          {source.subcategory ? (
+          {source.subcategory ?
             <PopoverDescription>{source.subcategory}</PopoverDescription>
-          ) : null}
+          : null}
         </div>
         <SourceSummary
           estimate={estimate}
           gwpSet={gwpSet}
           year={year}
-          className="border-0 bg-transparent p-0"
+          className="bg-transparent p-0 border-0"
         />
       </PopoverContent>
     </Popover>
