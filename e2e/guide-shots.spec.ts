@@ -34,7 +34,9 @@ const VW = 1440;
 const VH = 900;
 
 test.use({ storageState: { cookies: [], origins: [] } });
-test.describe.configure({ mode: "serial", timeout: 300_000 });
+// Not serial: each screen is an independent test, so a slow or failed screen never skips the rest.
+// workers:1 (playwright.config) still runs them one at a time against the single dev server.
+test.describe.configure({ timeout: 600_000 });
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -65,10 +67,12 @@ async function settle(page: Page, ms = 900) {
 }
 
 async function boxesOf(locators: Locator[]): Promise<Box[]> {
-  if (locators[0]) await locators[0].scrollIntoViewIfNeeded().catch(() => {});
+  // Bounded: a not-found anchor must fail fast, not hang until the test timeout (there is no
+  // global actionTimeout set, so a bare scrollIntoViewIfNeeded/boundingBox would wait forever).
+  if (locators[0]) await locators[0].scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
   const out: Box[] = [];
   for (const l of locators) {
-    const b = await l.boundingBox().catch(() => null);
+    const b = await l.boundingBox({ timeout: 2500 }).catch(() => null);
     if (b) out.push(b);
   }
   return out;
@@ -168,7 +172,7 @@ async function region(page: Page, name: string, locators: Locator[], pad = 18) {
 async function around(page: Page, name: string, anchor: Locator, dim: { left?: number; up?: number; width: number; height: number }) {
   try {
     await settle(page, 350);
-    const b = await anchor.first().boundingBox();
+    const b = await anchor.first().boundingBox({ timeout: 3000 });
     if (!b) throw new Error("anchor not visible");
     const x = Math.max(0, b.x - (dim.left ?? 0));
     const y = Math.max(0, b.y - (dim.up ?? 0));
@@ -333,8 +337,8 @@ test("guide: demo1 data entry", async ({ page }) => {
   }
 });
 
-// ---------------------------------------------------------------------- demo1: resumen and company
-test("guide: demo1 resumen and company", async ({ page }) => {
+// ------------------------------------------------------------------------------- demo1: resumen
+test("guide: demo1 resumen", async ({ page }) => {
   await login(page, "demo1@demo.cecodes.invalid");
   await page.goto("/preview", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
@@ -347,12 +351,16 @@ test("guide: demo1 resumen and company", async ({ page }) => {
     { pad: 20 },
   );
   await region(page, "resumen-historial", [page.getByText("Historial de cambios"), page.getByText(/por demo1@/).first()], 14);
+});
 
+// ------------------------------------------------------------------------------- demo1: company
+test("guide: demo1 company", async ({ page }) => {
+  await login(page, "demo1@demo.cecodes.invalid");
   await page.goto("/company", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
   await settle(page);
   await region(page, "company-profile", [page.getByText("Información de la empresa"), page.getByRole("button", { name: "Guardar cambios" })], 16);
-  await region(page, "company-sedes", [page.getByRole("heading", { name: "Sedes" }), page.getByRole("button", { name: "Ingresar datos" }).first()], 16);
+  await region(page, "company-sedes", [page.getByRole("button", { name: "Agregar sede" }), page.getByRole("button", { name: "Ingresar datos" }).first()], 20);
 });
 
 // ------------------------------------------------------------------------------- demo2: empty state

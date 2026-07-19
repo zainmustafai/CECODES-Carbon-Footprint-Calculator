@@ -1,342 +1,561 @@
-# CECODES Carbon Footprint Tool: Step-by-Step Tutorial
+# CECODES Carbon Footprint Tool: a step by step guide
 
-A slow, patient, click-by-click tutorial. It assumes you have never used the tool and do not want
-to break anything. Just do each step in order. Every step tells you exactly what to click, where it
-is on the screen, and how to know it worked.
+This guide is for the very first time you open the tool. It assumes you have never used it before,
+that you are not a software person, and that you would rather be told exactly what to click than
+have to guess. That is fine. Follow it one step at a time, with the tool open next to it, and you
+will go from signing in to a finished report without breaking anything.
 
-The tool's screens are in **Spanish (es-CO)**. This tutorial is in English and shows the Spanish
-words exactly as they appear on the screen, in bold, with the English meaning next to them. So when
-you read click **Ingresar** (Sign in), look for the button that says **Ingresar**.
+You cannot break anything. There is no button in this tool that deletes your work by accident, and
+the tool saves by itself as you go. If a screen ever looks different from what you expect, do not
+worry: read the note next to that step, and keep going.
 
-> **¿Prefieres esta guía en español?** There is a full Spanish version: [USER_GUIDE.es.md](USER_GUIDE.es.md).
+The tool is in **Spanish (es-CO)**. This guide is written in English and quotes every Spanish button
+and label exactly as it appears on your screen, in **bold**, with the English meaning right after it
+in round brackets. So when you read click **Ingresar** (Sign in), look for the button that says
+**Ingresar**.
 
----
-
-## 0. What this tool does, in five sentences
-
-Your company enters how much it consumed in a year: fuel, electricity, waste, travel. The tool
-multiplies each amount by an official conversion number and adds it all up. The result is your
-**carbon footprint** *(huella de carbono)*, measured in **tonnes of CO2 equivalent (t CO2e)**. You
-see it on a dashboard and you can download it as a report. That is the whole tool, and this
-tutorial walks you through it once, from start to finish.
-
-![The dashboard you are working toward](images/guide/02-dashboard.png)
+> **Reading this in Spanish?** There is a full Spanish twin of this exact guide, with the same
+> pictures, at [USER_GUIDE.es.md](USER_GUIDE.es.md). It is the one to hand to your team.
 
 ---
 
-## 1. Before you start (Antes de empezar)
+## Contents
 
-**You do not create your own account or company.** The CECODES team sets up your company for you and
-gives you a **sign-in** *(correo)* and a **temporary password** *(contraseña temporal)*. If you do
-not have those yet, contact CECODES.
-
-Have your consumption numbers for the year nearby: litres or gallons of fuel, kWh of electricity
-month by month, kilometres travelled, kilograms of waste. You can also enter them little by little
-and come back later; nothing is lost.
-
----
-
-## 2. Sign in (Iniciar sesión)
-
-**2.1** Open the tool's web address. You land on the sign-in screen, titled **Iniciar sesión**.
-
-![The sign-in screen](images/guide/01-login.png)
-
-**2.2** In the **first box** (**Correo**, Email), type your email address.
-
-**2.3** In the **second box** (**Contraseña**, Password), type your password.
-
-**2.4** Click the green button that says **Ingresar** (Sign in).
-
-![Type your email and password, then click Ingresar](images/guide/10-login-form.png)
-
-**It worked when:** the page changes and you see your **Tablero** (Dashboard). That is your home
-screen.
-
-**If something else happens:**
-- If it says **Correo o contraseña incorrectos** (Wrong email or password), check for a typo and
-  try again. Forgot it? Click **¿Olvidaste tu contraseña?** and a reset link is emailed to you.
-- If it says **Tu cuenta fue desactivada** (Your account was deactivated) or you see **Empresa
-  desactivada** (Company deactivated), your data is safe; contact CECODES to switch it back on.
-- If you see a screen saying your account has no company yet, your sign-in is not linked to a
-  company. Contact CECODES and they will connect it.
+1. [What this tool is, in 60 seconds](#1-what-this-tool-is-in-60-seconds)
+2. [Before you start](#2-before-you-start)
+3. [The walkthrough: from sign in to a finished report](#3-the-walkthrough-from-sign-in-to-a-finished-report)
+4. [How to type numbers (please read this one)](#4-how-to-type-numbers-please-read-this-one)
+5. [A plain-language glossary](#5-a-plain-language-glossary)
+6. [Quick answers to common worries](#6-quick-answers-to-common-worries)
 
 ---
 
-## 3. Finding your way around
+## 1. What this tool is, in 60 seconds
 
-The **left side** of the screen is the menu. These are the places you can go:
+Here is the whole idea in five sentences.
 
-![The left menu](images/guide/11-menu.png)
+1. Your company consumed things last year: fuel, electricity, flights, waste, and so on.
+2. You type **how much** of each you consumed into this tool, one number at a time.
+3. The tool multiplies each amount by an official CECODES conversion number and adds it all up.
+4. The result is your **carbon footprint** for the year, measured in **tonnes of CO2 equivalent**
+   (written **t CO2e**), which is the standard way to measure greenhouse gases.
+5. You can then see it on a dashboard and download it as a report.
 
-| Menu item | What it is for |
+That is all it does. It replaces the old Excel workbook, and it is built to produce the same totals
+that Excel produced.
+
+This is where you are heading. This is the dashboard, full of one company's results:
+
+![The dashboard, the finished picture you are working toward](images/guide/overview-dashboard.png)
+
+You do not need to understand this screen yet. It is only here so you can see the destination.
+
+---
+
+## 2. Before you start
+
+**CECODES creates your account for you.** You do not sign up, and you do not create your own
+company. The CECODES team sets up your company, your first location, and a login for each person,
+and then sends you:
+
+- an **email** (your username), and
+- a **temporary password**.
+
+Have those two things next to you before you begin. If you do not have them yet, write to CECODES
+and ask; there is nothing you can do in the tool until they exist.
+
+It also helps to gather, for the year you are reporting:
+
+- your **fuel** records (diesel, gasoline), in the units your invoices use,
+- your twelve monthly **electricity** bills (in kWh),
+- any **business flights**, **waste**, or other indirect activities you want to include.
+
+You do not need all of it before you start. You can type what you have, leave the rest blank, and
+come back later. Blank simply means "not reported yet".
+
+---
+
+## 3. The walkthrough: from sign in to a finished report
+
+Do these in order. Each step is one small action. After most steps there is a line that tells you
+what success looks like, so you always know the click worked.
+
+### Step 1. Open the tool and sign in
+
+You will land on a screen titled **Iniciar sesión** (Sign in). It has two boxes and a green button.
+
+![The sign-in screen](images/guide/signin.png)
+
+1. Click the first box, **Correo electrónico** (Email), and type the email CECODES gave you.
+2. Click the second box, **Contraseña** (Password), and type your temporary password. The dots hide
+   what you type; that is normal. To check it, click the small eye icon at the right end of the box.
+3. Click the green **Ingresar** (Sign in) button.
+
+![The Ingresar button, at the bottom of the form](images/guide/signin-button.png)
+
+**Success looks like:** the sign-in screen disappears and your dashboard opens. That is Step 2.
+
+> **You already have an account.** At the very bottom of the sign-in screen there is a line that
+> says **¿No tienes cuenta?** (No account?) with a green **Regístrate** (Sign up) link. Ignore it.
+> CECODES already made your account for you, so you never need to sign up.
+>
+> ![The Regístrate link at the bottom, which you do not need](images/guide/signin-no-register.png)
+
+> **If it will not let you in:** if you see **Correo o contraseña incorrectos** (Wrong email or
+> password) in red, check for a typo and try again. If you see **Tu cuenta fue desactivada**
+> (Your account was deactivated), your login has been switched off; write to CECODES. Forgot your
+> password? Click **¿Olvidaste tu contraseña?** (Forgot your password?) and a reset link is emailed
+> to you.
+
+### Step 2. Look around the dashboard
+
+The first time you sign in, you land on your **Tablero** (Dashboard). If your company is brand new
+and no data has been entered yet, it looks like this: mostly empty, with an invitation to start.
+
+![A brand-new company's empty dashboard](images/guide/first-dashboard.png)
+
+That is exactly right. An empty dashboard is not a problem; it just means there is nothing to show
+yet. You are about to fill it. Do not click anything here yet; read Step 3 first.
+
+> **If you see a screen that says your account has no company:** the words **Tu cuenta aún no tiene
+> empresa** (Your account does not have a company yet) mean your login has not been linked to a
+> company. You cannot fix this yourself. Write to CECODES and they will connect it.
+
+### Step 3. Understand the menu on the left
+
+Everything you do lives in the dark green **menu on the left side** of the screen. From top to
+bottom, a company user has five items:
+
+![The left menu](images/guide/sidebar.png)
+
+- **Tablero** (Dashboard): your results, as charts. This is where you are now.
+- **Ingreso de datos** (Data entry): where you type your numbers. This is the main screen, and where
+  you will spend most of your time.
+- **Resumen** (Summary): all your data in one table, and the download buttons.
+- **Empresa** (Company): your company details and your locations.
+- **Reportes** (Reports): marked **Pronto** (Coming soon), so it does nothing yet.
+
+### Step 4. Find the controls at the top
+
+Along the very **top of the screen**, on the **right side**, there are three small controls:
+
+![The three controls at the top right](images/guide/topbar.png)
+
+- A **sun or moon icon**, **Cambiar tema** (Change theme): switches the screen between **Claro**
+  (Light), **Oscuro** (Dark), and **Sistema** (Follow your computer). Use whichever is easier on
+  your eyes.
+- **ES / EN**: switches the whole tool between Spanish and English. When you click it, the page
+  takes a moment to reload in the new language, and a small message confirms when it is done.
+- A **round button with your initial**: your account menu. Click it to find **Cerrar sesión**
+  (Sign out) when you are done for the day.
+
+### Step 5. Go to the data entry screen
+
+In the **left menu**, click **Ingreso de datos** (Data entry).
+
+![The Ingreso de datos item in the left menu](images/guide/sidebar-data-entry.png)
+
+**Success looks like:** the main area changes to a screen titled **Ingreso de datos**, with a note
+under it that says the changes save by themselves.
+
+### Step 6. Choose a location and a year
+
+Near the top of the data entry screen there is a bar with two dropdowns: **Sede** (Location) on the
+left and **Año** (Year) on the right.
+
+![The Sede and Año dropdowns at the top of the data entry screen](images/guide/context-bar.png)
+
+1. Click **Sede** (Location) and pick the location you are entering data for. If your company has
+   only one, it is already chosen.
+2. Click **Año** (Year) and pick the year you are reporting.
+
+Everything you type below belongs to this location and this year together. Your choice is remembered
+in the address of the page, so if you reload or share the link, you come back to the same place.
+
+### Step 7. Create a year, if there is not one yet
+
+If this location has no years yet, instead of the year dropdown you will see a message,
+**Aún no hay años de reporte** (No reporting years yet), with a button.
+
+![The empty state when a location has no reporting year](images/guide/create-year-empty.png)
+
+1. Click the **Crear año** (Create year) button.
+2. A small window opens titled **Crear año de reporte** (Create a reporting year). Click the **Año**
+   (Year) box and type the year, for example `2024`.
+
+![The Crear año de reporte window](images/guide/create-year-dialog.png)
+
+You will see a line like **Se usará el conjunto de PCG AR6** (The AR6 GWP set will be used). That is
+the official set of scientific conversion values for that year. It is fixed the moment you create
+the year, on purpose: if the science is updated later, your finished years do not silently change.
+
+3. Click the **Crear año** (Create year) button inside the window to confirm.
+
+**Success looks like:** the window closes and the new year appears in the **Año** dropdown, already
+selected.
+
+### Step 8. Pick a scope
+
+Below the bar there are three tabs: **Alcance 1**, **Alcance 2**, and **Alcance 3** (Scope 1, 2 and
+3). These are the three groups every carbon footprint is split into.
+
+![The three Alcance tabs](images/guide/scope-tabs.png)
+
+In plain terms:
+
+- **Alcance 1** (Scope 1): what your company burns or leaks itself. Diesel in a generator, fuel in
+  company trucks, refrigerant gas escaping from air conditioning.
+- **Alcance 2** (Scope 2): the electricity you buy from the grid. This is the only group entered
+  **month by month**.
+- **Alcance 3** (Scope 3): everything indirect. Business flights, things you bought, waste.
+
+The small number on a tab tells you how many sources you have already added there. Click
+**Alcance 1** to start.
+
+### Step 9. Say whether a category applies
+
+Each scope is divided into categories (for example *Fuentes Fijas*, stationary sources, or *Fuentes
+Móviles*, mobile sources). Each category has a small switch labelled **¿Aplica?** (Does it apply?).
+
+![A category's ¿Aplica? switch](images/guide/category-applies.png)
+
+This switch is not just decoration. The greenhouse gas standard asks a company to **declare** the
+categories it does not have, so turning one off is real, reportable information, not a way to hide
+something. Leave a category **on** if your company has it. Turn it **off** only for things your
+company genuinely does not do.
+
+> **Once a category has sources in it, the switch locks.** If you cannot turn a category off, it is
+> because it still holds sources. The tool is protecting your data: delete the sources first, and
+> then the switch unlocks. This is on purpose, so a single click can never erase numbers you typed.
+
+### Step 10. Add a source
+
+A "source" is one specific thing you consumed, like diesel or electricity.
+
+1. Click the **Agregar fuente** (Add source) button inside the category.
+
+![The Agregar fuente button](images/guide/add-source-button.png)
+
+2. A search box opens, **Buscar elemento...** (Search for an element). Start typing the name of what
+   you consumed, for example `diesel`.
+
+![The element search, open](images/guide/add-source-search.png)
+
+3. Click the element you want in the list. It is added, and the search closes.
+
+A few things that are meant to reassure you here:
+
+- You **cannot invent or misspell** an element. You can only pick one from the official list, so
+  every company calculates the same way.
+- The search **ignores accents**, so typing `diesel` still finds `Diésel`.
+- If an element is already added, it shows a check mark and cannot be added twice. That is fine.
+- The correct **unit** (like galones or kWh) comes with the element automatically. You never choose
+  it.
+
+### Step 11. Type the amount for the whole year (Scope 1 and 3)
+
+For **Alcance 1** and **Alcance 3**, each source has a single box, **Valor anual** (Annual value):
+one number for the whole year. The unit is shown inside the box, on the right, so you always know
+what you are typing.
+
+Here is our worked example. Suppose your diesel invoice for the year totals **14.957,1 galones**
+(fourteen thousand nine hundred fifty-seven point one gallons). You type it into the **Valor anual**
+box **without the thousands dot**, like this: `14957,1`.
+
+![The annual value box for diesel, with its live result beside it](images/guide/annual-value.png)
+
+The box in the picture shows `14957.1`, which is the same number. Notice that the tool does not add a
+thousands dot for you: it keeps the number the way you type it. Notice too the small unit **Gal**
+(gallons) inside the box, and, just to the right of it, the tool has already worked out what that
+diesel adds up to: **151,83 t CO2e**. It updates as you type.
+
+> **This is the one number rule that matters.** Never type a thousands separator. If you type
+> `14.957,1`, the tool reads the dot as a decimal point and stores **14,9571**, which is wrong, and
+> nothing on screen looks wrong. Section 4 is entirely about this. It is worth two minutes.
+
+### Step 12. Read the live result, and what is inside it
+
+That small number next to the source (**151,83 t CO2e** in our example) is a live estimate. Click on
+it to open a panel that shows exactly how it was worked out.
+
+![The live estimate, opened](images/guide/live-estimate.png)
+
+You will see:
+
+- **Emisiones estimadas** (Estimated emissions): the result, in **t CO2e**.
+- **Factor aplicado** (Factor applied): the conversion number that was used, with its unit
+  (here **10,149 kg CO2/gal**).
+- **Conjunto GWP** (GWP set): the scientific set of values behind it (here **AR6**).
+- **Fuente del factor** (Factor source): the study the number comes from, so anyone can check it.
+
+At the bottom it says **Estimación referencial. Los totales oficiales se calcularán en el Tablero**
+(Reference estimate. The official totals are calculated on the dashboard). In other words, this
+number is a helpful preview while you type. The totals you report come from the **Tablero**.
+
+> **If a factor is missing, the tool tells you in words.** It will never show `0.0 t` for something
+> it could not calculate, because a real zero and a missing factor must never look the same.
+
+### Step 13. Enter electricity, month by month (Scope 2)
+
+Electricity is different, because CECODES reports it monthly. Click the **Alcance 2** tab, then open
+your electricity source. Instead of one box, you get **twelve boxes**, **Enero** to **Diciembre**
+(January to December).
+
+![The twelve monthly electricity boxes](images/guide/scope2-months.png)
+
+Type each month's kWh into its own box. As you go, a small badge keeps count, for example **8 de 12
+meses** (8 of 12 months), so you can see how far you have come. It is fine to stop partway and come
+back; the empty months just stay empty.
+
+### Step 14. Use the January shortcut, if it helps
+
+If your electricity is about the same every month, you do not have to type all twelve.
+
+1. Type your January (**Enero**) value.
+2. Click the **Copiar Enero a los meses vacíos** (Copy January to the empty months) button.
+
+![The Copiar Enero button](images/guide/copy-january.png)
+
+It fills **only the empty months**, and it never overwrites a month you already typed. So you can
+copy January across, then correct the two or three months that were different.
+
+> If the button does nothing, hover over it: it will say either **Registra primero el valor de
+> Enero** (Enter January first) or **Todos los meses ya tienen valor** (Every month already has a
+> value). Both are normal.
+
+### Step 15. Notice that it saves by itself
+
+There is **no Save button** anywhere on this screen, and you do not need one. Look at the **top
+right** of the data entry screen, near the year. There is a small indicator that tells you the
+state of your work.
+
+![The autosave indicator, showing a saved time](images/guide/autosave.png)
+
+It reads:
+
+| What it says | What it means |
 |---|---|
-| **Tablero** | Your results, as charts. This is the dashboard. |
-| **Ingreso de datos** | Where you type your consumption. This is the main screen. |
-| **Resumen** | All your data in one table, plus the download buttons. |
-| **Empresa** | Your company details and your sites *(sedes)*. |
+| **Se guarda automáticamente** (Saves automatically) | Nothing pending, you are up to date |
+| **Guardando...** (Saving) | Your latest change is being sent |
+| **Guardado 14:32** (Saved 14:32) | Saved, at that time |
+| **No se pudo guardar** (Could not save) | Something went wrong; the box returns to its last saved value and the tool tells you |
 
-The **top right** has three small controls: a **sun/moon** to switch light and dark, an **ES / EN**
-switch to change the language, and a **circle with your initial** which opens your account menu
-(with **Cerrar sesión**, Sign out).
+If you try to close the tab while a change is still saving, the browser warns you first. So you can
+relax: your typing is safe.
 
----
+### Step 16. Set a reduction target, if you have one (optional)
 
-## 4. Go to data entry, and choose a site and a year
+Above the sources, each scope has a **Meta de reducción** (Reduction target): the target you are
+aiming for, in **t CO2e**. It is optional.
 
-**4.1** In the left menu, click **Ingreso de datos** (Data entry).
+![The reduction target field and its save button](images/guide/meta.png)
 
-**4.2** At the top of the screen, choose your **Sede** (site) and your **Año** (year) from the two
-drop-down boxes. Everything you type below belongs to that site and that year.
+1. Type your target into the **Meta para Alcance 1** (Target for Scope 1) box.
+2. Click **Guardar meta** (Save target).
 
-![Choose the Sede and the Año at the top](images/guide/20-sede-year.png)
+Your progress toward it later appears on the **Tablero**. To remove a target, clear the box and save
+again; an empty target is not a target of zero.
 
-**If there is no year yet:** you will see **Aún no hay años de reporte** (No reporting years yet).
-Click **Crear año** (Create year), type the year (for example `2024`), and confirm. A small note
-about **PCG AR6** may appear; that is just the official science set for that year, and it is fixed
-when you create the year. That is on purpose, so old years never change by themselves.
+### Step 17. What to do when electricity shows no emissions
 
----
+Electricity emissions depend on Colombia's national grid factor, which changes every year. A CECODES
+administrator loads it, one value per year. If the year you are working in does not have it yet, you
+will see a calm yellow notice on the **Alcance 2** tab.
 
-## 5. Choose the group: Alcance 1, 2, or 3
+![The notice shown when a year has no grid factor yet](images/guide/missing-grid.png)
 
-Emissions come in three groups, shown as three **tabs** near the top.
+It reads **Todavía no hay factor de red eléctrica para 2025** (There is no electricity grid factor
+for 2025 yet), and then tells you to keep going. So keep typing your kWh. The emissions will
+calculate the moment the administrator loads the factor. Nothing you type is lost.
 
-![The three Alcance tabs](images/guide/12-alcance-tabs.png)
+### Step 18. Check your work on Resumen
 
-- **Alcance 1** (Scope 1): what your company **burns or leaks itself**, like diesel in a generator,
-  fuel in company vehicles, or refrigerant gas that escapes.
-- **Alcance 2** (Scope 2): the **electricity** you buy. This is the only group you enter **month by
-  month**.
-- **Alcance 3** (Scope 3): everything **indirect**, like business flights, purchased goods, and
-  waste.
+When you have entered what you have, it is worth looking at it all in one place before you trust it.
+In the **left menu**, click **Resumen** (Summary).
 
-**4.1** Click the tab for the group you want to enter. Start with **Alcance 1**.
+![The Resumen screen](images/guide/resumen.png)
 
-The small number on a tab tells you how many sources you have already added there.
+At the top you get your **Total estimado** (Estimated total) and a card for each scope.
 
----
+![The totals at the top of Resumen](images/guide/resumen-totals.png)
 
-## 6. Does this category apply? The ¿Aplica? switch
+Below that is one table per scope, listing each element with its **Unidad** (Unit), **Cantidad**
+(Quantity), **Factor** (Factor), and **t CO2e**. Alcance 2 shows the twelve months across the table.
+Pick the **Sede** (Location) and **Año** (Year) with the two dropdowns at the top, exactly like on
+the data entry screen. This table is the easiest way to spot a number that looks wrong.
 
-Inside each group are **categories** (for example **Fuentes Fijas**, stationary combustion). Each
-category has a small switch labelled **¿Aplica?** (Does it apply?).
+### Step 19. See who entered each number
 
-![The ¿Aplica? switch on a category](images/guide/13-aplica-switch.png)
+Scroll to the bottom of **Resumen**. Once data has been entered through the tool, there is a panel
+called **Historial de cambios** (Change history).
 
-This is not decoration. The greenhouse-gas standard asks a company to **declare** the categories it
-does not have. So if your company genuinely has nothing in a category, turn its switch **off**. That
-is saved as real information, not just hidden.
+![The Historial de cambios panel](images/guide/resumen-historial.png)
 
-Once a category has data in it, the switch **locks**. To turn it off you must first remove its
-sources, so that recorded data can never disappear behind a switch.
+It lists who entered or changed each number, and when, for this location and year. If several people
+from your company use the tool, this is how you find out who to ask about a particular figure. On a
+brand-new company that has just been set up, this panel is empty until the first number is typed.
 
----
+### Step 20. Download your report
 
-## 7. Add a source (Agregar fuente)
+At the **top right of Resumen** there are three buttons.
 
-A **source** *(fuente)* is one specific thing you consumed, like a particular fuel.
+![The three download buttons on Resumen](images/guide/resumen-exports.png)
 
-**7.1** Find the category you want (for example **Fuentes Fijas**) and click **Agregar fuente**
-(Add source).
+- **Descargar PDF** (Download PDF): a readable report with your totals, the breakdown by scope and
+  category, and a table of the uncertainty (the plus or minus range) of each factor where the
+  library has one.
+- **Exportar a Excel** (Export to Excel): a workbook you can sum, pivot, and compare against your own
+  spreadsheet.
+- **CSV**: a plain text version.
 
-![Click Agregar fuente](images/guide/14-agregar-fuente.png)
+Click one. A small message says **Generando el reporte** (Generating the report), and then the file
+downloads. The buttons only appear when there is a location, a year, and some data to export.
 
-**7.2** A search box opens with the official list of elements. Type a few letters to find yours (for
-example type `diesel` to find **Diésel**; accents do not matter).
+### Step 21. Keep your company details and locations tidy
 
-**7.3** Click the one you want. It is added, and a box appears for you to type the amount.
+In the **left menu**, click **Empresa** (Company). This screen holds two things.
 
-You **cannot** invent or misspell an element; you always pick from the list, so every company
-calculates the same way. An element you already added shows a check mark and cannot be added twice.
+**Your company profile**, under **Información de la empresa** (Company information): name, sector,
+and an optional contact email. These appear on your reports. Change what you need and click
+**Guardar cambios** (Save changes).
 
----
+![The company profile form](images/guide/company-profile.png)
 
-## 8. Type an annual value (Alcance 1 and Alcance 3)
+**Your locations**, under **Sedes** (Locations). Each sede is one plant at one place, measured
+separately.
 
-For **Alcance 1** and **Alcance 3**, each source has **one box** for the whole year, labelled
-**Valor anual** (Annual value). The unit (like `gal` or `kg`) is shown inside the box.
+![The list of locations](images/guide/company-sedes.png)
 
-![The annual value box](images/guide/15-valor-anual.png)
+From here you can:
 
-**8.1** Click the box and type your number. Read section 10 first if you are unsure how to type it.
+- Click **Agregar sede** (Add location) to add another location (a **Planta**, plant, and its
+  **Ubicación**, location).
+- See each location's **Años de reporte** (Reporting years).
+- Click **Ingresar datos** (Enter data) to jump straight into entering that location's data.
 
-**Worked example:** for **Diésel o ACPM (B2) - Fijo**, measured in gallons, type `14957,1`. The tool
-shows it as `14.957,1` and calculates about **151,83 t CO2e**.
+> A location's name must be unique inside your company, and you cannot delete a location that still
+> has reporting years. Both rules exist so a single click can never wipe real data.
 
-**8.2** Click somewhere else, or press Tab, to leave the box.
-
-**It worked when:** a small **Guardado** (Saved) label with the time appears at the **top right**.
-
-![The Guardado (Saved) indicator, top right](images/guide/16-guardado.png)
-
-**There is no Save button.** The tool saves by itself as you type. The label at the top right tells
-you the state: **Se guarda automáticamente** (saves automatically, nothing pending), **Guardando...**
-(saving), **Guardado 14:32** (saved, at that time), or **No se pudo guardar** (could not save, in
-which case the box goes back to its last saved value and you try again).
-
----
-
-## 9. Electricity: the twelve months (Alcance 2)
-
-Electricity is different: you enter it **month by month**.
-
-**9.1** Click the **Alcance 2** tab.
-
-**9.2** Add the electricity source the same way (section 7). Instead of one box, you get **twelve**,
-**Enero** to **Diciembre** (January to December).
-
-![The twelve monthly electricity boxes](images/guide/04-data-entry-scope2.png)
-
-**9.3** Type each month's kWh into its box.
-
-![One month box](images/guide/17-month-box.png)
-
-A small badge shows your progress, like **8 de 12 meses** (8 of 12 months).
-
-**Shortcut:** if your electricity is about the same every month, type **Enero** (January) once, then
-click **Copiar Enero a los meses vacíos** (Copy January to the empty months). It fills only the
-**empty** months and never overwrites one you already typed.
-
-![The copy-January shortcut](images/guide/18-copiar-enero.png)
-
-**If you see a yellow warning about the factor de red** (grid factor): that just means CECODES has
-not loaded the electricity conversion number for that year yet. **Keep typing your kWh anyway.** The
-emissions will calculate the moment CECODES loads it.
-
-![The missing-grid-factor warning (keep entering your kWh)](images/guide/08-missing-grid-factor.png)
+That is the whole journey. Sign in, enter your numbers, check them on Resumen, download the report.
 
 ---
 
-## 10. The most important lesson: how to type numbers
+## 4. How to type numbers (please read this one)
 
-This is where mistakes happen quietly, so read it carefully.
+This is the section worth reading twice, because it is the one place where a mistake is silent: the
+tool does exactly what you typed and nothing looks wrong.
 
-### Comma or dot, both mean a decimal point
+Under every number box the tool prints the rule: **Solo valores no negativos. Decimales con coma (,)
+o punto (.). No uses separador de miles** (Only non-negative values. Decimals with a comma or a dot.
+Do not use a thousands separator).
 
-**`3,4` and `3.4` both mean three point four.** Use whichever is natural for you. The comma is fine.
+![The number rule printed under the fields](images/guide/number-hint.png)
 
-### NEVER type a thousands separator
+### Decimals: a comma or a dot, both work
 
-This is the one real rule. To write one thousand two hundred, type **`1200`**. Do **not** type
-`1.200` or `1,200`.
+**`3,4` and `3.4` are both accepted, and both mean three point four.** Use whichever feels natural.
+The comma is completely fine.
+
+| You type | The tool stores | |
+|---|---|---|
+| `3,4` | 3.4 | correct |
+| `3.4` | 3.4 | correct |
+| `3,44567` | 3.44567 | correct |
+| `3.44567` | 3.44567 | correct |
+
+### Never type a thousands separator
+
+This is the one real rule, and the whole reason for this section.
 
 | You mean | Type this | Do NOT type |
 |---|---|---|
 | One thousand two hundred | `1200` | `1.200` or `1,200` |
 | Fourteen thousand nine hundred fifty-seven point one | `14957,1` or `14957.1` | `14.957,1` |
-| Three point four | `3,4` or `3.4` | (nothing to avoid here) |
 
 **Why it matters:** a lone dot is always read as a decimal point. If you type `1.200` meaning one
-thousand two hundred, the tool reads **1.2**, and nothing on the screen looks wrong. That is a
-mistake nobody catches later. The tool shows the rule under every box:
-*"Solo valores no negativos. Decimales con coma (,) o punto (.). No uses separador de miles."*
+thousand two hundred, the tool reads **1.2**, and nothing looks wrong. That is the mistake nobody
+catches later. So when you copy a number off an invoice that shows `14.957,1`, remove the thousands
+dot and type `14957,1`.
 
-### The other rules
+### The rest of the rules
 
-- **Up to 6 decimals.** `3,44567` is fine. `3,4567891` is rejected with a visible message.
+- **Up to 6 decimal places.** `3.44567` is fine. Something longer, like `3.4567891`, is refused with
+  a visible message, so you will know.
 - **No negative numbers.**
-- **Blank is not zero.** Leave a box empty when you have no data yet; that means *"not reported"*.
-  Type `0` only when the company truly consumed nothing. The tool keeps these apart on purpose.
+- **Blank is not zero.** Leave a box empty when you have no data yet: that means "not reported yet".
+  Type `0` only when your company genuinely consumed nothing. The tool keeps these two apart on
+  purpose, and the monthly chart shows an unreported month as a gap, not as a zero.
+- **Pasting from Excel** mostly works. A Colombian-style `1.234,56` is understood as one thousand two
+  hundred thirty-four point five six. The US style `1,234.56` is refused rather than guessed at.
+- A half-typed value like `12,` stays on the screen so your cursor does not jump, but it is not saved
+  until it is a complete number.
 
 ---
 
-## 11. See what you added, and download it (Resumen)
-
-**11.1** In the left menu, click **Resumen** (Summary). It shows everything you entered in one
-table, which is the easiest way to check a year before you trust it.
-
-![The Resumen screen with your data and the download buttons](images/guide/05-resumen.png)
-
-At the top are your **Total estimado** (estimated total) and a card per Alcance. Below is one table
-per Alcance, with each element, its unit, the amount, the factor, and the **t CO2e**.
-
-**11.2** To download a report, use the three buttons at the **top right**:
-
-![The three download buttons](images/guide/19-export-buttons.png)
-
-- **Descargar PDF** (Download PDF): a readable report with the totals and a table of the uncertainty
-  of each factor. This is the one to send or print.
-- **Exportar a Excel** (Export to Excel): a workbook you can open in Excel and total yourself.
-- **CSV**: a plain-text version.
-
-**Who changed what.** At the bottom of Resumen, a **Historial de cambios** (Change history) panel
-shows who entered or changed each number, and when. If several people from your company use the
-tool, this is how you find out who to ask about a figure. It appears once data has been entered
-through the tool.
-
----
-
-## 12. Read your results (Tablero)
-
-**12.1** In the left menu, click **Tablero** (Dashboard). It is read-only and answers four
-questions.
-
-![The dashboard](images/guide/02-dashboard.png)
-
-- **How big is our footprint?** The **Huella total** card, in t CO2e.
-- **Did it go up or down?** The **Variación vs. año anterior** card. Green with a down arrow is a
-  reduction; red with an up arrow is an increase.
-- **Are we on track?** The **Avance hacia la meta** card, if a target *(meta)* is set.
-- **Where does it come from?** The rings and bars: **Emisiones por alcance** (by scope), **Emisiones
-  por categoría** (by category), and **Tendencia mensual** (electricity month by month, where an
-  unreported month is a gap, not a zero).
-
-The four boxes at the top (**Planta / Sede**, **Año**, **Alcance**, **Categoría**) let you narrow
-the view.
-
----
-
-## 13. Glossary (in plain words)
+## 5. A plain-language glossary
 
 | Word on screen | What it means |
 |---|---|
-| **Empresa** | Your company. |
-| **Sede** | One site: a plant, an office, a warehouse. A company can have several. |
-| **Año** | One reporting year, like 2024. Each year is calculated on its own. |
-| **Alcance 1 / 2 / 3** | The three groups of emissions (Scope 1 / 2 / 3). |
-| **Fuente** / **Elemento** | A source: one specific thing you consumed. |
-| **Factor de emisión** | The official number that turns an amount into emissions. |
-| **t CO2e** | Tonnes of CO2 equivalent. Every result is in tonnes. |
-| **Meta** | An optional reduction target. |
-| **Valor anual** | The one yearly number for a Scope 1 or Scope 3 source. |
-| **Guardado** | Saved. |
+| **Empresa** | Your company |
+| **Sede** | One physical location: a plant, an office, a warehouse. A company can have several |
+| **Año** | One reporting year, for example 2024. Each year is calculated on its own |
+| **Alcance 1 / 2 / 3** | The three groups of emissions (Scope 1 / 2 / 3) |
+| **Fuente** / **Elemento** | A source: one specific thing you consumed, like diesel or electricity |
+| **Valor anual** | The amount for the whole year, for Scope 1 and Scope 3 |
+| **Factor de emisión** | The official conversion number that turns an amount into emissions |
+| **t CO2e** | Tonnes of CO2 equivalent. Every figure the tool shows is in tonnes |
+| **Conjunto GWP / PCG** | The scientific set of values (like AR6) used to combine the gases |
+| **Meta** | An optional reduction target you set for a scope |
+| **Tablero** | The dashboard, where your official totals and charts live |
+| **Resumen** | The summary table, and where you download reports |
 
 ---
 
-## 14. Preguntas frecuentes (Quick answers)
-
-**Where is the Save button?**
-There is none. It saves as you type. The **Guardado** label at the top right tells you when.
+## 6. Quick answers to common worries
 
 **Can I write 3,4 or 3.4?**
-Both. They mean the same thing.
+Both. They mean the same thing. Use whichever your team prefers.
 
 **How do I write one thousand two hundred?**
-`1200`. Never `1.200`, which would be read as 1.2.
+Type `1200`. Never `1.200`, which the tool would read as 1.2.
+
+**Where is the Save button?**
+There is not one. It saves as you type. The indicator at the top right tells you when.
 
 **I left a box empty. Is that zero?**
-No. Empty means "not reported yet". Type `0` only if you truly consumed nothing.
+No. Empty means "not reported yet". Type `0` only if your company really consumed nothing.
 
 **Why is electricity split into twelve boxes?**
-CECODES reports electricity month by month. Alcance 1 and 3 are one yearly number each.
+Because CECODES reports electricity month by month. Scope 1 and Scope 3 are one annual figure each.
 
 **My electricity shows no emissions.**
-The grid conversion number for that year is not loaded yet. Keep entering your kWh; it calculates as
-soon as CECODES loads it.
-
-**Can two people from my company use the tool?**
-Yes. Each person signs in with their own account, and they all see the same company data. The
-**Historial de cambios** shows who entered each number.
+The national grid factor for that year has not been loaded yet. Keep entering your kWh; it calculates
+as soon as a CECODES administrator loads the factor.
 
 **I cannot turn off a category.**
-It still has sources in it. Remove them first, then the **¿Aplica?** switch unlocks.
+It still has sources in it. Delete them first, and then the switch unlocks.
 
-**Can I change the language?**
-Yes, the **ES / EN** switch at the top right, any time.
+**Can two people from my company use the tool?**
+Yes. Each person gets their own login, and they all see the same company data.
 
-**Is the estimate next to a source the official number?**
+**Is the number next to a source the official total?**
 No, it is a reference estimate to help you as you type. The official totals are on the **Tablero**.
 
-**How do I get a report to send?**
-On **Resumen**, click **Descargar PDF**.
+**Can I change the language?**
+Yes, with the **ES / EN** switch at the top right, at any time.
+
+**I signed in and it says my company was deactivated.**
+The screen **Empresa desactivada** (Company deactivated) means a CECODES administrator switched your
+whole company off. Your data is kept safe. Write to CECODES to switch it back on.
+
+![The Empresa desactivada screen](images/guide/company-deactivated.png)
+
+**It refused my login and mentions my account.**
+The message **Tu cuenta fue desactivada** (Your account was deactivated) means your personal login
+was switched off, even though your company is fine. Write to CECODES.
+
+![The deactivated-account message on the sign-in screen](images/guide/account-deactivated.png)
+
+**Do I ever need Regístrate or Configura tu empresa?**
+No. CECODES creates every account and every company. If you land on a screen asking you to set up a
+company, it means your login is not linked yet; write to CECODES.
