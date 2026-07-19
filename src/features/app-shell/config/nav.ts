@@ -3,6 +3,7 @@ import {
   Building2,
   ClipboardList,
   FileText,
+  History,
   LayoutDashboard,
   Library,
   Table2,
@@ -33,6 +34,7 @@ export const ADMIN_ITEMS: NavLeaf[] = [
   { key: "companies", segment: "/admin/companies", icon: Building2 },
   { key: "users", segment: "/admin/users", icon: Users },
   { key: "factorLibrary", segment: "/admin/factors", icon: Library },
+  { key: "traceability", segment: "/admin/traceability", icon: History },
 ];
 
 export function navHref(base: string, item: NavLeaf): string {

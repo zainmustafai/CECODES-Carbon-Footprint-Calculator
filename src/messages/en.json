@@ -50,6 +50,7 @@
     "company": "Company",
     "reports": "Reports",
     "factorLibrary": "Factor library",
+    "traceability": "Traceability",
     "companies": "Companies",
     "users": "Users",
     "onboarding": "Setup",
@@ -507,6 +508,34 @@
     }
   },
   "admin": {
+    "traceability": {
+      "title": "Traceability",
+      "subtitle": "Who changed which figure, in which company, and when.",
+      "empty": "No changes recorded yet.",
+      "blank": "(empty)",
+      "sedeYear": "{sede} · {year}",
+      "pageOf": "Page {page} of {total}",
+      "previous": "Previous",
+      "next": "Next",
+      "filters": {
+        "company": "Company",
+        "person": "Person",
+        "from": "From",
+        "to": "To",
+        "allCompanies": "All companies",
+        "allPeople": "All people",
+        "clear": "Clear filters",
+        "loading": "Loading"
+      },
+      "sentences": {
+        "valueSet": "changed {element} from {from} to {to}",
+        "valueEntered": "entered {element}: {to}",
+        "valueCleared": "cleared {element} (was {from})",
+        "sourceAdded": "added the source {element}",
+        "sourceRemoved": "removed the source {element}",
+        "copied": "copied January of {element} to {months, plural, one {# empty month} other {# empty months}}"
+      }
+    },
     "companies": {
       "title": "Companies",
       "subtitle": "Manage companies and work on their data when they need it.",

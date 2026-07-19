@@ -2,5 +2,7 @@ export { CompaniesScreen } from "./components/companies-screen";
 export { UsersScreen } from "./components/users-screen";
 export { FactorLibraryScreen } from "./components/factor-library-screen";
 export { CompanyOnboardingWizard } from "./components/company-onboarding-wizard";
+export { TraceabilityScreen } from "./components/traceability-screen";
+export { TraceabilityFeed } from "./components/traceability-feed";
 export { AdminTableSkeleton } from "./components/admin-table-skeleton";
 export { CompaniesSkeleton } from "./components/companies-skeleton";

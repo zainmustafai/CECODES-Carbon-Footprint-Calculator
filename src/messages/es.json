@@ -50,6 +50,7 @@
     "company": "Empresa",
     "reports": "Reportes",
     "factorLibrary": "Biblioteca de factores",
+    "traceability": "Trazabilidad",
     "companies": "Empresas",
     "users": "Usuarios",
     "onboarding": "Configuración",
@@ -507,6 +508,34 @@
     }
   },
   "admin": {
+    "traceability": {
+      "title": "Trazabilidad",
+      "subtitle": "Quién cambió qué dato, en qué empresa, y cuándo.",
+      "empty": "Aún no hay cambios registrados.",
+      "blank": "(vacío)",
+      "sedeYear": "{sede} · {year}",
+      "pageOf": "Página {page} de {total}",
+      "previous": "Anteriores",
+      "next": "Siguientes",
+      "filters": {
+        "company": "Empresa",
+        "person": "Persona",
+        "from": "Desde",
+        "to": "Hasta",
+        "allCompanies": "Todas las empresas",
+        "allPeople": "Todas las personas",
+        "clear": "Limpiar filtros",
+        "loading": "Cargando"
+      },
+      "sentences": {
+        "valueSet": "cambió {element} de {from} a {to}",
+        "valueEntered": "ingresó {element}: {to}",
+        "valueCleared": "borró {element} (antes {from})",
+        "sourceAdded": "agregó la fuente {element}",
+        "sourceRemoved": "eliminó la fuente {element}",
+        "copied": "copió enero de {element} a {months, plural, one {# mes vacío} other {# meses vacíos}}"
+      }
+    },
     "companies": {
       "title": "Empresas",
       "subtitle": "Gestiona las empresas y trabaja sobre sus datos cuando lo necesiten.",
