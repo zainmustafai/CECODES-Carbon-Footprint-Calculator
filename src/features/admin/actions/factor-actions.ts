@@ -3,7 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "../lib/factor-library-cache";
+import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "../lib/factor-cache-tags";
 import {
   ScopeError,
   resolveAdminScope,

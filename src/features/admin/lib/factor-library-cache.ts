@@ -2,6 +2,9 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type Scope } from "@/lib/generated/prisma/client";
+import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "./factor-cache-tags";
+
+export { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG };
 
 // WHY THIS IS SAFE TO CACHE (and why the tenant surfaces are not):
 //
@@ -21,9 +24,6 @@ import { Prisma, type Scope } from "@/lib/generated/prisma/client";
 //
 // Decimals cannot survive the JSON cache as decimal.js instances, so every factor field crosses as
 // a string here, exactly as it already does across the RSC boundary.
-
-export const FACTOR_LIBRARY_TAG = "factor-library";
-export const GRID_FACTORS_TAG = "grid-factors";
 
 const PAGE_SIZE = 50;
 
