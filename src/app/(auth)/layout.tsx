@@ -12,85 +12,112 @@ export default async function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Already signed in? Skip the auth screens.
   const user = await getUser();
   if (user) redirect("/dashboard");
 
   const t = await getTranslations("auth.brand");
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand panel: fills its half, hidden on small screens */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-primary p-12 text-primary-foreground lg:flex">
+    <div className="relative grid lg:grid-cols-2 min-h-screen">
+      {/* Brand Side */}
+      <aside className="hidden relative lg:flex flex-col bg-muted/30 border-r overflow-hidden">
+        {/* Subtle grid texture */}
         <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-primary-foreground/5"
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle, currentColor 0.5px, transparent 0.5px)`,
+            backgroundSize: "24px 24px",
+          }}
         />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-32 -left-16 size-96 rounded-full bg-primary-foreground/5"
-        />
 
-        {/* The lockup is navy; it needs a light surface to read on the green panel. */}
-        <div className="relative">
-          <div className="inline-flex items-center rounded-lg bg-white px-3 py-2">
-            <Image
-              src="/logo.png"
-              alt="CECODES"
-              width={296}
-              height={96}
-              className="h-8 w-auto"
-              priority
-            />
-          </div>
+        {/* Floating gradient orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="-top-32 -left-32 absolute bg-primary/5 blur-3xl rounded-full size-96" />
+          <div className="-right-32 -bottom-32 absolute bg-secondary/5 blur-3xl rounded-full size-96" />
+          <div className="top-1/2 left-1/2 absolute bg-primary/2 blur-3xl rounded-full size-125 -translate-x-1/2 -translate-y-1/2" />
         </div>
 
-        {/* The brand green (--primary) is light enough that dimmed near-white text drops
-            below AA on it. The eyebrow and tagline therefore sit at full opacity; the
-            uppercase tracking and the smaller size keep the eyebrow visually secondary. */}
-        <div className="relative space-y-4">
-          <p className="text-xs font-medium uppercase tracking-widest">{t("eyebrow")}</p>
-          <h2 className="text-4xl font-semibold leading-tight">{t("headline")}</h2>
-          <p className="text-primary-foreground">{t("tagline")}</p>
-        </div>
-
-        {/* Outlined pills, not a translucent fill: a bg-primary-foreground/10 fill lightens
-            the green under the text and pushes it under AA. A border does not. */}
-        <div className="relative flex flex-wrap gap-2">
-          {SCOPES.map((n) => (
-            <span
-              key={n}
-              className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/30 px-3 py-1 text-xs font-medium"
-            >
-              <span className="size-1.5 rounded-full bg-primary-foreground" />
-              {t("scope", { n })}
-            </span>
-          ))}
-        </div>
-      </aside>
-
-      {/* Form panel: fills the other half; width controlled by responsive padding */}
-      <main className="relative flex items-center justify-center px-6 py-12 sm:px-10 lg:px-16 xl:px-24">
-        <div className="absolute right-4 top-4 flex items-center gap-2">
-          <ThemeToggle />
-          <LanguageToggle />
-        </div>
-        <div className="w-full">
-          {/* Below lg the brand panel is hidden, so the form panel carries the logo. The
-              lockup is navy, and in dark mode this panel is a dark surface, so it needs the
-              same white chip the brand panel gives it. */}
-          <div className="mb-8 flex justify-center lg:hidden">
-            <div className="inline-flex items-center rounded-lg bg-white px-3 py-2">
+        <div className="relative flex flex-col justify-between p-10 xl:p-14 h-full">
+          {/* Top content */}
+          <div className="space-y-16">
+            {/* Logo */}
+            <div className="flex justify-center items-center dark:bg-white">
               <Image
                 src="/logo.png"
                 alt="CECODES"
-                width={296}
-                height={96}
-                className="h-10 w-auto"
+                width={400}
+                height={40}
+                className="mx-auto w-auto h-25"
+                priority
               />
             </div>
+
+            {/* Brand message */}
+            <div className="space-y-6">
+              <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.25em]">
+                {t("eyebrow")}
+              </p>
+              <h2 className="font-light text-4xl xl:text-5xl leading-[1.1] tracking-tight">
+                {t("headline")}
+              </h2>
+              <p className="max-w-sm text-muted-foreground text-base leading-relaxed">
+                {t("tagline")}
+              </p>
+            </div>
           </div>
-          {children}
+
+          {/* Bottom content */}
+          <div className="space-y-8">
+            <div className="bg-linear-to-r via-foreground/10 from-border to-border h-px" />
+
+            {/* Stats */}
+            <div className="gap-6 grid grid-cols-3">
+              {SCOPES.map((n) => (
+                <div key={n} className="space-y-1">
+                  <span className="font-mono font-light text-2xl">0{n}</span>
+                  <p className="text-muted-foreground text-xs tracking-wide">
+                    {t("scope", { n })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Form Side */}
+      <main className="relative flex justify-center items-center">
+        {/* Ambient glow */}
+        <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
+          <div className="bg-primary/3 blur-3xl rounded-full size-150" />
+        </div>
+
+        {/* Controls */}
+        <div className="top-6 right-6 absolute flex items-center">
+          <div className="flex items-center gap-0.5 bg-background shadow-sm p-1 border rounded-lg">
+            <ThemeToggle />
+            <div className="bg-border w-px h-5" />
+            <LanguageToggle />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="relative space-y-8 mx-auto px-6 w-full max-w-lg">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex justify-center items-center bg-white rounded-2xl">
+            <Image
+              src="/logo.png"
+              alt="CECODES"
+              width={500}
+              height={35}
+              className="w-auto h-20"
+            />
+          </div>
+
+          {/* Form card */}
+          <div className="bg-card shadow-2xl shadow-foreground/2 p-8 border rounded-2xl">
+            {children}
+          </div>
         </div>
       </main>
     </div>

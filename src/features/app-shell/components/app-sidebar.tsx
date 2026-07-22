@@ -222,14 +222,6 @@ export function AppSidebar({ role }: AppSidebarProps) {
           </SidebarGroup>
         }
       </SidebarContent>
-
-      <SidebarFooter>
-        {/* /70, not /50: at /50 this 12px text lands at 4.19:1 on the sidebar green, under
-            AA. /70 matches the group labels, which pass. */}
-        <p className="group-data-[collapsible=icon]:hidden px-2 pb-1 text-sidebar-foreground/70 text-xs">
-          {t("platformVersion")}
-        </p>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
