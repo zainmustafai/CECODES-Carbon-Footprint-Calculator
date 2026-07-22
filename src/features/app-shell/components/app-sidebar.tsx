@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
