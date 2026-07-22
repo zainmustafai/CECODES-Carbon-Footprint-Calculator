@@ -6,7 +6,12 @@ import { CompanyInactiveScreen } from "@/features/app-shell";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ facilityId?: string; year?: string; scope?: string; category?: string }>;
+  searchParams: Promise<{
+    facilityId?: string;
+    year?: string;
+    scope?: string;
+    category?: string;
+  }>;
 }) {
   const appUser = await requireAppUser();
   if (!appUser) redirect("/onboarding");
@@ -14,7 +19,8 @@ export default async function Page({
   // Their home is the admin overview.
   if (appUser.role === "CECODES_ADMIN") redirect("/admin");
   if (!appUser.companyId) redirect("/onboarding");
-  if (!(await companyIsActive(appUser.companyId))) return <CompanyInactiveScreen />;
+  if (!(await companyIsActive(appUser.companyId)))
+    return <CompanyInactiveScreen />;
 
   return (
     <DashboardScreen

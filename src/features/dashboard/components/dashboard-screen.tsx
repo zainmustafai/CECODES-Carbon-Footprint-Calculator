@@ -15,10 +15,8 @@ import { MetaVsReal } from "./meta-vs-real";
 
 type DashboardScreenProps = {
   companyId?: string | null;
-  /** The route this dashboard lives at, for filter links. */
+  /** The route this dashboard lives at, so filters and links stay on it. */
   basePath?: string;
-  /** Absolute or relative path to the data‑entry page. */
-  dataEntryHref: string;
   searchParams?: {
     facilityId?: string;
     year?: string;
@@ -27,62 +25,33 @@ type DashboardScreenProps = {
   };
 };
 
-const SCOPES: readonly Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"] as const;
-
-// ------------------------------------------------------------------ helpers
-
-/** Safely parse a year string into a positive integer (1900–2100). */
-function parseYear(raw?: string): number | null {
-  if (!raw) return null;
-  const num = Number.parseInt(raw, 10);
-  return Number.isNaN(num) || num < 1900 || num > 2100 ? null : num;
-}
-
-// ------------------------------------------------------------------ component
+const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
 export async function DashboardScreen({
   companyId,
   basePath = "/dashboard",
-  dataEntryHref,
   searchParams = {},
 }: DashboardScreenProps) {
   const t = await getTranslations("dashboard");
   const format = await getFormatter();
 
-  if (!companyId) {
-    return <EmptyDashboard dataEntryHref={dataEntryHref} />;
-  }
+  if (!companyId) return <EmptyDashboard basePath={basePath} />;
 
-  // Graceful error boundary – show an error card instead of crashing the route.
-  let vm;
-  try {
-    vm = await loadDashboard(companyId, {
-      facilityId: searchParams.facilityId ?? null,
-      year: parseYear(searchParams.year),
-      scope:
-        SCOPES.includes(searchParams.scope as Scope) ?
-          (searchParams.scope as Scope)
-        : null,
-      category: searchParams.category ?? null,
-    });
-  } catch (error) {
-    console.error("Dashboard load failed:", error);
-    return (
-      <DashboardError
-        basePath={basePath}
-        dataEntryHref={dataEntryHref}
-        message={t("loadingError")} // add this key to your translations
-      />
-    );
-  }
+  const requestedYear = Number(searchParams.year);
+  const vm = await loadDashboard(companyId, {
+    facilityId: searchParams.facilityId ?? null,
+    year: Number.isFinite(requestedYear) ? requestedYear : null,
+    scope:
+      SCOPES.includes(searchParams.scope as Scope) ?
+        (searchParams.scope as Scope)
+      : null,
+    category: searchParams.category ?? null,
+  });
+
+  const dataEntryHref = basePath.replace(/\/dashboard$/, "/data-entry");
 
   if (vm.isEmpty || !vm.current) {
-    return (
-      <EmptyDashboard
-        dataEntryHref={dataEntryHref}
-        companyName={vm.company.name}
-      />
-    );
+    return <EmptyDashboard basePath={basePath} companyName={vm.company.name} />;
   }
 
   const { current } = vm;
@@ -124,11 +93,9 @@ export async function DashboardScreen({
         categories={current.byCategory.map((c) => c.category)}
       />
 
-      {/* Warnings – role="alert" ensures screen readers announce them immediately */}
       {current.missingGridFactor ?
         <Note
           tone="warning"
-          role="alert"
           icon={<AlertTriangle className="size-4 text-chart-2" aria-hidden />}
         >
           {t("missingGridFactor", { year: String(current.year) })}
@@ -136,9 +103,10 @@ export async function DashboardScreen({
       : null}
 
       {current.unpricedCount > 0 ?
+        // Sources the engine could not price are EXCLUDED from every total above, so the
+        // headline is too low. Disclose it: an unpriced source is an unknown, not a zero.
         <Note
           tone="warning"
-          role="alert"
           icon={<AlertTriangle className="size-4 text-chart-2" aria-hidden />}
         >
           {t("unpricedNote", { count: current.unpricedCount })}
@@ -164,7 +132,6 @@ export async function DashboardScreen({
       {current.biogenicTonnes > 0 ?
         <Note
           tone="muted"
-          role="status"
           icon={<Leaf className="size-4 text-chart-1" aria-hidden />}
         >
           {t("biogenic", {
@@ -178,22 +145,18 @@ export async function DashboardScreen({
   );
 }
 
-// ------------------------------------------------------------------ internal components
-
 function Note({
   tone,
-  role = "status",
   icon,
   children,
 }: {
   tone: "warning" | "muted";
-  role?: "status" | "alert";
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div
-      role={role}
+      role="status"
       className={
         tone === "warning" ?
           "flex items-start gap-3 rounded-lg border border-chart-2/40 bg-chart-2/5 p-3"
@@ -207,13 +170,14 @@ function Note({
 }
 
 async function EmptyDashboard({
-  dataEntryHref,
+  basePath,
   companyName,
 }: {
-  dataEntryHref: string;
+  basePath: string;
   companyName?: string;
 }) {
   const t = await getTranslations("dashboard");
+  const dataEntryHref = basePath.replace(/\/dashboard$/, "/data-entry");
 
   return (
     <div className="space-y-6">
@@ -235,41 +199,6 @@ async function EmptyDashboard({
           <Button asChild className="mt-2">
             <Link href={dataEntryHref}>{t("emptyCta")}</Link>
           </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function DashboardError({
-  basePath,
-  dataEntryHref,
-  message,
-}: {
-  basePath: string;
-  dataEntryHref: string;
-  message: string;
-}) {
-  // Reuse the empty state with a contextual message and a retry button
-  return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="font-semibold text-2xl tracking-tight">
-          Dashboard Error
-        </h1>
-      </div>
-      <Card className="bg-destructive/5 border-destructive/40">
-        <CardContent className="flex flex-col justify-center items-center gap-3 py-12 min-h-64 text-center">
-          <AlertTriangle className="size-8 text-destructive" aria-hidden />
-          <p className="font-medium text-destructive">{message}</p>
-          <div className="flex gap-3">
-            <Button variant="outline" asChild>
-              <Link href={basePath}>Refresh</Link>
-            </Button>
-            <Button asChild>
-              <Link href={dataEntryHref}>Go to data entry</Link>
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
