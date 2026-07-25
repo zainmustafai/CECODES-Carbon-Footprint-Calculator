@@ -483,7 +483,10 @@
       "valueFormat": "Enter a non-negative number with up to 6 decimals.",
       "yearInvalid": "Enter a valid year.",
       "yearMin": "That year is too far in the past.",
-      "yearMax": "That year is too far in the future."
+      "yearMax": "That year is too far in the future.",
+      "elementRequired": "Describe the element or practice.",
+      "tooLong": "The text is too long.",
+      "quantityInvalid": "Enter a non-negative number with up to 6 decimals."
     },
     "errors": {
       "forbidden": "You do not have access to this data.",
@@ -494,7 +497,8 @@
       "factorUnavailable": "That element is no longer available in the factor library.",
       "januaryEmpty": "Record January's value first.",
       "categoryHasSources": "Delete the category's sources before marking it as not applicable.",
-      "unknownCategory": "Unknown category."
+      "unknownCategory": "Unknown category.",
+      "notFound": "That record no longer exists."
     },
     "toasts": {
       "yearCreated": "Reporting year created.",
@@ -506,7 +510,33 @@
       "januaryCopied": "January copied to the empty months.",
       "updatingCategory": "Updating category...",
       "categoryEnabled": "Category marked as applicable.",
-      "categoryDisabled": "Category marked as not applicable."
+      "categoryDisabled": "Category marked as not applicable.",
+      "cleanTechAdded": "Record added.",
+      "cleanTechUpdated": "Record updated."
+    },
+    "cleanTech": {
+      "title": "Cleaner technologies and good practices",
+      "subtitle": "Free-form informational section. These values never affect any calculation; they appear on the Summary and in reports.",
+      "add": "Add record",
+      "addTitle": "Add record",
+      "editTitle": "Edit record",
+      "dialogSubtitle": "Describe the technology or good practice. All fields are free text; only the element is required.",
+      "empty": "No records yet. Use \"Add record\" to report cleaner technologies or good practices.",
+      "noScope": "No scope",
+      "edit": "Edit",
+      "remove": "Remove",
+      "removing": "Removing record...",
+      "removed": "Record removed.",
+      "save": "Save changes",
+      "columns": {
+        "scope": "Scope",
+        "category": "Category",
+        "subcategory": "Subcategory",
+        "element": "Element",
+        "quantity": "Activity data",
+        "unit": "Consumption unit",
+        "actions": "Actions"
+      }
     }
   },
   "admin": {
@@ -1082,6 +1112,17 @@
       "goToDataEntry": "Go to Data entry",
       "noDataTitle": "No data yet",
       "noDataBody": "Record your source consumption in Data entry and it will appear in this table."
+    },
+    "cleanTech": {
+      "title": "Cleaner technologies and good practices",
+      "subtitle": "Reported freely by the company.",
+      "scope": "Scope",
+      "category": "Category",
+      "subcategory": "Subcategory",
+      "element": "Element",
+      "quantity": "Activity data",
+      "unit": "Consumption unit",
+      "footnote": "Informational section: it never affects any calculation or total."
     }
   },
   "reports": {

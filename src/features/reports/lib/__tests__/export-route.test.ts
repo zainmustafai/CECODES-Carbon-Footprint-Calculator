@@ -32,6 +32,7 @@ const prismaMock = {
   reportingYear: { findFirst: vi.fn() },
   activityEntry: { findMany: vi.fn() },
   gridElectricityFactor: { findUnique: vi.fn() },
+  cleanTechEntry: { findMany: vi.fn() },
 };
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
@@ -56,6 +57,7 @@ beforeEach(() => {
   prismaMock.reportingYear.findFirst.mockResolvedValue({ id: "ry", year: 2024, gwpSet: "AR6" });
   prismaMock.activityEntry.findMany.mockResolvedValue([]);
   prismaMock.gridElectricityFactor.findUnique.mockResolvedValue(null);
+  prismaMock.cleanTechEntry.findMany.mockResolvedValue([]);
 
   // findFirst is scoped on { id, companyId } in loadReport, so it only matches when the facility
   // really belongs to the resolved company. Model that here.

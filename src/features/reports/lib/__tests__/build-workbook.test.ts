@@ -55,6 +55,7 @@ const base: ReportVM = {
   byCategory: [{ scope: "SCOPE_1", category: "Fuentes Fijas", tonnes: 10.149 }],
   totalTonnes: 10.149,
   removals: { rows: [], tonnes: 0 },
+  cleanTech: [],
   biogenicTonnes: 0,
   biogenicCo2Tonnes: 0,
   biogenicCo2Partial: false,

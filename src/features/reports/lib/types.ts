@@ -66,6 +66,19 @@ export type ReportVM = {
    */
   removals: { rows: ResultRow[]; tonnes: number };
 
+  /**
+   * Free-form "tecnologías más limpias y buenas prácticas" rows, verbatim as reported. They
+   * never feed a calculation and carry no totals (CECODES, 2026-07-24).
+   */
+  cleanTech: {
+    scope: Scope | null;
+    category: string | null;
+    subcategory: string | null;
+    element: string;
+    quantity: string | null;
+    unit: string | null;
+  }[];
+
   // The disclosures. A report is the first artifact that leaves the building, so it must carry
   // its own caveats: a total that is quietly incomplete is worse than no total.
   biogenicTonnes: number;

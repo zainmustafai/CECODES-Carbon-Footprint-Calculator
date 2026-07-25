@@ -43,6 +43,7 @@ function empty(
     totalTonnes: 0,
     biogenicTonnes: 0,
     removals: null,
+    cleanTech: [],
     missingGridFactor: false,
     isEmpty: true,
     emptyReason: reason,
@@ -82,7 +83,7 @@ export async function loadPreview(
   const selectedYear =
     reportingYears.find((y) => y.year === requested.year) ?? reportingYears[0];
 
-  const [entries, gridFactor] = await Promise.all([
+  const [entries, gridFactor, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -114,12 +115,38 @@ export async function loadPreview(
       where: { year: selectedYear.year },
       select: { factor: true, source: true },
     }),
+    prisma.cleanTechEntry.findMany({
+      where: { reportingYearId: selectedYear.id, companyId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        quantity: true,
+        unit: true,
+      },
+    }),
   ]);
+
+  // Free-form reporting rows, verbatim. Decimals cross as strings; no arithmetic ever runs.
+  const cleanTech = cleanTechRows.map((row) => ({
+    id: row.id,
+    scope: row.scope,
+    category: row.category,
+    subcategory: row.subcategory,
+    element: row.element,
+    quantity: row.quantity === null ? null : row.quantity.toString(),
+    unit: row.unit,
+  }));
 
   const facilityName = facilities.find((f) => f.id === facilityId)?.name ?? null;
   const baseFilters = { facilityId, year: selectedYear.year };
 
-  if (entries.length === 0) {
+  // "No data" only when NOTHING was reported: a year with only free-form clean-tech rows still
+  // has something worth showing, so it falls through to the main path (with zeroed totals).
+  if (entries.length === 0 && cleanTech.length === 0) {
     return {
       ...empty(facilities, baseFilters, "noData", years),
       selectedFacilityName: facilityName,
@@ -261,6 +288,7 @@ export async function loadPreview(
     totalTonnes,
     biogenicTonnes,
     removals,
+    cleanTech,
     missingGridFactor,
     isEmpty: false,
     emptyReason: null,

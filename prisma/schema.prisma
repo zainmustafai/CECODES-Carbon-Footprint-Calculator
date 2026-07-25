@@ -128,6 +128,7 @@ model ReportingYear {
   targets       ScopeTarget[]
   results       ResultSnapshot[]
   applicability CategoryApplicability[]
+  cleanTech     CleanTechEntry[]
 
   @@unique([facilityId, year])
   // Backs the composite foreign key from activity_entries, which makes it impossible for a
@@ -179,6 +180,41 @@ model ActivityEntry {
   @@index([companyId])
   @@index([emissionFactorId])
   @@map("activity_entries")
+}
+
+// A free-form row of "Datos sobre tecnologías más limpias y buenas prácticas" (CECODES,
+// 2026-07-24): an OPEN section where the company reports cleaner-technology and good-practice
+// initiatives "de una manera más libre". The rows NEVER feed the calculation engine; they only
+// appear on the Resumen and in exports. That is why every descriptive field is free text
+// (nothing is derived from the factor library, unlike ActivityEntry) and why quantity is
+// nullable: a practice can be reported without a number.
+model CleanTechEntry {
+  id String @id @default(uuid())
+
+  // Composite FK, exactly as ActivityEntry: companyId is bound to the reporting year, so a
+  // spoofed companyId matches nothing.
+  reportingYear   ReportingYear @relation(fields: [reportingYearId, companyId], references: [id, companyId], onDelete: Cascade)
+  reportingYearId String
+  companyId       String // denormalized for RLS
+
+  scope       Scope? // optional Alcance the company associates the practice with
+  category    String?
+  subcategory String?
+  element     String // what is being reported; the one required field
+  quantity    Decimal? @db.Decimal(20, 6)
+  unit        String?
+
+  // Who wrote and last touched the row. Denormalized emails, like the audit tables, so the
+  // attribution outlives the account.
+  createdByEmail String?
+  updatedByEmail String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportingYearId])
+  @@index([companyId])
+  @@map("clean_tech_entries")
 }
 
 // Whether a company declares a whole category applicable for a reporting year. This is

@@ -483,7 +483,10 @@
       "valueFormat": "Ingresa un número no negativo, con hasta 6 decimales.",
       "yearInvalid": "Ingresa un año válido.",
       "yearMin": "El año es demasiado antiguo.",
-      "yearMax": "El año no puede estar tan adelante en el futuro."
+      "yearMax": "El año no puede estar tan adelante en el futuro.",
+      "elementRequired": "Describe el elemento o la práctica.",
+      "tooLong": "El texto es demasiado largo.",
+      "quantityInvalid": "Ingresa un número no negativo, con hasta 6 decimales."
     },
     "errors": {
       "forbidden": "No tienes acceso a estos datos.",
@@ -494,7 +497,8 @@
       "factorUnavailable": "Ese elemento ya no está disponible en la biblioteca de factores.",
       "januaryEmpty": "Registra primero el valor de Enero.",
       "categoryHasSources": "Elimina las fuentes de la categoría antes de marcarla como no aplica.",
-      "unknownCategory": "Categoría desconocida."
+      "unknownCategory": "Categoría desconocida.",
+      "notFound": "Ese registro ya no existe."
     },
     "toasts": {
       "yearCreated": "Año de reporte creado.",
@@ -506,7 +510,33 @@
       "januaryCopied": "Enero copiado a los meses vacíos.",
       "updatingCategory": "Actualizando categoría...",
       "categoryEnabled": "Categoría marcada como aplicable.",
-      "categoryDisabled": "Categoría marcada como no aplica."
+      "categoryDisabled": "Categoría marcada como no aplica.",
+      "cleanTechAdded": "Registro agregado.",
+      "cleanTechUpdated": "Registro actualizado."
+    },
+    "cleanTech": {
+      "title": "Datos sobre tecnologías más limpias y buenas prácticas",
+      "subtitle": "Sección informativa de reporte libre. Estos datos no afectan ningún cálculo; aparecen en el Resumen y en los reportes.",
+      "add": "Agregar registro",
+      "addTitle": "Agregar registro",
+      "editTitle": "Editar registro",
+      "dialogSubtitle": "Describe la tecnología o buena práctica. Todos los campos son libres; solo el elemento es obligatorio.",
+      "empty": "Aún no hay registros. Usa \"Agregar registro\" para reportar tecnologías más limpias o buenas prácticas.",
+      "noScope": "Sin alcance",
+      "edit": "Editar",
+      "remove": "Eliminar",
+      "removing": "Eliminando registro...",
+      "removed": "Registro eliminado.",
+      "save": "Guardar cambios",
+      "columns": {
+        "scope": "Alcance",
+        "category": "Categoría",
+        "subcategory": "Subcategoría",
+        "element": "Elemento",
+        "quantity": "Dato de actividad",
+        "unit": "Unidad Consumo",
+        "actions": "Acciones"
+      }
     }
   },
   "admin": {
@@ -1082,6 +1112,17 @@
       "goToDataEntry": "Ir a Ingreso de datos",
       "noDataTitle": "Aún no hay datos",
       "noDataBody": "Registra el consumo de tus fuentes en Ingreso de datos y aparecerá en esta tabla."
+    },
+    "cleanTech": {
+      "title": "Datos sobre tecnologías más limpias y buenas prácticas",
+      "subtitle": "Reportado de manera libre por la empresa.",
+      "scope": "Alcance",
+      "category": "Categoría",
+      "subcategory": "Subcategoría",
+      "element": "Elemento",
+      "quantity": "Dato de actividad",
+      "unit": "Unidad Consumo",
+      "footnote": "Sección informativa: no afecta ningún cálculo ni total."
     }
   },
   "reports": {

@@ -30,6 +30,18 @@ export type PreviewScopeGroup = {
   tonnes: number;
 };
 
+// One free-form "tecnologías más limpias y buenas prácticas" row, verbatim as reported.
+// Display-only: these never touch any total (CECODES, 2026-07-24).
+export type PreviewCleanTechRow = {
+  id: string;
+  scope: Scope | null;
+  category: string | null;
+  subcategory: string | null;
+  element: string;
+  quantity: string | null;
+  unit: string | null;
+};
+
 export type PreviewFacility = { id: string; name: string };
 
 export type PreviewEmptyReason = "noFacility" | "noYear" | "noData";
@@ -49,6 +61,8 @@ export type PreviewVM = {
    * keeps its removals table separate. Null when the year has no removal sources.
    */
   removals: PreviewCategoryGroup | null;
+  /** Free-form clean-technology rows for this sede-year; shown as their own table, no totals. */
+  cleanTech: PreviewCleanTechRow[];
   /** The selected year has Scope 2 activity but no national grid factor was loaded for it. */
   missingGridFactor: boolean;
   isEmpty: boolean;

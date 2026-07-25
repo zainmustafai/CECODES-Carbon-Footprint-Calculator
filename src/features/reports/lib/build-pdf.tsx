@@ -164,6 +164,35 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
+        {vm.cleanTech.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Datos sobre tecnologías más limpias y buenas prácticas
+            </Text>
+            <Text style={styles.note}>
+              Sección informativa reportada de manera libre por la empresa. No afecta ningún
+              cálculo ni total de este reporte.
+            </Text>
+            <View style={[styles.headRow, { marginTop: 6 }]}>
+              <Text style={[styles.cellName, styles.th]}>Elemento</Text>
+              <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
+              <Text style={[styles.cellNum, styles.th]}>Dato / Unidad</Text>
+            </View>
+            {vm.cleanTech.map((row, index) => (
+              <View key={`${row.element}-${index}`} style={styles.row}>
+                <Text style={styles.cellName}>{row.element}</Text>
+                <Text style={styles.cellScope}>
+                  {row.scope ? SCOPE_LABEL[row.scope] : "-"}
+                </Text>
+                <Text style={styles.cellNum}>
+                  {row.quantity ?? "-"}
+                  {row.unit ? ` ${row.unit}` : ""}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Incertidumbre por elemento</Text>
           <Text style={styles.note}>

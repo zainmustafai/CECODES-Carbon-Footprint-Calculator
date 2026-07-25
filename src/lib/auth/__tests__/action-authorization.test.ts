@@ -57,6 +57,7 @@ const MODELS = [
   "activityEntry",
   "categoryApplicability",
   "scopeTarget",
+  "cleanTechEntry",
   "appUser",
   "emissionFactor",
   "emissionFactorChange",
@@ -111,6 +112,7 @@ const { createFacility, updateFacility, deleteFacility } = await import(
 );
 const { updateCompanyProfile } = await import("@/features/company/actions/company-actions");
 const { saveScopeTarget } = await import("@/features/data-entry/actions/scope-targets");
+const cleanTech = await import("@/features/data-entry/actions/clean-tech");
 const { deleteReportingYear } = await import("@/features/data-entry/actions/reporting-years");
 const adminCompanies = await import("@/features/admin/actions/company-actions");
 const adminUsers = await import("@/features/admin/actions/user-actions");
@@ -197,6 +199,31 @@ describe("a company user cannot reach another company's REPORTING YEARS", () => 
     });
 
     expect(result).toEqual({ error: "forbidden" });
+    expectNothingWritten();
+  });
+
+  it("refuses every clean-tech action on a foreign year", async () => {
+    // The free-form section is still tenant data behind public POST endpoints; being
+    // "informational only" buys it no exemption from the boundary.
+    const payload = {
+      reportingYearId: YEAR_B,
+      scope: null,
+      category: "",
+      subcategory: "",
+      element: "Paneles solares",
+      quantity: "",
+      unit: "",
+    };
+    const rowId = "abababab-abab-4bab-8bab-abababababab";
+
+    expect(await cleanTech.addCleanTechAction(payload)).toEqual({ error: "forbidden" });
+    expect(await cleanTech.updateCleanTechAction({ id: rowId, ...payload })).toEqual({
+      error: "forbidden",
+    });
+    expect(
+      await cleanTech.removeCleanTechAction({ id: rowId, reportingYearId: YEAR_B }),
+    ).toEqual({ error: "forbidden" });
+
     expectNothingWritten();
   });
 });

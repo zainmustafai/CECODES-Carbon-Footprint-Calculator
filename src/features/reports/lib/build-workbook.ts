@@ -194,6 +194,39 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   calcTotal.font = { bold: true };
   calcTotal.getCell(9).numFmt = TONNES_FMT;
 
+  // ------------------------------------------------- Tecnologías más limpias
+  // Free-form reporting rows, verbatim, on their own sheet with NO totals: CECODES asked for
+  // this section to be open, and its values never affect any calculation (2026-07-24).
+  if (vm.cleanTech.length > 0) {
+    const tech = wb.addWorksheet("Tecnologías más limpias");
+    tech.columns = [
+      { header: "Alcance", width: 12 },
+      { header: "Categoría", width: 34 },
+      { header: "Subcategoría", width: 30 },
+      { header: "Elemento", width: 42 },
+      { header: "Dato de actividad", width: 18 },
+      { header: "Unidad Consumo", width: 16 },
+    ];
+    tech.getRow(1).font = { bold: true };
+    tech.views = [{ state: "frozen", ySplit: 1 }];
+
+    for (const row of vm.cleanTech) {
+      const r = tech.addRow([
+        row.scope ? SCOPE_LABEL[row.scope] ?? row.scope : "",
+        row.category ?? "",
+        row.subcategory ?? "",
+        row.element,
+        num(row.quantity),
+        row.unit ?? "",
+      ]);
+      r.getCell(5).numFmt = QTY_FMT;
+    }
+    tech.addRow([]);
+    tech.addRow([
+      "Sección informativa: estos datos se reportan de manera libre y no afectan ningún cálculo.",
+    ]);
+  }
+
   // Removal rows carry the same audit columns but sit under their own subtotal, after a blank
   // row, and are excluded from the TOTAL above, as in the client's spreadsheet.
   if (vm.removals.rows.length > 0) {

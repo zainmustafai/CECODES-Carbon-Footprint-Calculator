@@ -41,7 +41,7 @@ export async function loadReport(
 
   if (!company || !facility || !reportingYear) return null;
 
-  const [entries, grid] = await Promise.all([
+  const [entries, grid, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: reportingYear.id, companyId },
       orderBy: [
@@ -75,6 +75,18 @@ export async function loadReport(
     prisma.gridElectricityFactor.findUnique({
       where: { year: reportingYear.year },
       select: { factor: true },
+    }),
+    prisma.cleanTechEntry.findMany({
+      where: { reportingYearId: reportingYear.id, companyId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        quantity: true,
+        unit: true,
+      },
     }),
   ]);
 
@@ -202,6 +214,14 @@ export async function loadReport(
     byCategory: rollup.byCategory,
     totalTonnes: rollup.totalTonnes,
     removals: { rows: removalRows, tonnes: rollup.removals.tonnes },
+    cleanTech: cleanTechRows.map((row) => ({
+      scope: row.scope,
+      category: row.category,
+      subcategory: row.subcategory,
+      element: row.element,
+      quantity: row.quantity === null ? null : row.quantity.toString(),
+      unit: row.unit,
+    })),
 
     biogenicTonnes: rollup.biogenicTonnes,
     biogenicCo2Tonnes: rollup.biogenicCo2Tonnes,

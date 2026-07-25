@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { groupFactors } from "../lib/group-factors";
 import { shapeEntries, type EntryRow } from "../lib/shape-entries";
 import type { FacilityVM, YearVM } from "../lib/types";
+import { CleanTechSection } from "./clean-tech-section";
 import { ContextBar } from "./context-bar";
 import { CreateYearDialog } from "./create-year-dialog";
 import { DataEntryProvider } from "./data-entry-provider";
@@ -100,7 +101,7 @@ export async function DataEntryScreen({
     );
   }
 
-  const [entries, applicability, factors, gridFactor, targets] = await Promise.all([
+  const [entries, applicability, factors, gridFactor, targets, cleanTech] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -158,6 +159,19 @@ export async function DataEntryScreen({
     prisma.scopeTarget.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       select: { scope: true, targetTonnes: true },
+    }),
+    prisma.cleanTechEntry.findMany({
+      where: { reportingYearId: selectedYear.id, companyId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        quantity: true,
+        unit: true,
+      },
     }),
   ]);
 
@@ -224,6 +238,20 @@ export async function DataEntryScreen({
           gwpSet={selectedYear.gwpSet}
           year={selectedYear.year}
           targets={targetsByScope}
+        />
+        {/* Free-form reporting, outside the calculation entirely (CECODES 2026-07-24).
+            Decimals cross to the client as strings, like everything else. */}
+        <CleanTechSection
+          reportingYearId={selectedYear.id}
+          rows={cleanTech.map((row) => ({
+            id: row.id,
+            scope: row.scope,
+            category: row.category,
+            subcategory: row.subcategory,
+            element: row.element,
+            quantity: row.quantity === null ? null : row.quantity.toString(),
+            unit: row.unit,
+          }))}
         />
       </DataEntryProvider>
     </div>

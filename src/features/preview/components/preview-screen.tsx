@@ -240,6 +240,50 @@ export async function PreviewScreen({
         </Card>
       ) : null}
 
+      {/* Free-form "tecnologías más limpias" reporting: verbatim rows, no totals, never part of
+          any calculation (CECODES 2026-07-24). */}
+      {vm.cleanTech.length > 0 ? (
+        <Card>
+          <CardHeader className="space-y-0.5">
+            <CardTitle className="text-base">{t("cleanTech.title")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("cleanTech.subtitle")}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">{t("cleanTech.scope")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("cleanTech.category")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("cleanTech.subcategory")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("cleanTech.element")}</th>
+                    <th className="py-2 pr-4 text-right font-medium">{t("cleanTech.quantity")}</th>
+                    <th className="py-2 font-medium">{t("cleanTech.unit")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vm.cleanTech.map((row) => (
+                    <tr key={row.id} className="border-b last:border-0">
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {row.scope ? tScopes(row.scope) : "-"}
+                      </td>
+                      <td className="py-2 pr-4">{row.category ?? "-"}</td>
+                      <td className="py-2 pr-4">{row.subcategory ?? "-"}</td>
+                      <td className="py-2 pr-4">{row.element}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {row.quantity ?? "-"}
+                      </td>
+                      <td className="py-2">{row.unit ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{t("cleanTech.footnote")}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {vm.biogenicTonnes > 0 ? (
         <Note tone="muted" icon={<Leaf className="size-4 text-chart-1" aria-hidden />}>
           {t("biogenicNote", {
