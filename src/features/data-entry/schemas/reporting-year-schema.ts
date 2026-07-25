@@ -2,25 +2,14 @@ import { z } from "zod";
 
 type T = (key: string) => string;
 
-// STILL 2000, DELIBERATELY, though CECODES confirmed (2026-07-17) the tool is never used before
-// 2025: "First year register will be filled for 2025." Requirements §12.A5 and §12.A9.
+// STILL 2000, DELIBERATELY, and the old "raise to 2025" plan is CLOSED the other way
+// (Requirements §12.A5/A9, resolved 2026-07-24/25).
 //
-// The floor cannot be raised until CECODES supplies the 2025 grid electricity factor, because
-// raising it makes Scope 2 uncomputable for EVERY year a user could create:
-//
-//     legal years under a 2025 floor : 2025, 2026, 2027   (maxReportingYear is now+1)
-//     grid factors on file           : 2013, 2019, 2021, 2022, 2023, 2024
-//     intersection                   : none
-//
-// Their workbook stops at 2024 on both sheets, so the value does not exist to seed and inventing
-// one is the silent-wrong-number failure this codebase exists to avoid. Today a company can at
-// least report 2024 against a real factor; a 2025 floor removes that without providing a
-// replacement, which is strictly worse than the status quo it was meant to improve.
-//
-// Raise to 2025 in this one line the day the 2025 factor lands (round-2 memo item 1). That change
-// also rewrites e2e/fixture.ts: E2E_YEAR is 2024 and several specs create it through the UI form,
-// so they fail against a 2025 floor. E2E_YEAR_WITHOUT_GRID_FACTOR (2020) needs rethinking too,
-// since under a 2025 floor every legal year lacks a factor and the distinction it tests collapses.
+// The 2025 grid factor landed (UPME 2025 = 0.097018445) together with the full 2008-2025
+// series, so every recent year now computes. And CECODES's own 2026-07-24 examples are 2024
+// data (their PRINCIPAL sample and the Cultivos Casablanca dashboard), so a 2025 floor would
+// forbid exactly what they demonstrated doing. Years before 2008 stay legal too: they simply
+// surface the honest missingGridFactor warning instead of a silent zero.
 export const MIN_REPORTING_YEAR = 2000;
 export function maxReportingYear(now = new Date()): number {
   return now.getFullYear() + 1;
