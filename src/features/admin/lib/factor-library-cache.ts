@@ -158,6 +158,48 @@ export function getFactorLibraryPage(filters: FactorFilters): Promise<FactorLibr
   return loadFactorLibraryPage(filters);
 }
 
+// The data-entry source picker: every ACTIVE factor's identity columns, no Decimals at all.
+// Same reasoning as above: global reference data, identical for every tenant, so one cache
+// entry serves everyone and there is nothing tenant-shaped to leak. This is the single
+// heaviest query in the app (~1.7k rows on the busiest screen), which is why it is cached.
+//
+// revalidate backstop: the CLI importer (prisma/import-factors.ts) mutates factors OUTSIDE
+// Next, where revalidateTag cannot run. Admin-UI edits invalidate instantly via the tag;
+// an import surfaces within the hour without one.
+export type CachedPickerFactor = {
+  id: string;
+  scope: Scope;
+  category: string;
+  subcategory: string | null;
+  element: string;
+  unit: string;
+  biogenic: boolean;
+};
+
+export const getActiveFactorsForPicker = unstable_cache(
+  async (): Promise<CachedPickerFactor[]> =>
+    prisma.emissionFactor.findMany({
+      where: { active: true },
+      orderBy: [
+        { scope: "asc" },
+        { category: "asc" },
+        { subcategory: "asc" },
+        { element: "asc" },
+      ],
+      select: {
+        id: true,
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        unit: true,
+        biogenic: true,
+      },
+    }),
+  ["factor-picker"],
+  { tags: [FACTOR_LIBRARY_TAG], revalidate: 3600 },
+);
+
 export const getGridFactors = unstable_cache(
   async (): Promise<CachedGridFactor[]> => {
     const rows = await prisma.gridElectricityFactor.findMany({ orderBy: { year: "desc" } });

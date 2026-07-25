@@ -9,6 +9,11 @@ import { E2E_YEAR, db, loadFixture, type Fixture } from "./fixture";
 
 test.describe.configure({ mode: "serial" });
 
+// The data-entry screen ships the whole factor picker and re-renders after router.refresh().
+// On a high-latency night to the us-west-2 pooler that round trip runs close to a minute in
+// dev, so the waits here are generous on purpose; they assert existence, not speed.
+test.setTimeout(300_000);
+
 let fixture: Fixture;
 
 const ELEMENT = "E2E Paneles solares en bodega";

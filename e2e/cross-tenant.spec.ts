@@ -151,7 +151,10 @@ test.describe("cross-tenant isolation", () => {
     // rather than honour one it does not own.
     await page.goto(`/data-entry?facilityId=${fixture.victimFacilityId}&year=${E2E_YEAR}`);
 
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // Patient on purpose: the data-entry screen ships the whole factor picker, which on a
+    // high-latency night to the us-west-2 pooler renders close to a minute in dev. The
+    // assertion is unchanged; only the wait is.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 120_000 });
     await expect(page.locator("body")).not.toContainText("Planta Victima");
   });
 
@@ -160,7 +163,7 @@ test.describe("cross-tenant isolation", () => {
   }) => {
     for (const path of ["/preview", "/dashboard"]) {
       await page.goto(`${path}?facilityId=${fixture.victimFacilityId}&year=${E2E_YEAR}`);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 120_000 });
       await expect(page.locator("body")).not.toContainText("Planta Victima");
     }
   });

@@ -382,8 +382,10 @@ async function main() {
   // "(starter)". Remove them now that the real library is loaded, but never orphan an
   // activity entry, and always preserve the Scope-2 grid picker element.
   // -------------------------------------------------------------------------
+  // active: true, or every run would re-deactivate the same referenced starter and append a
+  // duplicate DEACTIVATED audit row each time (observed on the 2026-07-25 double apply).
   const starters = await prisma.emissionFactor.findMany({
-    where: { source: { endsWith: STARTER_SUFFIX } },
+    where: { source: { endsWith: STARTER_SUFFIX }, active: true },
   });
   for (const starter of starters) {
     if (starter.scope === Scope.SCOPE_2 || starter.element === GRID_PICKER_ELEMENT) {

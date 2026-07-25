@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { CalendarRange, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { getActiveFactorsForPicker } from "@/features/admin/lib/factor-library-cache";
 import { groupFactors } from "../lib/group-factors";
 import { shapeEntries, type EntryRow } from "../lib/shape-entries";
 import type { FacilityVM, YearVM } from "../lib/types";
@@ -134,24 +135,10 @@ export async function DataEntryScreen({
       where: { reportingYearId: selectedYear.id, companyId },
       select: { scope: true, category: true, applies: true },
     }),
-    prisma.emissionFactor.findMany({
-      where: { active: true },
-      orderBy: [
-        { scope: "asc" },
-        { category: "asc" },
-        { subcategory: "asc" },
-        { element: "asc" },
-      ],
-      select: {
-        id: true,
-        scope: true,
-        category: true,
-        subcategory: true,
-        element: true,
-        unit: true,
-        biogenic: true,
-      },
-    }),
+    // The whole active library for the source picker, via the tagged reference-data cache:
+    // it is the heaviest query in the app and identical for every tenant. Admin edits
+    // invalidate the tag; CLI imports surface within the hour (see factor-library-cache.ts).
+    getActiveFactorsForPicker(),
     prisma.gridElectricityFactor.findUnique({
       where: { year: selectedYear.year },
       select: { factor: true, source: true },
