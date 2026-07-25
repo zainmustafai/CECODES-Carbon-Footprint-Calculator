@@ -10,6 +10,7 @@ import { KpiCards } from "./kpi-cards";
 import { ScopeDonut } from "./scope-donut";
 import { CategoryBars } from "./category-bars";
 import { MonthlyTrend } from "./monthly-trend";
+import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
 import { MetaVsReal } from "./meta-vs-real";
 
@@ -122,6 +123,10 @@ export async function DashboardScreen({
       </div>
 
       <MonthlyTrend points={current.monthly} year={current.year} />
+
+      {/* Emissions per sede, as in the client's Power BI reference. Only on the all-facilities
+          view with at least two sedes reporting this year. */}
+      {vm.bySede.length >= 2 ? <SedeBars sedes={vm.bySede} /> : null}
 
       {/* Year comparison + meta */}
       <div className="gap-6 grid lg:grid-cols-2">

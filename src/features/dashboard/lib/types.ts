@@ -19,6 +19,16 @@ export type TargetRow = {
   progressPct: number;
 };
 
+// One sede's total for the selected year, for the "Emisiones por sede" chart the client's
+// Power BI reference shows. Only meaningful on the all-facilities view.
+export type SedeTotal = {
+  facilityId: string;
+  name: string;
+  tonnes: number;
+  /** Same honesty flag as YearTotal: an unpriceable source makes the bar an undercount. */
+  incomplete: boolean;
+};
+
 export type YearTotal = {
   year: number;
   tonnes: number;
@@ -86,6 +96,11 @@ export type DashboardVM = {
   previous: YearTotal | null;
   /** Every year's total for the facility scope, ascending, for the comparison chart. */
   yearComparison: YearTotal[];
+  /**
+   * Per-sede totals for the selected year, largest first. Populated only on the all-facilities
+   * view with at least two sedes reporting; a single-facility view has nothing to compare.
+   */
+  bySede: SedeTotal[];
   /** Per scope target versus actual, when any target is set for the selected year. */
   targets: TargetRow[];
 

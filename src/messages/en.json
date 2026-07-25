@@ -311,7 +311,11 @@
     "emptyCta": "Go to Data entry",
     "noYearTitle": "This year has no data",
     "noYearBody": "Record {year}'s consumption to see its footprint.",
-    "unpricedNote": "{count, plural, one {# source could not be calculated} other {# sources could not be calculated}} and was left out of the totals. The totals are incomplete."
+    "unpricedNote": "{count, plural, one {# source could not be calculated} other {# sources could not be calculated}} and was left out of the totals. The totals are incomplete.",
+    "bySede": {
+      "title": "Emissions by sede (t CO2e)",
+      "incompleteNote": "Some sede has sources that could not be priced, so its bar is an undercount."
+    }
   },
   "facilities": {
     "title": "Facilities",

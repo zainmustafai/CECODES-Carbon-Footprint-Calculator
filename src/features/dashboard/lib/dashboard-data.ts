@@ -8,6 +8,7 @@ import type {
   DashboardFilters,
   DashboardVM,
   ScopeSlice,
+  SedeTotal,
   TargetRow,
   YearTotal,
 } from "./types";
@@ -61,6 +62,7 @@ export async function loadDashboard(
     current: null,
     previous: null,
     yearComparison: [],
+    bySede: [],
     targets: [],
     isEmpty: years.length === 0,
   };
@@ -127,9 +129,9 @@ export async function loadDashboard(
     entriesByReportingYear.set(entry.reportingYearId, list);
   }
 
-  // Roll every calendar year up (needed for the comparison chart and year over year).
-  function rollupForYear(targetYear: number): YearRollup {
-    const ids = idsByYear.get(targetYear) ?? [];
+  // Roll an arbitrary set of reporting-year ids up under one calendar year's grid factor and
+  // GWP set. Shared by the whole-year totals and the per-sede split, so they cannot disagree.
+  function rollupForIds(ids: string[], targetYear: number): YearRollup {
     const rollupEntries: RollupEntry[] = ids.flatMap((id) =>
       (entriesByReportingYear.get(id) ?? []).map((e) => ({
         scope: e.scope,
@@ -154,6 +156,11 @@ export async function loadDashboard(
       gridFactor: gridByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     });
+  }
+
+  // Roll every calendar year up (needed for the comparison chart and year over year).
+  function rollupForYear(targetYear: number): YearRollup {
+    return rollupForIds(idsByYear.get(targetYear) ?? [], targetYear);
   }
 
   // Keep each year's completeness, not just its total. Discarding it made a year with no grid
@@ -242,6 +249,26 @@ export async function loadDashboard(
         }
       : null;
 
+  // Per-sede split of the selected year, on the all-facilities view only: the client's Power BI
+  // reference shows "Emisiones por sede", and a single-facility view has nothing to compare.
+  let bySede: SedeTotal[] = [];
+  if (!facilityId) {
+    const nameByFacility = new Map(facilities.map((f) => [f.id, f.name]));
+    bySede = scopedYears
+      .filter((ry) => ry.year === year)
+      .map((ry) => {
+        const r = rollupForIds([ry.id], year);
+        return {
+          facilityId: ry.facilityId,
+          name: nameByFacility.get(ry.facilityId) ?? "",
+          tonnes: r.totalTonnes,
+          incomplete: r.missingGridFactor || r.unpricedCount > 0,
+        };
+      })
+      .sort((a, b) => b.tonnes - a.tonnes);
+    if (bySede.length < 2) bySede = [];
+  }
+
   // Targets are summed per scope across the year's reporting years; actual is the scope total.
   const targetByScope = new Map<Scope, number>();
   for (const row of targetRows) {
@@ -266,6 +293,7 @@ export async function loadDashboard(
     current,
     previous,
     yearComparison,
+    bySede,
     targets,
     isEmpty: false,
   };
