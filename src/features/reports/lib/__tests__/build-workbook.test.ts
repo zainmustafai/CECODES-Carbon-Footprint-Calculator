@@ -54,6 +54,7 @@ const base: ReportVM = {
   ],
   byCategory: [{ scope: "SCOPE_1", category: "Fuentes Fijas", tonnes: 10.149 }],
   totalTonnes: 10.149,
+  removals: { rows: [], tonnes: 0 },
   biogenicTonnes: 0,
   biogenicCo2Tonnes: 0,
   biogenicCo2Partial: false,
@@ -141,6 +142,40 @@ describe("buildWorkbook", () => {
       "Resumen",
     );
     expect(rows.flat().join(" ")).toMatch(/subestimado/);
+  });
+
+  it("lists removals under their own subtotal and keeps the TOTAL untouched", async () => {
+    // The client's Excel keeps BASE_remociones in its own table with its own negative total.
+    const withRemovals: ReportVM = {
+      ...base,
+      removals: {
+        rows: [
+          {
+            scope: "SCOPE_1",
+            category: "Remociones",
+            subcategory: "Cambios a tierras forestales",
+            element: "Pastizales convertidos en tierras forestales",
+            unit: "ha",
+            quantity: 1,
+            factorValue: "-13073.87",
+            factorUnit: "kgCO2 e/ha",
+            tonnes: -13.07387,
+            uncertaintyPct: null,
+          },
+        ],
+        tonnes: -13.07387,
+      },
+    };
+
+    const rows = await sheetRows(withRemovals, "Calculo");
+    const total = rows.find((r) => r[7] === "TOTAL")!;
+    expect(total[8]).toBeCloseTo(base.totalTonnes, 6); // NOT reduced by the removal
+
+    const removalsTotal = rows.find((r) => r[7] === "TOTAL REMOCIONES")!;
+    expect(removalsTotal[8]).toBeCloseTo(-13.07387, 6);
+
+    const summary = await sheetRows(withRemovals, "Resumen");
+    expect(summary.flat().join(" ")).toMatch(/Remociones o absorciones de carbono/);
   });
 });
 

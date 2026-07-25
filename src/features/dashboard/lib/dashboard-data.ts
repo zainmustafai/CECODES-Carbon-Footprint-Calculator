@@ -224,6 +224,7 @@ export async function loadDashboard(
     byCategory,
     monthly: rollup.scope2Monthly,
     biogenicTonnes: rollup.biogenicTonnes,
+    removalsTonnes: rollup.removals.tonnes,
     missingGridFactor: rollup.missingGridFactor,
     unpricedCount: rollup.unpricedCount,
   };

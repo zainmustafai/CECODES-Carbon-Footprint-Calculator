@@ -129,6 +129,21 @@ export async function DashboardScreen({
         <MetaVsReal targets={vm.targets} dataEntryHref={dataEntryHref} />
       </div>
 
+      {current.removalsTonnes !== 0 ?
+        // Removals live outside every total above, exactly as the Excel keeps its removals
+        // table separate. The note is the disclosure that they exist and where they are.
+        <Note
+          tone="muted"
+          icon={<Leaf className="size-4 text-chart-1" aria-hidden />}
+        >
+          {t("removalsNote", {
+            tonnes: format.number(current.removalsTonnes, {
+              maximumFractionDigits: 2,
+            }),
+          })}
+        </Note>
+      : null}
+
       {current.biogenicTonnes > 0 ?
         <Note
           tone="muted"

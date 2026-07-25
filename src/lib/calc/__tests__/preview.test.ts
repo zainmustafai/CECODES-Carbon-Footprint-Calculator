@@ -77,7 +77,7 @@ describe("estimateSourceTonnes: per-gas math", () => {
     expect(biogenic).toMatchObject({ kind: "ok", tonnes: 27 });
   });
 
-  it("uses AR5 values for a pre-2022 reporting year", () => {
+  it("uses AR5 values for a year whose stored gwpSet pins AR5", () => {
     const result = estimateSourceTonnes({
       values: ["1000"],
       scope: "SCOPE_1",
@@ -86,7 +86,8 @@ describe("estimateSourceTonnes: per-gas math", () => {
       gwpSet: "AR5",
     });
 
-    expect(result).toMatchObject({ kind: "ok", tonnes: 28 });
+    // Non-biogenic CH4 under AR5 takes the fossil value, 30 (the client's GWP table).
+    expect(result).toMatchObject({ kind: "ok", tonnes: 30 });
   });
 });
 

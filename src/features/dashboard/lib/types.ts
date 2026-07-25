@@ -59,6 +59,11 @@ export type DashboardCurrent = {
   byCategory: CategorySlice[]; // reflects the scope refinement, largest first
   monthly: MonthlyPoint[]; // Scope 2 only, twelve points
   biogenicTonnes: number;
+  /**
+   * Carbon removals total (category "Remociones"), negative or 0. Reported separately, never
+   * inside `total`/`yearTotal`/`byScope`, matching the Excel's separate removals table.
+   */
+  removalsTonnes: number;
   missingGridFactor: boolean;
   /**
    * Sources excluded from every total because they could not be priced. Greater than zero means

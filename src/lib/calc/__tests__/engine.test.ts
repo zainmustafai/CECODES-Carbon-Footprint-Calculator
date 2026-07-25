@@ -103,11 +103,11 @@ describe("computeCo2eKg: which CH4 GWP is selected", () => {
     expect(computeCo2eKg(100, { co2Factor: 2, biogenic: true }, "AR6")).toBeCloseTo(200, 9);
   });
 
-  it("AR5 makes no fossil/non-fossil CH4 distinction, so the biogenic flag is inert there", () => {
+  it("AR5 also distinguishes fossil (30) from non-fossil (28) CH4, per the client's GWP table", () => {
     const fossil = computeCo2eKg(1, { ch4Factor: 1 }, "AR5");
     const bio = computeCo2eKg(1, { ch4Factor: 1, biogenic: true }, "AR5");
-    expect(fossil).toBe(bio);
-    expect(fossil).toBeCloseTo(28, 9);
+    expect(fossil).toBeCloseTo(30, 9);
+    expect(bio).toBeCloseTo(28, 9);
   });
 });
 
@@ -115,7 +115,7 @@ describe("computeCo2eKg: GWP sets", () => {
   it("AR6 and AR5 give different answers for the same CH4 and N2O", () => {
     const ar5 = computeCo2eKg(1, { ch4Factor: 1, n2oFactor: 1 }, "AR5");
     const ar6 = computeCo2eKg(1, { ch4Factor: 1, n2oFactor: 1 }, "AR6");
-    expect(ar5).toBeCloseTo(28 + 265, 9);
+    expect(ar5).toBeCloseTo(30 + 265, 9);
     expect(ar6).toBeCloseTo(29.8 + 273, 9);
     expect(ar5).not.toBe(ar6);
   });

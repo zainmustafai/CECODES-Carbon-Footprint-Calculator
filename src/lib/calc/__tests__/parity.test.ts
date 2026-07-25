@@ -58,6 +58,12 @@ type Fixture = {
     byScope: Record<Scope, number>;
     byCategory: { scope: Scope; category: string; tonnes: number }[];
   };
+  /**
+   * The Excel's BASE_remociones total, when the fixture transcribes removal rows. Optional:
+   * a fixture with no removals simply omits it. `expected` above must NOT include the removal
+   * tonnes anywhere; that separation is precisely what this assertion proves.
+   */
+  expectedRemovals?: { tonnes: number };
 };
 
 function loadFixtures(): Fixture[] {
@@ -158,6 +164,18 @@ describe("Excel parity (Requirements 14.1)", () => {
 
         expect(differences).toEqual([]);
       });
+
+      if (fixture.expectedRemovals) {
+        const expectedRemovals = fixture.expectedRemovals;
+        it("reproduces the removals total SEPARATELY, without contaminating the emissions totals", () => {
+          // The scope/category assertions above already prove the emissions side is clean
+          // (they would overshoot if removals leaked in). This proves the removals side.
+          expect(rollup.removals.tonnes).toBeCloseTo(
+            expectedRemovals.tonnes,
+            decimalsFor(tolerance),
+          );
+        });
+      }
     });
   }
 

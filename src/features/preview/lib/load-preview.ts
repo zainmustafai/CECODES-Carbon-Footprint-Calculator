@@ -1,10 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 import { estimateSourceTonnes } from "@/lib/calc/preview";
+import { REMOVALS_CATEGORY } from "@/lib/calc/rollup";
 import type { GwpSet } from "@/lib/generated/prisma/client";
 import { shapeEntries, type EntryRow } from "@/features/data-entry/lib/shape-entries";
 import type { GroupedFactors } from "@/features/data-entry/lib/types";
-import type { PreviewSourceRow, PreviewScopeGroup, PreviewVM } from "./types";
+import type {
+  PreviewCategoryGroup,
+  PreviewSourceRow,
+  PreviewScopeGroup,
+  PreviewVM,
+} from "./types";
 
 // shapeEntries seeds its category list from the factor library so empty categories still
 // render in the data-entry form. The preview only wants what the company actually entered, so
@@ -36,6 +42,7 @@ function empty(
     scopes: [],
     totalTonnes: 0,
     biogenicTonnes: 0,
+    removals: null,
     missingGridFactor: false,
     isEmpty: true,
     emptyReason: reason,
@@ -157,6 +164,9 @@ export async function loadPreview(
   let totalTonnes = 0;
   let biogenicTonnes = 0;
   let missingGridFactor = false;
+  // Removals (category "Remociones") get their own table with their own negative total,
+  // exactly as the client's Excel separates BASE_remociones. They never enter a scope total.
+  let removals: PreviewVM["removals"] = null;
 
   const scopes: PreviewScopeGroup[] = shaped.map((scopeVM) => {
     let scopeTonnes = 0;
@@ -216,12 +226,29 @@ export async function loadPreview(
           };
         });
 
-        scopeTonnes += categoryTonnes;
         return { category: category.category, sources, tonnes: categoryTonnes };
       });
 
+    // Partition removals out AFTER building: their estimated tonnes are real (and negative),
+    // but they belong to their own table, not to this scope's total or the year's.
+    const emissionCategories: PreviewCategoryGroup[] = [];
+    for (const group of categories) {
+      if (group.category.trim() === REMOVALS_CATEGORY) {
+        removals = removals
+          ? {
+              category: removals.category,
+              sources: [...removals.sources, ...group.sources],
+              tonnes: removals.tonnes + group.tonnes,
+            }
+          : group;
+        continue;
+      }
+      scopeTonnes += group.tonnes;
+      emissionCategories.push(group);
+    }
+
     totalTonnes += scopeTonnes;
-    return { scope: scopeVM.scope, categories, tonnes: scopeTonnes };
+    return { scope: scopeVM.scope, categories: emissionCategories, tonnes: scopeTonnes };
   });
 
   return {
@@ -233,6 +260,7 @@ export async function loadPreview(
     scopes,
     totalTonnes,
     biogenicTonnes,
+    removals,
     missingGridFactor,
     isEmpty: false,
     emptyReason: null,

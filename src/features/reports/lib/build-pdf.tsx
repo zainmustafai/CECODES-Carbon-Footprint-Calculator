@@ -140,6 +140,30 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
+        {vm.removals.rows.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Remociones o absorciones de carbono</Text>
+            <Text style={styles.note}>
+              Se reportan por separado, como en la herramienta de CECODES: no se suman ni se
+              restan del total de emisiones.
+            </Text>
+            <View style={[styles.headRow, { marginTop: 6 }]}>
+              <Text style={[styles.cellName, styles.th]}>Elemento</Text>
+              <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
+            </View>
+            {vm.removals.rows.map((r) => (
+              <View key={`${r.subcategory}-${r.element}`} style={styles.row}>
+                <Text style={styles.cellName}>{r.element}</Text>
+                <Text style={styles.cellNum}>{t(r.tonnes)}</Text>
+              </View>
+            ))}
+            <View style={styles.row}>
+              <Text style={[styles.cellName, styles.th]}>Total remociones</Text>
+              <Text style={[styles.cellNum, styles.th]}>{t(vm.removals.tonnes)}</Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Incertidumbre por elemento</Text>
           <Text style={styles.note}>

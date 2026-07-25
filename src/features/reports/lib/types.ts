@@ -59,6 +59,13 @@ export type ReportVM = {
   byCategory: CategoryRow[];
   totalTonnes: number;
 
+  /**
+   * Carbon removals (category "Remociones"): their own rows and their own (negative) total,
+   * never included in totalTonnes/byScope/byCategory, exactly as the client's Excel keeps its
+   * BASE_remociones table separate. Empty rows + 0 when the year reports none.
+   */
+  removals: { rows: ResultRow[]; tonnes: number };
+
   // The disclosures. A report is the first artifact that leaves the building, so it must carry
   // its own caveats: a total that is quietly incomplete is worse than no total.
   biogenicTonnes: number;

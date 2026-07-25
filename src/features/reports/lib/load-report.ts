@@ -166,7 +166,7 @@ export async function loadReport(
   // The results sheet IS rollupYear's element roll-up. An element that the engine excluded (no
   // factor, unreadable factor, no grid factor) is absent here too, rather than showing a zero:
   // the disclosures below say how many were dropped.
-  const results: ResultRow[] = rollup.byElement.map((element) => {
+  const toResultRow = (element: (typeof rollup.byElement)[number]): ResultRow => {
     const m = meta.get(key(element));
     return {
       scope: element.scope,
@@ -180,7 +180,11 @@ export async function loadReport(
       tonnes: element.tonnes,
       uncertaintyPct: m?.uncertaintyPct ?? null,
     };
-  });
+  };
+
+  const results: ResultRow[] = rollup.byElement.map(toResultRow);
+  // Removals come out of the same engine but live in their own section, never in the totals.
+  const removalRows: ResultRow[] = rollup.removals.byElement.map(toResultRow);
 
   return {
     companyName: company.name,
@@ -197,6 +201,7 @@ export async function loadReport(
     })),
     byCategory: rollup.byCategory,
     totalTonnes: rollup.totalTonnes,
+    removals: { rows: removalRows, tonnes: rollup.removals.tonnes },
 
     biogenicTonnes: rollup.biogenicTonnes,
     biogenicCo2Tonnes: rollup.biogenicCo2Tonnes,

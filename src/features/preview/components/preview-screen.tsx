@@ -219,6 +219,27 @@ export async function PreviewScreen({
           </Card>
         ))}
 
+      {/* Removals: their own table with their own (negative) total, never inside the scope
+          totals above. Mirrors the Excel's separate BASE_remociones table. */}
+      {vm.removals ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+            <div className="space-y-0.5">
+              <CardTitle className="text-base">{t("removals.title")}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t("removals.subtitle")}</p>
+            </div>
+            <Badge variant="secondary" className="tabular-nums">
+              {format.number(vm.removals.tonnes, { maximumFractionDigits: 2 })} {t("tCO2e")}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <PreviewAnnualTable
+              group={{ scope: "SCOPE_1", categories: [vm.removals], tonnes: vm.removals.tonnes }}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
       {vm.biogenicTonnes > 0 ? (
         <Note tone="muted" icon={<Leaf className="size-4 text-chart-1" aria-hidden />}>
           {t("biogenicNote", {

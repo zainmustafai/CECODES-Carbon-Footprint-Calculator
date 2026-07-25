@@ -43,6 +43,12 @@ export type PreviewVM = {
   scopes: PreviewScopeGroup[];
   totalTonnes: number;
   biogenicTonnes: number;
+  /**
+   * Carbon removals (category "Remociones"), shown as their own table with their own (negative)
+   * total and NEVER included in totalTonnes or any scope total, exactly as the client's Excel
+   * keeps its removals table separate. Null when the year has no removal sources.
+   */
+  removals: PreviewCategoryGroup | null;
   /** The selected year has Scope 2 activity but no national grid factor was loaded for it. */
   missingGridFactor: boolean;
   isEmpty: boolean;

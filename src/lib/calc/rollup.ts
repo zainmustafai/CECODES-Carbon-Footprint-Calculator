@@ -36,6 +36,14 @@ export type RollupEntry = {
 
 export type ScopeTotals = Record<Scope, number>;
 
+/**
+ * The factor-library category whose entries are carbon REMOVALS (land-use changes with negative
+ * factors). The client's workbook keeps them in their own table (BASE_remociones) with their own
+ * total and never adds them to the emissions total; the rollup reproduces that separation. The
+ * name is the library's exact Excel spelling, which the tool never hardcodes elsewhere.
+ */
+export const REMOVALS_CATEGORY = "Remociones";
+
 export type CategoryTotal = { scope: Scope; category: string; tonnes: number };
 
 export type SubcategoryTotal = {
@@ -91,6 +99,17 @@ export type YearRollup = {
    * than guessing a decomposition.
    */
   biogenicCo2Partial: boolean;
+  /**
+   * Carbon removals (category "Remociones"), kept OUT of every number above, exactly as the
+   * client's workbook keeps BASE_remociones out of BASE_emisiones. tonnes is negative (or 0 when
+   * nothing is reported). unpricedCount counts removal rows whose factor could not be read; it is
+   * separate from the emissions unpricedCount because it makes THIS total incomplete, not those.
+   */
+  removals: {
+    tonnes: number;
+    byElement: ElementTotal[];
+    unpricedCount: number;
+  };
   /** The year has no national grid factor, so its Scope 2 emissions could not be computed. */
   missingGridFactor: boolean;
   /**
@@ -167,9 +186,42 @@ export function rollupYear({
 
   const grid = gridFactor !== null ? Number(gridFactor) : null;
 
+  let removalsTonnes = 0;
+  let removalsUnpriced = 0;
+  const removalElements = new Map<string, ElementTotal>();
+
   for (const entry of entries) {
     const activity = parseActivity(entry.value);
     const reported = entry.value !== null;
+
+    // Removals divert BEFORE any emissions accumulator is touched. They are priced by the same
+    // engine (their library rows carry a negative consolidated CO2e factor), but their tonnes
+    // belong to their own total, never to a scope, a category, or the headline.
+    if (entry.category.trim() === REMOVALS_CATEGORY) {
+      if (!entry.factor || !isPriceable(entry.factor)) {
+        removalsUnpriced += 1;
+        continue;
+      }
+      const removalKg = computeCo2eKg(
+        activity,
+        toFactorInput(entry.factor, entry.category),
+        gwpSet,
+      );
+      const removalTonnes = kgToTonnes(removalKg);
+      removalsTonnes += removalTonnes;
+      const key = `${entry.subcategory ?? ""}::${entry.element}`;
+      const existing = removalElements.get(key);
+      if (existing) existing.tonnes += removalTonnes;
+      else
+        removalElements.set(key, {
+          scope: entry.scope,
+          category: entry.category,
+          subcategory: entry.subcategory,
+          element: entry.element,
+          tonnes: removalTonnes,
+        });
+      continue;
+    }
 
     let kg = 0;
     if (entry.scope === "SCOPE_2") {
@@ -277,6 +329,9 @@ export function rollupYear({
   const byElement = [...elements.values()].sort(byTonnesDesc);
   const totalTonnes = SCOPES.reduce((sum, scope) => sum + byScope[scope], 0);
 
+  // Most negative first: the largest removal is the most interesting row.
+  const removalsByElement = [...removalElements.values()].sort((a, b) => a.tonnes - b.tonnes);
+
   return {
     totalTonnes,
     byScope,
@@ -287,6 +342,11 @@ export function rollupYear({
     biogenicTonnes,
     biogenicCo2Tonnes,
     biogenicCo2Partial,
+    removals: {
+      tonnes: removalsTonnes,
+      byElement: removalsByElement,
+      unpricedCount: removalsUnpriced,
+    },
     missingGridFactor,
     unpricedCount,
   };

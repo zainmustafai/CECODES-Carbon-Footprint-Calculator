@@ -286,6 +286,7 @@
       "cta": "Set targets"
     },
     "biogenic": "Includes {tonnes} tCO2e biogenic, reported as a memo item.",
+    "removalsNote": "Carbon removals: {tonnes} tCO2e, reported separately (never subtracted from the emissions total). Details are on the Summary.",
     "missingGridFactor": "The grid electricity factor for {year} is missing: Scope 2 shows zero until an administrator loads it.",
     "months": {
       "1": "Jan",
@@ -1040,6 +1041,10 @@
     "inactiveFactor": "Factor deactivated",
     "missingGridNote": "Year {year} has no electricity grid factor loaded, so Scope 2 cannot be estimated. An admin can load it in the factor library.",
     "biogenicNote": "Includes {tonnes} t CO2e from biogenic sources, which the GHG Protocol reports separately.",
+    "removals": {
+      "title": "Carbon removals",
+      "subtitle": "Reported separately; never added to or subtracted from the emissions total."
+    },
     "footnote": "Reference estimate. Official totals are calculated on the Dashboard.",
     "changes": {
       "title": "Change history",

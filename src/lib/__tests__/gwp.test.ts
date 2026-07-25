@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { GWP, kgToTonnes, resolveGwpSet } from "@/lib/gwp";
 
 describe("resolveGwpSet", () => {
-  // The boundary is load bearing: it is pinned onto every ReportingYear at creation so a
-  // later change to this rule cannot silently restate a past year's emissions.
-  it("uses AR5 through 2021 and AR6 after", () => {
-    expect(resolveGwpSet(2019)).toBe("AR5");
-    expect(resolveGwpSet(2021)).toBe("AR5");
+  // AR6 for every year: CECODES's DASHBOARD workbook (2026-07-24) multiplies by the AR6
+  // column unconditionally, whatever period is entered, and that spreadsheet is the
+  // acceptance test (Req. §14.1). The resolved set is still pinned onto every ReportingYear
+  // at creation, so years created under the old pre-2022 AR5 boundary are not restated.
+  it("uses AR6 for every year, matching the client's workbook formulas", () => {
+    expect(resolveGwpSet(2019)).toBe("AR6");
+    expect(resolveGwpSet(2021)).toBe("AR6");
     expect(resolveGwpSet(2022)).toBe("AR6");
     expect(resolveGwpSet(2026)).toBe("AR6");
   });
@@ -23,8 +25,11 @@ describe("kgToTonnes", () => {
 });
 
 describe("GWP sets", () => {
-  it("distinguishes fossil and biogenic methane only under AR6", () => {
-    expect(GWP.AR5.ch4Fossil).toBe(GWP.AR5.ch4NonFossil);
-    expect(GWP.AR6.ch4Fossil).not.toBe(GWP.AR6.ch4NonFossil);
+  // Both columns transcribe the client workbook's "Global Waming Potentials" sheet exactly.
+  it("distinguishes fossil and biogenic methane in both sets, as the client's table does", () => {
+    expect(GWP.AR5.ch4Fossil).toBe(30);
+    expect(GWP.AR5.ch4NonFossil).toBe(28);
+    expect(GWP.AR6.ch4Fossil).toBe(29.8);
+    expect(GWP.AR6.ch4NonFossil).toBe(27);
   });
 });

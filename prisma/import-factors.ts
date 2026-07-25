@@ -1,16 +1,22 @@
 // Excel emission-factor importer.
 //
-//   bun prisma/import-factors.ts [--dry-run] [--file <path>]
+//   bun prisma/import-factors.ts [--dry-run] [--file <path>] [--apply-grid]
 //
-// Reads the authoritative per-gas table on the "Jerarquia nueva (2025)" sheet of CECODES's
-// factor workbook and reconciles it into emission_factors. It is idempotent and it never
-// clobbers a human edit: a factor that carries any EmissionFactorChange whose action is not
-// IMPORTED is left untouched. A second consecutive run reports everything as unchanged.
+// Reads the authoritative per-gas table of CECODES's factor workbook and reconciles it into
+// emission_factors. Two sheets qualify, with an identical column layout: "Jerarquia nueva
+// (2025)" in the original library workbook, and "Emission Factors" in the DASHBOARD workbook
+// CECODES sent 2026-07-24 ("the important pages are PRINCIPAL, Emission Factors and
+// DASHBOARD"). It is idempotent and it never clobbers a human edit: a factor that carries any
+// EmissionFactorChange whose action is not IMPORTED is left untouched. A second consecutive
+// run reports everything as unchanged.
 //
 // What it deliberately does NOT do:
 //   - It never inserts the Scope-2 "UPME <year>" rows as emission_factors. Grid electricity is
 //     modelled as one picker element plus grid_electricity_factors keyed by year, so those rows
-//     are only COMPARED against that table and reported. A grid factor is never auto-overwritten.
+//     are only COMPARED against that table and reported. Without --apply-grid a grid factor is
+//     never overwritten; WITH it, the sheet's per-year series is written to
+//     grid_electricity_factors (CECODES 2026-07-24, answer 4: "use dashboard excel table as
+//     reference"), creating missing years and correcting mismatched ones.
 //   - It never reads column 15 or 21 (the sheet's cached kg formula results). CH4 and N2O come
 //     from the gram columns 14 and 20, divided by 1000 with Decimal. A consequence: rows that
 //     express CH4/N2O only in the kg columns map to no-factor and are reported, not imported.
@@ -51,14 +57,15 @@ const IMPORTER_EMAIL = "importador";
 const GRID_PICKER_ELEMENT = "Electricidad (Red Nacional - SIN)";
 const STARTER_SUFFIX = "(starter)";
 
-type Flags = { dryRun: boolean; file: string | null };
+type Flags = { dryRun: boolean; file: string | null; applyGrid: boolean };
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { dryRun: false, file: null };
+  const flags: Flags = { dryRun: false, file: null, applyGrid: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--dry-run") flags.dryRun = true;
     else if (arg === "--file") flags.file = argv[++i] ?? null;
+    else if (arg === "--apply-grid") flags.applyGrid = true;
   }
   return flags;
 }
@@ -135,8 +142,16 @@ async function main() {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(workbookPath);
 
-  const sheet = workbook.worksheets.find((ws) => ws.name.startsWith("Jerarqu"));
-  if (!sheet) throw new Error('Sheet starting with "Jerarqu" not found in the workbook.');
+  // The original library workbook calls the table "Jerarquia nueva (2025)"; the DASHBOARD
+  // workbook (2026-07-24) calls the same table "Emission Factors". Same columns, same rows.
+  const sheet = workbook.worksheets.find(
+    (ws) => ws.name.startsWith("Jerarqu") || ws.name === "Emission Factors",
+  );
+  if (!sheet) {
+    throw new Error(
+      'Neither a sheet starting with "Jerarqu" nor one named "Emission Factors" was found.',
+    );
+  }
 
   const latestVersion = await prisma.emissionFactorVersion.findFirst({
     orderBy: { date: "desc" },
@@ -159,6 +174,8 @@ async function main() {
     skippedIncomplete: 0,
     skippedDuplicate: 0,
     skippedScope2: 0,
+    gridCreated: 0,
+    gridUpdated: 0,
     starterDeleted: 0,
     starterDeactivated: 0,
   };
@@ -207,11 +224,45 @@ async function main() {
       }
       const grid = await prisma.gridElectricityFactor.findUnique({ where: { year } });
       if (!grid) {
-        gridMissingLines.push(`  row ${r}: GRID MISSING year ${year} (Excel ${value}) not in database`);
+        if (flags.applyGrid) {
+          if (!flags.dryRun) {
+            await prisma.gridElectricityFactor.create({
+              data: {
+                year,
+                factor: new Prisma.Decimal(value),
+                source: f.source ?? "UPME",
+                updatedByEmail: IMPORTER_EMAIL,
+              },
+            });
+          }
+          counts.gridCreated++;
+          gridMissingLines.push(`  row ${r}: GRID CREATED year ${year} = ${value}`);
+        } else {
+          gridMissingLines.push(
+            `  row ${r}: GRID MISSING year ${year} (Excel ${value}) not in database`,
+          );
+        }
       } else if (!new Prisma.Decimal(value).eq(grid.factor)) {
-        gridMismatchLines.push(
-          `  row ${r}: GRID WARN year ${year}: Excel ${value} vs database ${grid.factor.toString()} (not overwritten)`,
-        );
+        if (flags.applyGrid) {
+          if (!flags.dryRun) {
+            await prisma.gridElectricityFactor.update({
+              where: { year },
+              data: {
+                factor: new Prisma.Decimal(value),
+                source: f.source ?? grid.source,
+                updatedByEmail: IMPORTER_EMAIL,
+              },
+            });
+          }
+          counts.gridUpdated++;
+          gridMismatchLines.push(
+            `  row ${r}: GRID UPDATED year ${year}: ${grid.factor.toString()} -> ${value}`,
+          );
+        } else {
+          gridMismatchLines.push(
+            `  row ${r}: GRID WARN year ${year}: Excel ${value} vs database ${grid.factor.toString()} (not overwritten)`,
+          );
+        }
       } else {
         gridMatchLines.push(`  row ${r}: GRID OK year ${year}: ${value}`);
       }
@@ -363,6 +414,29 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // Report-only: ACTIVE database factors whose natural key does not appear in this sheet.
+  // The importer never deletes them (an entry may reference them, and absence from one
+  // workbook revision is not an instruction). A non-empty list is something to show CECODES,
+  // not something to act on silently. Scope 2 and starters are excluded: the grid picker and
+  // the UPME rows are app-managed, and starters have their own cleanup above.
+  // -------------------------------------------------------------------------
+  const leftoverLines: string[] = [];
+  const activeFactors = await prisma.emissionFactor.findMany({
+    where: {
+      active: true,
+      scope: { not: Scope.SCOPE_2 },
+      NOT: { source: { endsWith: STARTER_SUFFIX } },
+    },
+    select: { scope: true, category: true, subcategory: true, element: true, unit: true },
+  });
+  for (const f of activeFactors) {
+    const key = [f.scope, f.category, f.subcategory ?? "", f.element, f.unit].join("|");
+    if (!seenKeys.has(key)) {
+      leftoverLines.push(`  ${f.scope} / ${f.category} / ${f.element} (${f.unit})`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Report-only reconciliation: element names present in the stale 2024 sheet that have no
   // counterpart in the 2025 sheet (matched case-insensitively on element).
   // -------------------------------------------------------------------------
@@ -378,6 +452,7 @@ async function main() {
   printSection("Scope 2 grid electricity - matches", gridMatchLines);
   printSection("Factors kept (admin-edited, left untouched)", keptLines);
   printSection("Starter cleanup", starterLines);
+  printSection("Active database factors NOT in this sheet (kept, report-only)", leftoverLines);
   printSection(
     `Reconciliation: 2024 elements with no 2025 counterpart (${reconciliation.length})`,
     reconciliation.map((e) => `  ${e}`),
@@ -398,8 +473,12 @@ async function main() {
   console.log(`  starterDeactivated: ${counts.starterDeactivated}`);
   console.log(
     `  grid: ${gridMatchLines.length} ok, ${gridMismatchLines.length} mismatch, ` +
-      `${gridMissingLines.length} missing, ${gridPendingLines.length} pending`,
+      `${gridMissingLines.length} missing, ${gridPendingLines.length} pending` +
+      (flags.applyGrid
+        ? ` (applied: ${counts.gridCreated} created, ${counts.gridUpdated} updated)`
+        : ""),
   );
+  console.log(`  leftoverInDb:       ${leftoverLines.length}`);
   console.log("=============================");
   if (flags.dryRun) console.log("DRY RUN: no changes were written.");
 }

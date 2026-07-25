@@ -286,6 +286,7 @@
       "cta": "Definir metas"
     },
     "biogenic": "Incluye {tonnes} tCO2e biogénicas, reportadas como memoria.",
+    "removalsNote": "Remociones o absorciones de carbono: {tonnes} tCO2e, reportadas por separado (no se restan del total de emisiones). El detalle está en el Resumen.",
     "missingGridFactor": "Falta el factor de red eléctrica para {year}: el Alcance 2 se muestra en cero hasta que el administrador lo cargue.",
     "months": {
       "1": "Ene",
@@ -1040,6 +1041,10 @@
     "inactiveFactor": "Factor desactivado",
     "missingGridNote": "El año {year} no tiene factor de red eléctrica cargado, así que el Alcance 2 no se puede estimar. Un administrador puede cargarlo en la biblioteca de factores.",
     "biogenicNote": "Incluye {tonnes} t CO2e de fuentes biogénicas, que el Protocolo GHG reporta por separado.",
+    "removals": {
+      "title": "Remociones o absorciones de carbono",
+      "subtitle": "Se reportan por separado y no se suman ni se restan del total de emisiones."
+    },
     "footnote": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
     "changes": {
       "title": "Historial de cambios",

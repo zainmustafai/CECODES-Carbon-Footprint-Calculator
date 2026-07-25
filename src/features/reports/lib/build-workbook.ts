@@ -85,6 +85,20 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   }
   summary.addRow([]);
 
+  // Removals mirror the Excel's own layout: a separate table with a separate (negative) total,
+  // never folded into the emissions totals above.
+  if (vm.removals.rows.length > 0) {
+    header(summary, ["Remociones o absorciones de carbono", "t CO2e", ""]);
+    for (const row of vm.removals.rows) {
+      const r = summary.addRow([row.element, row.tonnes]);
+      r.getCell(2).numFmt = TONNES_FMT;
+    }
+    const removalsTotal = summary.addRow(["TOTAL REMOCIONES (no se resta del total)", vm.removals.tonnes]);
+    removalsTotal.font = { bold: true };
+    removalsTotal.getCell(2).numFmt = TONNES_FMT;
+    summary.addRow([]);
+  }
+
   // The caveats travel WITH the numbers. A total that is quietly incomplete is worse than no
   // total, and a spreadsheet gets forwarded far away from whoever generated it.
   header(summary, ["Notas y advertencias", "", ""]);
@@ -180,6 +194,32 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   calcTotal.font = { bold: true };
   calcTotal.getCell(9).numFmt = TONNES_FMT;
 
+  // Removal rows carry the same audit columns but sit under their own subtotal, after a blank
+  // row, and are excluded from the TOTAL above, as in the client's spreadsheet.
+  if (vm.removals.rows.length > 0) {
+    calc.addRow([]);
+    const removalsHeader = calc.addRow(["Remociones o absorciones de carbono (no incluidas en el TOTAL)"]);
+    removalsHeader.font = { bold: true };
+    for (const row of vm.removals.rows) {
+      const r = calc.addRow([
+        SCOPE_LABEL[row.scope] ?? row.scope,
+        row.category,
+        row.subcategory ?? "",
+        row.element,
+        row.unit,
+        row.quantity,
+        num(row.factorValue),
+        row.factorUnit ?? "",
+        row.tonnes,
+      ]);
+      r.getCell(6).numFmt = QTY_FMT;
+      r.getCell(9).numFmt = TONNES_FMT;
+    }
+    const removalsTotal = calc.addRow(["", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes]);
+    removalsTotal.font = { bold: true };
+    removalsTotal.getCell(9).numFmt = TONNES_FMT;
+  }
+
   return wb;
 }
 
@@ -221,6 +261,31 @@ export function buildCsv(vm: ReportVM): string {
   }
 
   lines.push(["", "", "", "", "", "", "", "TOTAL", vm.totalTonnes].map(q).join(","));
+
+  if (vm.removals.rows.length > 0) {
+    lines.push("");
+    lines.push(q("Remociones o absorciones de carbono (no incluidas en el TOTAL)"));
+    for (const row of vm.removals.rows) {
+      lines.push(
+        [
+          SCOPE_LABEL[row.scope] ?? row.scope,
+          row.category,
+          row.subcategory ?? "",
+          row.element,
+          row.unit,
+          row.quantity,
+          row.factorValue ?? "",
+          row.factorUnit ?? "",
+          row.tonnes,
+        ]
+          .map(q)
+          .join(","),
+      );
+    }
+    lines.push(
+      ["", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes].map(q).join(","),
+    );
+  }
 
   if (vm.unpricedCount > 0) {
     lines.push("");

@@ -1,0 +1,318 @@
+{
+  "name": "CECODES DASHBOARD workbook, PRINCIPAL sample company",
+  "origin": "client",
+  "source": "docs/sample-data/CEC-PR-F-024 - DASHBOARD (2025).xlsx, sheet PRINCIPAL, received 2026-07-24. Entries are the BASE_emisiones and BASE_energia table rows; expected totals are the Excel's OWN cached formula results, transcribed cell by cell (never recomputed by us). Factor values come from the same workbook's Emission Factors sheet, which the PRINCIPAL formulas VLOOKUP into.",
+  "notes": "BASE_remociones (removals) is a SEPARATE table in the Excel with its own total (-256.40265 t) that is never added to the emissions total; its 13 rows are transcribed below under category Remociones and asserted via expectedRemovals, proving the rollup diverts them exactly as the Excel does. BASE_evitadas (tecnologias mas limpias) is reported without affecting any calculation (CECODES, 2026-07-24) and is not here. The sample mixes four sedes in one table; the rollup has no sede axis, and sums are linear, so the totals are unaffected. The urea row reproduces the Excel faithfully: its 0.7333 factor sits in the sheet's N2O column and is therefore multiplied by 273, which is flagged to CECODES as a probable factor-sheet error, but parity means matching what the spreadsheet EXECUTES.",
+  "year": 2024,
+  "gwpSet": "AR6",
+  "gridFactor": "0.21742",
+  "toleranceTonnes": 0.0001,
+  "entries": [
+    {
+      "note": "Ball Cajica. The factor 0.7333333... = 0.2*(44/12) sits in the sheet's kg-N2O column (labeled 'kg CO2e/kg urea'), so the Excel computes 32626 x 0.73333 = 23925.7333 'kg N2O' x 273 = 6531725.2 kg CO2e. Reproduced faithfully.",
+      "scope": "SCOPE_1",
+      "category": "Emisiones fugitivas",
+      "subcategory": "Cal y urea aplicadas como fertilizante",
+      "element": "Fertilización con Urea (CO(NH2)2)",
+      "month": null,
+      "value": "32626",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": "0.7333333333333334",
+        "co2eFactor": null,
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Ball Cajica. Consolidated CO2e refrigerant: 2623 x 1960 = 5141080 kg.",
+      "scope": "SCOPE_1",
+      "category": "Emisiones fugitivas",
+      "subcategory": "Fuga de refrigerantes",
+      "element": "Fugas de HCFC-22 / R-22",
+      "month": null,
+      "value": "2623",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": null,
+        "co2eFactor": "1960",
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Ball Sesquile. Per-gas fossil fuel: CO2 87997.6695 + CH4 0.0822048x29.8 + N2O 0.0496654x273 = 88013.67785724 kg. The fossil CH4 GWP (29.8) applies because the sheet's biogenic flag is 0, exactly as the PRINCIPAL formula selects it.",
+      "scope": "SCOPE_1",
+      "category": "Fuentes móviles",
+      "subcategory": "Combustibles líquidos",
+      "element": "Diésel B10 (Mezcla comercial) - Móvil",
+      "month": null,
+      "value": "8563",
+      "factor": {
+        "co2Factor": "10.2765",
+        "ch4Factor": "0.0000096",
+        "n2oFactor": "0.0000058",
+        "co2eFactor": null,
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Alemania. Same element and factor as the Ball Sesquile row: 26374.29608568 kg.",
+      "scope": "SCOPE_1",
+      "category": "Fuentes móviles",
+      "subcategory": "Combustibles líquidos",
+      "element": "Diésel B10 (Mezcla comercial) - Móvil (Alemania)",
+      "month": null,
+      "value": "2566",
+      "factor": {
+        "co2Factor": "10.2765",
+        "ch4Factor": "0.0000096",
+        "n2oFactor": "0.0000058",
+        "co2eFactor": null,
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Bogota. Annual electricity in the Excel's main table: 262525 kWh x 0.21742 = 57078.1855 kg. Our tool captures Scope 2 monthly; the rollup prices any Scope-2 entry by the year's grid factor, and value x factor is linear, so an annual row totals identically.",
+      "scope": "SCOPE_2",
+      "category": "Emisiones por energía importada",
+      "subcategory": "Consumo de electricidad adquirida",
+      "element": "Energía eléctrica adquirida (Factor emisión UPME 2024)",
+      "month": null,
+      "value": "262525",
+      "factor": null
+    },
+    {
+      "note": "Ball Sesquile. Consolidated CO2e refrigerant: 6266 x 0.02 = 125.32 kg.",
+      "scope": "SCOPE_1",
+      "category": "Emisiones fugitivas",
+      "subcategory": "Fuga de mezclas refrigerantes",
+      "element": "Fugas de Propano Alta Calidad / R-290",
+      "month": null,
+      "value": "6266",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": null,
+        "co2eFactor": "0.02",
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Ball Sesquile. BIOGENIC source: CH4 takes the NON-fossil GWP (27), exactly as the PRINCIPAL formula routes flag=1 rows. 105.048x27 + 7.8786x273 = 4987.1538 kg.",
+      "scope": "SCOPE_1",
+      "category": "Emisiones fugitivas",
+      "subcategory": "Tratamiento y Gestión de Residuos Agrícolas",
+      "element": "A1: Compostaje de materia orgánica (base húmeda)",
+      "month": null,
+      "value": "26262",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": "0.004",
+        "n2oFactor": "0.0003",
+        "co2eFactor": null,
+        "biogenic": true
+      }
+    },
+    {
+      "note": "Ball Cajica. The sample files an 'A1:' element under Alcance 3 / C5 (their picker allowed it; the VLOOKUP keys on element only). Biogenic: CH4 x27. 0.0452524x27 + 10.634314x273 = 2904.3895368 kg.",
+      "scope": "SCOPE_3",
+      "category": "C5: Residuos generados en operaciones",
+      "subcategory": "Tratamiento y Gestión de Residuos",
+      "element": "A1: Incineración controlada de residuos sólidos domiciliarios (continua-cargador mecánico)",
+      "month": null,
+      "value": "226262",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": "0.0000002",
+        "n2oFactor": "0.000047",
+        "co2eFactor": null,
+        "biogenic": true
+      }
+    },
+    {
+      "note": "Ball Cajica. The sample categorizes the Movil GNV element under Fuentes estacionarias; transcribed as-is. 122.7972 + 0.20336x29.8 + 0.006634x273 = 130.66841 kg.",
+      "scope": "SCOPE_1",
+      "category": "Fuentes estacionarias",
+      "subcategory": "Combustibles gaseosos",
+      "element": "GNV Genérico - Móvil",
+      "month": null,
+      "value": "62",
+      "factor": {
+        "co2Factor": "1.9806",
+        "ch4Factor": "0.00328",
+        "n2oFactor": "0.000107",
+        "co2eFactor": null,
+        "biogenic": false
+      }
+    },
+    {
+      "note": "Bogota. Second annual electricity row: 1898 kWh x 0.21742 = 412.66316 kg.",
+      "scope": "SCOPE_2",
+      "category": "Emisiones por energía importada",
+      "subcategory": "Consumo de electricidad adquirida",
+      "element": "Energía eléctrica adquirida (Factor emisión UPME 2024) (Bogotá 2)",
+      "month": null,
+      "value": "1898",
+      "factor": null
+    },
+    {
+      "note": "BASE_remociones rows follow. Each is 1 ha at a negative consolidated CO2e factor; the Excel totals them separately (-256402.65 kg) and never adds them to the emissions tables above.",
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras forestales",
+      "element": "Tierras de cultivo no leñoso convertidas en tierras forestales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-21507.2", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras forestales",
+      "element": "Pastizales convertidos en tierras forestales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-13073.87", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras forestales",
+      "element": "Humedales convertidos en tierras forestales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-21507.2", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras forestales",
+      "element": "Asentamientos convertidos en tierras forestales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-21507.2", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras forestales",
+      "element": "Otras tierras (suelo desnudo, desierto o roca) convertidas en tierras forestales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-21507.2", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras de cultivo",
+      "element": "Pastizales convertidos en tierras de cultivo leñoso",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-24566.66", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras de cultivo",
+      "element": "Humedales convertidos en tierras de cultivo leñoso",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-33000", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras de cultivo",
+      "element": "Asentamientos convertidos en tierras de cultivo leñoso",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-33000", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a tierras de cultivo",
+      "element": "Otras tierras (suelo desnudo, desierto o roca) convertidas en tierras de cultivo leñoso",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-33000", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a pastizales",
+      "element": "Tierras de cultivo no leñoso convertidas en pastizales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-8433.33", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a pastizales",
+      "element": "Humedales convertidos en pastizales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-8433.33", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a pastizales",
+      "element": "Asentamientos convertidos en pastizales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-8433.33", "biogenic": false }
+    },
+    {
+      "scope": "SCOPE_1",
+      "category": "Remociones",
+      "subcategory": "Cambios a pastizales",
+      "element": "Otras tierras (suelo desnudo, desierto o roca)convertidas en pastizales",
+      "month": null,
+      "value": "1",
+      "factor": { "co2Factor": null, "ch4Factor": null, "n2oFactor": null, "co2eFactor": "-8433.33", "biogenic": false }
+    },
+    {
+      "note": "Ball Cajica, the BASE_energia monthly table: 74132 kWh total x 0.21742 = 16117.77944 kg (Excel cached 16117.779439999998, float noise).",
+      "scope": "SCOPE_2",
+      "category": "Emisiones por energía importada",
+      "subcategory": "Consumo de electricidad adquirida",
+      "element": "Electricidad Ball Cajicá (mensual)",
+      "monthlyValues": [
+        "7000",
+        "5055",
+        "5360",
+        "5100",
+        "6094",
+        "6307",
+        "6800",
+        "6224",
+        "6991",
+        "6657",
+        "6141",
+        "6403"
+      ],
+      "factor": null
+    }
+  ],
+  "expected": {
+    "totalTonnes": 11868.94933378972,
+    "byScope": {
+      "SCOPE_1": 11792.43631615292,
+      "SCOPE_2": 73.6086281,
+      "SCOPE_3": 2.9043895368
+    },
+    "byCategory": [
+      { "scope": "SCOPE_1", "category": "Emisiones fugitivas", "tonnes": 11677.9176738 },
+      { "scope": "SCOPE_1", "category": "Fuentes móviles", "tonnes": 114.38797394292 },
+      { "scope": "SCOPE_1", "category": "Fuentes estacionarias", "tonnes": 0.13066841 },
+      { "scope": "SCOPE_2", "category": "Emisiones por energía importada", "tonnes": 73.6086281 },
+      { "scope": "SCOPE_3", "category": "C5: Residuos generados en operaciones", "tonnes": 2.9043895368 }
+    ]
+  },
+  "expectedRemovals": {
+    "tonnes": -256.40265
+  }
+}

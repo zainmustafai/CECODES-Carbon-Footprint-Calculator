@@ -6,42 +6,47 @@ Excel's CO2e totals").
 
 ## The state of things
 
-**No fixture from CECODES exists yet.** The only workbook we have
-(`docs/reference/CEC-PR-CTE-127 ...xlsx`) is the **factor library**: it holds the emission factors
-and the change log, but no company's activity data and no computed totals. There is therefore
-nothing yet to compare against, and `parity.test.ts` carries a permanent `todo` saying so.
+**A client-origin fixture exists and passes: `cecodes-dashboard-principal-2024.json`.**
 
-Obtaining a filled-in calculation workbook is item 0 of
-[docs/CLIENT_DECISION_MEMO.md](../../../../../docs/CLIENT_DECISION_MEMO.md), and it is the single
-thing that cannot be worked around.
+On 2026-07-24 CECODES sent `docs/sample-data/CEC-PR-F-024 - DASHBOARD (2025).xlsx`, a
+temporary-use calculation workbook whose PRINCIPAL sheet contains a filled-in sample company
+(four sedes, ten emission rows, twelve monthly electricity values) together with the Excel's
+own cached formula results per row and in total. That fixture transcribes the inputs and the
+**Excel's own outputs**, cell by cell, and `parity.test.ts` reproduces them through
+`rollupYear`. The standing `it.todo` reminder retired itself the moment the fixture landed.
 
-`hand-computed-reference.json` is a placeholder. It proves the harness works and that the engine is
-**self-consistent**. It does **not** prove parity: its expected values were derived by hand from the
-same formulas the engine implements, so of course they agree. Do not mistake a green suite for a
-passed acceptance test.
+The same workbook settled the two questions this README used to warn about:
 
-## Adding CECODES's workbook when it arrives
+1. **The CH4 GWP selector**: the PRINCIPAL formulas split CH4 with
+   `IF(VLOOKUP(...) = 1, ...no fósil..., ...fósil...)` on the factor library's biogenic
+   column. That IS the biogenic-flag rule, executed. See `../../ch4-rule.ts`.
+2. **The GWP vintage**: every formula multiplies by the AR6 column, for any year entered.
+   `resolveGwpSet` now returns AR6 unconditionally. See `../../../gwp.ts`.
 
-1. Transcribe one company-year into a new file here, e.g. `cecodes-alimentos-2024.json`.
+Two of the workbook's tables are deliberately outside the fixture: BASE_remociones (removals
+sit in their own table with their own total, never added to emissions) and BASE_evitadas
+(tecnologías más limpias: reported, never calculated - CECODES 2026-07-24).
+
+One anomaly is reproduced faithfully rather than corrected: the workbook's urea factor
+(0.7333 = 0.2 × 44/12, a CO2 quantity labelled "kg CO2e/kg urea") sits in the factor sheet's
+N2O column, so the Excel multiplies it by 273. Parity means matching what the spreadsheet
+executes; the anomaly is flagged to CECODES separately.
+
+`hand-computed-reference.json` remains as a harness self-check. It proves the fixture
+machinery works; only the client-origin fixture proves parity.
+
+## Adding further client workbooks
+
+1. Transcribe one company-year into a new file here.
 2. Set `"origin": "client"` and fill `"source"` with the file name and sheet you took it from.
 3. Copy the activity data into `entries`, and the **Excel's own totals** into `expected`.
    Take the totals from the spreadsheet, never from our app: the whole point is to compare them.
 4. Run `bun run test src/lib/calc`.
 
-A failure prints the scope, the category and both numbers, so a mismatch names the row rather than
-just saying "615.82 is not 610.11".
-
-## The two things most likely to make it fail first
-
-1. **The CH4 GWP selector** (memo item 1). The Excel's `Hoja2` glosses its two CH4 values as
-   "SÓLO COMBUSTIBLES" (29.8) and "LO QUE NO ES COMBUSTIBLE" (27), i.e. it appears to select by
-   *is it a fuel*. We select by the *biogenic* column. The rules disagree on roughly 180 rows. The
-   engine takes a `ch4Rule` so both can be tried: a fixture may set `"ch4Rule": "is-a-fuel"` and,
-   if that is what makes the client's numbers reproduce, we have our answer empirically.
-2. **The 2021 GWP boundary** (memo item 2). `Hoja2` lists only AR6 values, but `resolveGwpSet`
-   sends 2021 and earlier to AR5. A 2021 fixture will settle it.
+A failure prints the scope, the category and both numbers, so a mismatch names the row rather
+than just saying "615.82 is not 610.11".
 
 ## Format
 
-See `hand-computed-reference.json`. `value` and every factor field are **strings**, never numbers:
-they are Decimals in the database and must not be rounded by JSON parsing on the way in.
+See the fixtures. `value` and every factor field are **strings**, never numbers: they are
+Decimals in the database and must not be rounded by JSON parsing on the way in.
