@@ -27,7 +27,7 @@ export function ThemeToggle() {
       className="relative"
     >
       {/* Both icons always render. The `.dark` class on <html> controls visibility
-          via Tailwind's dark: variant — no hydration mismatch possible. */}
+          via Tailwind's dark: variant, so no hydration mismatch is possible. */}
       <Sun
         aria-hidden
         className="absolute inset-0 m-auto rotate-0 dark:-rotate-90 scale-100 dark:scale-0 transition-transform duration-200"
