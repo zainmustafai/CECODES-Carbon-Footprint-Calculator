@@ -57,15 +57,26 @@ const IMPORTER_EMAIL = "importador";
 const GRID_PICKER_ELEMENT = "Electricidad (Red Nacional - SIN)";
 const STARTER_SUFFIX = "(starter)";
 
-type Flags = { dryRun: boolean; file: string | null; applyGrid: boolean };
+type Flags = {
+  dryRun: boolean;
+  file: string | null;
+  applyGrid: boolean;
+  deactivateLeftovers: boolean;
+};
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { dryRun: false, file: null, applyGrid: false };
+  const flags: Flags = {
+    dryRun: false,
+    file: null,
+    applyGrid: false,
+    deactivateLeftovers: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--dry-run") flags.dryRun = true;
     else if (arg === "--file") flags.file = argv[++i] ?? null;
     else if (arg === "--apply-grid") flags.applyGrid = true;
+    else if (arg === "--deactivate-leftovers") flags.deactivateLeftovers = true;
   }
   return flags;
 }
@@ -420,20 +431,59 @@ async function main() {
   // not something to act on silently. Scope 2 and starters are excluded: the grid picker and
   // the UPME rows are app-managed, and starters have their own cleanup above.
   // -------------------------------------------------------------------------
+  // With --deactivate-leftovers (client 2026-07-24, answer 4: this sheet is the reference), an
+  // unreferenced leftover is deactivated, with a DEACTIVATED audit row, so the picker stops
+  // offering the stale spelling next to its renamed successor. Reversible from the admin UI.
+  // A leftover that activity entries reference is only reported: deactivating it would strand
+  // real data behind an inactive factor, and that is a human's call.
   const leftoverLines: string[] = [];
+  let leftoverDeactivated = 0;
   const activeFactors = await prisma.emissionFactor.findMany({
     where: {
       active: true,
       scope: { not: Scope.SCOPE_2 },
       NOT: { source: { endsWith: STARTER_SUFFIX } },
     },
-    select: { scope: true, category: true, subcategory: true, element: true, unit: true },
   });
   for (const f of activeFactors) {
     const key = [f.scope, f.category, f.subcategory ?? "", f.element, f.unit].join("|");
-    if (!seenKeys.has(key)) {
+    if (seenKeys.has(key)) continue;
+
+    if (!flags.deactivateLeftovers) {
       leftoverLines.push(`  ${f.scope} / ${f.category} / ${f.element} (${f.unit})`);
+      continue;
     }
+
+    const references = await prisma.activityEntry.count({
+      where: { emissionFactorId: f.id },
+    });
+    if (references > 0) {
+      leftoverLines.push(
+        `  KEPT (${references} entries) - ${f.scope} / ${f.category} / ${f.element} (${f.unit})`,
+      );
+      continue;
+    }
+
+    if (!flags.dryRun) {
+      await prisma.$transaction(async (tx) => {
+        await tx.emissionFactor.update({ where: { id: f.id }, data: { active: false } });
+        await tx.emissionFactorChange.create({
+          data: {
+            factorId: f.id,
+            changedById: null,
+            changedByEmail: IMPORTER_EMAIL,
+            action: FactorChangeAction.DEACTIVATED,
+            changes: buildFactorDiff(f as unknown as FactorSnapshot, {
+              active: false,
+            }) as unknown as Prisma.InputJsonValue,
+          },
+        });
+      });
+    }
+    leftoverDeactivated++;
+    leftoverLines.push(
+      `  DEACTIVATED (not in sheet, 0 entries) - ${f.scope} / ${f.category} / ${f.element} (${f.unit})`,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -478,7 +528,10 @@ async function main() {
         ? ` (applied: ${counts.gridCreated} created, ${counts.gridUpdated} updated)`
         : ""),
   );
-  console.log(`  leftoverInDb:       ${leftoverLines.length}`);
+  console.log(
+    `  leftoverInDb:       ${leftoverLines.length}` +
+      (flags.deactivateLeftovers ? ` (deactivated: ${leftoverDeactivated})` : ""),
+  );
   console.log("=============================");
   if (flags.dryRun) console.log("DRY RUN: no changes were written.");
 }
