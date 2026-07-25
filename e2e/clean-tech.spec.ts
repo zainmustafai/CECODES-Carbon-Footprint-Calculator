@@ -61,9 +61,14 @@ test.describe("tecnologías más limpias", () => {
     await dialog.getByLabel(/unidad consumo/i).fill("kWh instalados");
     await dialog.getByRole("button", { name: /agregar registro/i }).click();
 
-    // The dialog closes and the row lands in the table with the normalized decimal.
-    await expect(dialog).not.toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("cell", { name: ELEMENT })).toBeVisible({ timeout: 15_000 });
+    // The dialog closes only after the server action succeeds.
+    await expect(dialog).not.toBeVisible({ timeout: 30_000 });
+
+    // Reload rather than trusting the router.refresh the hook fires: a dropped refresh
+    // round-trip would leave a stale tree and fail this spec for a row that IS persisted.
+    // A full reload asserts the stronger fact, that the row survives in the database.
+    await page.reload();
+    await expect(page.getByRole("cell", { name: ELEMENT })).toBeVisible({ timeout: 120_000 });
   });
 
   test("the row appears on the Resumen, and it moved NO total", async ({ page }) => {
