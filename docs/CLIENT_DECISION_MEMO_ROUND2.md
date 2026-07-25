@@ -1,5 +1,14 @@
 # Round 2: Six Things Your Answers Opened Up
 
+> **STATUS 2026-07-25: ANSWERED AND CLOSED.** CECODES replied on 2026-07-24 with the DASHBOARD
+> workbook attached. Item 0 (the workbook) is resolved and the parity test passes; item 1 (2025
+> electricity factor = 0.097018445) is loaded along with the whole UPME series; item 2 (which
+> sheet governs electricity) is the DASHBOARD sheet, applied; item 3 (the fuel list) turned out
+> to be unnecessary, their workbook's formulas select the CH4 GWP by the biogenic column that
+> already exists per element; item 4 (Meta axes) remains the ONE open sub-question
+> (company-wide vs per-Sede); item 5/6 (spend units) resolved as per-USD with decimal commas.
+> The living record is Requirements §12. This memo is kept for history only.
+
 **To:** CECODES
 **Re:** Follow-up to your answers of 17 July 2026
 **Related:** [CLIENT_DECISION_MEMO.md](./CLIENT_DECISION_MEMO.md) (round 1), Requirements §12 and §14
