@@ -256,6 +256,14 @@ describe("a company user cannot edit another company's PROFILE", () => {
 describe("a company user cannot reach ANY admin action", () => {
   it("refuses every company administration action", async () => {
     expect(await adminCompanies.createCompany({ name: "Mia" })).toEqual({ error: "forbidden" });
+    // The widened create input (contactEmail) goes through the same boundary.
+    expect(
+      await adminCompanies.createCompany({
+        name: "Mia",
+        sector: "energia",
+        contactEmail: "attacker@example.com",
+      }),
+    ).toEqual({ error: "forbidden" });
     expect(
       await adminCompanies.updateCompany({ companyId: COMPANY_B, name: "Tuya" }),
     ).toEqual({ error: "forbidden" });

@@ -31,22 +31,25 @@ export async function createFacility(input: {
   companyId: string;
   name: string;
   location: string;
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; facilityId?: string }> {
   const parsed = createFacilityInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
 
   try {
     // A company user's own companyId wins; an admin must name an existing company.
     const scope = await resolveCompanyScope({ companyId: parsed.data.companyId });
-    await prisma.facility.create({
+    // The id is returned so the company wizard can chain the first reporting year onto the
+    // sede it just created. Existing callers destructure { error } only and are unaffected.
+    const facility = await prisma.facility.create({
       data: {
         companyId: scope.companyId,
         name: parsed.data.name,
         location: parsed.data.location,
       },
+      select: { id: true },
     });
     revalidate(scope.companyId);
-    return {};
+    return { facilityId: facility.id };
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "facilityExists" };
     return { error: scopeErrorKey(error) };

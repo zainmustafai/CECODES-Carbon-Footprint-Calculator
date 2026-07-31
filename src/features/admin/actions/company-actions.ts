@@ -18,6 +18,7 @@ import {
 export async function createCompany(input: {
   name: string;
   sector?: string;
+  contactEmail?: string;
 }): Promise<{ error?: string; companyId?: string }> {
   const parsed = createCompanyInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
@@ -25,8 +26,12 @@ export async function createCompany(input: {
   try {
     await resolveAdminScope();
     const company = await prisma.company.create({
-      // An omitted sector is written as null rather than left undefined.
-      data: { name: parsed.data.name, sector: parsed.data.sector ?? null },
+      // Omitted or empty optionals are written as null rather than "" or undefined.
+      data: {
+        name: parsed.data.name,
+        sector: parsed.data.sector ?? null,
+        contactEmail: parsed.data.contactEmail?.length ? parsed.data.contactEmail : null,
+      },
       select: { id: true },
     });
     revalidatePath("/admin/companies");

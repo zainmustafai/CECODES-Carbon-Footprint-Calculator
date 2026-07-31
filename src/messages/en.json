@@ -617,7 +617,6 @@
       "openDataEntry": "Enter data",
       "noSector": "Sector not set",
       "create": "New company",
-      "createTitle": "Create company",
       "editTitle": "Edit company",
       "dialogSubtitle": "Sedes are added later, from the company's workspace.",
       "name": "Company name",
@@ -659,8 +658,6 @@
         "generic": "Something went wrong. Please try again."
       },
       "toasts": {
-        "saving": "Saving company...",
-        "created": "Company created.",
         "updated": "Company updated.",
         "activating": "Activating company...",
         "activated": "Company activated.",
@@ -975,21 +972,23 @@
     },
     "onboarding": {
       "pageTitle": "New company",
-      "pageSubtitle": "Set up a member company, its first facility, and its first user.",
-      "title": "Company details",
+      "pageSubtitle": "Set up a member company with its first facility, first year, and first user.",
       "stepCounter": "Step {current} of {total}",
       "steps": {
         "company": "Company",
         "facility": "Facility",
+        "year": "Year",
         "user": "User"
       },
       "company": {
         "title": "Company",
-        "description": "The member company's name and sector.",
+        "description": "The member company's name, sector, and contact email.",
         "name": "Company name",
         "namePlaceholder": "e.g. Alimentos del Valle",
-        "sector": "Sector",
-        "sectorPlaceholder": "Select a sector"
+        "sector": "Sector (optional)",
+        "sectorPlaceholder": "Select a sector",
+        "contactEmail": "Contact email (optional)",
+        "contactEmailPlaceholder": "sostenibilidad@empresa.com"
       },
       "facility": {
         "title": "First facility (optional)",
@@ -998,6 +997,12 @@
         "namePlaceholder": "e.g. Planta Yumbo",
         "location": "Location",
         "locationPlaceholder": "e.g. Yumbo, Valle del Cauca"
+      },
+      "year": {
+        "title": "First reporting year (optional)",
+        "description": "Create the facility's first reporting year so the company can enter data right away. You can add more years later.",
+        "label": "Year",
+        "needsFacility": "This step needs a facility. Go back to add one, or continue without a year."
       },
       "user": {
         "title": "First user (optional)",
@@ -1012,11 +1017,21 @@
       "back": "Back",
       "next": "Next",
       "submit": "Create company",
+      "discard": {
+        "title": "Discard the new company?",
+        "body": "What you entered in this wizard will be lost.",
+        "confirm": "Discard",
+        "cancel": "Keep editing"
+      },
       "validation": {
         "companyNameRequired": "Enter the company name.",
-        "sectorRequired": "Select a sector.",
+        "contactEmailInvalid": "Enter a valid contact email.",
         "facilityNameRequired": "Enter the facility name.",
         "facilityLocationRequired": "Enter the facility location.",
+        "yearRequiresFacility": "To create a year, add a facility first.",
+        "yearInvalid": "Enter a valid year.",
+        "yearMin": "The year cannot be before 2000.",
+        "yearMax": "The year cannot be more than one year ahead.",
         "emailInvalid": "Enter a valid email.",
         "passwordMin": "The password must be at least 8 characters.",
         "emailRequired": "Enter the user's email."
@@ -1025,12 +1040,12 @@
         "generic": "The action could not be completed. Please try again.",
         "forbidden": "You do not have permission for this action.",
         "facilityExists": "A facility with that name already exists.",
+        "yearExists": "That year already exists for the facility.",
         "emailInUse": "That email is already in use.",
         "authFailed": "The user could not be created.",
         "companyNotFound": "The company was not found."
       },
       "toasts": {
-        "creating": "Creating company...",
         "created": "Company created"
       },
       "summary": {
@@ -1040,20 +1055,15 @@
         "facilityCreated": "Facility created: {facility}",
         "facilityFailed": "The facility could not be created: {error}",
         "facilitySkipped": "No first facility. You can add it from the company page.",
+        "yearCreated": "Reporting year created: {year}",
+        "yearFailed": "The year could not be created: {error}",
+        "yearSkipped": "No first reporting year. You can create one from Data entry.",
         "userCreated": "User created: {email}",
         "userFailed": "The user could not be created: {error}",
         "userSkipped": "No first user. You can create one under Users.",
-        "credentialsTitle": "User credentials",
-        "email": "Email",
-        "password": "Password",
-        "credentialsHelp": "Share them securely. They will not be shown again.",
-        "copy": "Copy",
-        "copiedShort": "Copied",
-        "copied": "Credentials copied",
-        "copyFailed": "Could not copy",
         "openCompany": "Open company",
         "createAnother": "Create another company",
-        "backToList": "View companies"
+        "close": "Close"
       }
     }
   },

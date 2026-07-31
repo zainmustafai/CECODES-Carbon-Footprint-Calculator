@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { ArrowRight, Building2, ClipboardList, MapPin, Plus, Users } from "lucide-react";
+import { ArrowRight, Building2, ClipboardList, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { isKnownSector } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
 import { CompanyRowActions } from "./company-row-actions";
+import { CompanyWizardDialog } from "./company-wizard-dialog";
 
 // The admin's home. Drilling into a company opens the exact same workspace screens a company
 // user sees, scoped to that company, rather than a parallel admin-only implementation. The
@@ -36,12 +37,7 @@ export async function CompaniesScreen() {
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/companies/new">
-            <Plus className="size-4" aria-hidden />
-            {t("create")}
-          </Link>
-        </Button>
+        <CompanyWizardDialog />
       </div>
 
       {companies.length === 0 ? (

@@ -4,19 +4,28 @@ import { z } from "zod";
 // re-validates with its OWN strict schemas below and never trusts the client's.
 type T = (key: string) => string;
 
-// A company is created with only a name and an optional sector. Facilities are added later
-// from the company workspace (the admin drill-down route has full facility CRUD), so this
-// action never creates a first facility.
-export const createCompanyInput = z
-  .object({
-    name: z.string().trim().min(1).max(160),
-    sector: z.string().trim().max(160).optional(),
+// Shared by create and update. Deliberately a separate base object rather than extending
+// createCompanyInput: contactEmail belongs to CREATE only (below), and a naive extend would
+// silently widen the edit contract through its .strict() gate.
+const companyCore = z.object({
+  name: z.string().trim().min(1).max(160),
+  sector: z.string().trim().max(160).optional(),
+});
+
+// A company is created with a name, an optional sector, and an optional contact email (the
+// wizard captures it so the profile is complete from day one). Facilities are added by the
+// wizard's own optional step or later from the company workspace.
+export const createCompanyInput = companyCore
+  .extend({
+    // An empty string is a legitimate "no contact", not an invalid email (same contract as
+    // updateCompanyProfileInput, which owns this field after creation).
+    contactEmail: z.union([z.email(), z.literal("")]).optional(),
   })
   .strict();
 
-export const updateCompanyInput = createCompanyInput
-  .extend({ companyId: z.uuid() })
-  .strict();
+// The admin edit dialog stays name + sector only; contactEmail is edited through the company
+// profile form. Extending the CORE keeps contactEmail out of this contract on purpose.
+export const updateCompanyInput = companyCore.extend({ companyId: z.uuid() }).strict();
 
 export const setCompanyActiveInput = z
   .object({ companyId: z.uuid(), active: z.boolean() })

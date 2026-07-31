@@ -1,7 +1,7 @@
 export { CompaniesScreen } from "./components/companies-screen";
 export { UsersScreen } from "./components/users-screen";
 export { FactorLibraryScreen } from "./components/factor-library-screen";
-export { CompanyOnboardingWizard } from "./components/company-onboarding-wizard";
+export { CompanyWizardDialog } from "./components/company-wizard-dialog";
 export { AdminOverviewScreen } from "./components/admin-overview-screen";
 export { TraceabilityScreen } from "./components/traceability-screen";
 export { TraceabilityFeed } from "./components/traceability-feed";

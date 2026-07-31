@@ -617,7 +617,6 @@
       "openDataEntry": "Ingresar datos",
       "noSector": "Sector sin definir",
       "create": "Nueva empresa",
-      "createTitle": "Crear empresa",
       "editTitle": "Editar empresa",
       "dialogSubtitle": "Las sedes se agregan después, desde el espacio de trabajo de la empresa.",
       "name": "Nombre de la empresa",
@@ -659,8 +658,6 @@
         "generic": "Algo salió mal. Inténtalo de nuevo."
       },
       "toasts": {
-        "saving": "Guardando empresa...",
-        "created": "Empresa creada.",
         "updated": "Empresa actualizada.",
         "activating": "Activando empresa...",
         "activated": "Empresa activada.",
@@ -975,21 +972,23 @@
     },
     "onboarding": {
       "pageTitle": "Nueva empresa",
-      "pageSubtitle": "Configura una empresa miembro, su primera sede y su primer usuario.",
-      "title": "Datos de la empresa",
+      "pageSubtitle": "Configura una empresa miembro con su primera sede, su primer año y su primer usuario.",
       "stepCounter": "Paso {current} de {total}",
       "steps": {
         "company": "Empresa",
         "facility": "Sede",
+        "year": "Año",
         "user": "Usuario"
       },
       "company": {
         "title": "Empresa",
-        "description": "El nombre y el sector de la empresa miembro.",
+        "description": "El nombre, el sector y el correo de contacto de la empresa miembro.",
         "name": "Nombre de la empresa",
         "namePlaceholder": "Ej. Alimentos del Valle",
-        "sector": "Sector",
-        "sectorPlaceholder": "Selecciona un sector"
+        "sector": "Sector (opcional)",
+        "sectorPlaceholder": "Selecciona un sector",
+        "contactEmail": "Correo de contacto (opcional)",
+        "contactEmailPlaceholder": "sostenibilidad@empresa.com"
       },
       "facility": {
         "title": "Primera sede (opcional)",
@@ -998,6 +997,12 @@
         "namePlaceholder": "Ej. Planta Yumbo",
         "location": "Ubicación",
         "locationPlaceholder": "Ej. Yumbo, Valle del Cauca"
+      },
+      "year": {
+        "title": "Primer año de reporte (opcional)",
+        "description": "Crea el primer año de reporte de la sede para que la empresa pueda ingresar datos de inmediato. Podrás agregar más años después.",
+        "label": "Año",
+        "needsFacility": "Este paso necesita una sede. Vuelve atrás para registrarla o continúa sin año."
       },
       "user": {
         "title": "Primer usuario (opcional)",
@@ -1012,11 +1017,21 @@
       "back": "Atrás",
       "next": "Siguiente",
       "submit": "Crear empresa",
+      "discard": {
+        "title": "¿Descartar la nueva empresa?",
+        "body": "Se perderá lo que has ingresado en este asistente.",
+        "confirm": "Descartar",
+        "cancel": "Seguir editando"
+      },
       "validation": {
         "companyNameRequired": "Ingresa el nombre de la empresa.",
-        "sectorRequired": "Selecciona un sector.",
+        "contactEmailInvalid": "Ingresa un correo de contacto válido.",
         "facilityNameRequired": "Ingresa el nombre de la sede.",
         "facilityLocationRequired": "Ingresa la ubicación de la sede.",
+        "yearRequiresFacility": "Para crear un año, primero registra una sede.",
+        "yearInvalid": "Ingresa un año válido.",
+        "yearMin": "El año no puede ser anterior a 2000.",
+        "yearMax": "El año no puede estar más de un año en el futuro.",
         "emailInvalid": "Ingresa un correo válido.",
         "passwordMin": "La contraseña debe tener al menos 8 caracteres.",
         "emailRequired": "Ingresa el correo del usuario."
@@ -1025,12 +1040,12 @@
         "generic": "No se pudo completar la acción. Intenta de nuevo.",
         "forbidden": "No tienes permiso para esta acción.",
         "facilityExists": "Ya existe una sede con ese nombre.",
+        "yearExists": "Ese año ya existe para la sede.",
         "emailInUse": "Ese correo ya está en uso.",
         "authFailed": "No se pudo crear el usuario.",
         "companyNotFound": "No se encontró la empresa."
       },
       "toasts": {
-        "creating": "Creando empresa...",
         "created": "Empresa creada"
       },
       "summary": {
@@ -1040,20 +1055,15 @@
         "facilityCreated": "Sede creada: {facility}",
         "facilityFailed": "No se pudo crear la sede: {error}",
         "facilitySkipped": "Sin sede inicial. Podrás agregarla desde la empresa.",
+        "yearCreated": "Año de reporte creado: {year}",
+        "yearFailed": "No se pudo crear el año: {error}",
+        "yearSkipped": "Sin primer año de reporte. Podrás crearlo desde Ingreso de datos.",
         "userCreated": "Usuario creado: {email}",
         "userFailed": "No se pudo crear el usuario: {error}",
         "userSkipped": "Sin usuario inicial. Podrás crearlo en Usuarios.",
-        "credentialsTitle": "Credenciales del usuario",
-        "email": "Correo",
-        "password": "Contraseña",
-        "credentialsHelp": "Compártelas de forma segura. No se volverán a mostrar.",
-        "copy": "Copiar",
-        "copiedShort": "Copiado",
-        "copied": "Credenciales copiadas",
-        "copyFailed": "No se pudieron copiar",
         "openCompany": "Abrir empresa",
         "createAnother": "Crear otra empresa",
-        "backToList": "Ver empresas"
+        "close": "Cerrar"
       }
     }
   },

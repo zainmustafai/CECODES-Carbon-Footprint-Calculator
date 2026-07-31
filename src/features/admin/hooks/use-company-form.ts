@@ -6,18 +6,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createCompany, updateCompany } from "../actions/company-actions";
+import { updateCompany } from "../actions/company-actions";
 import { useFormSubmit } from "@/hooks/use-form-submit";
 import { companyFormSchema, type CompanyFormValues } from "../schemas/company-schemas";
 
 type UseCompanyFormArgs = {
-  company?: { id: string; name: string; sector: string | null };
+  company: { id: string; name: string; sector: string | null };
   onDone?: () => void;
 };
 
-// The company create/edit form. A visible submit button means this uses a Button spinner
-// and an inline serverError, not a loading toast (the async-feedback policy for forms). A
-// success toast still fires, then the dialog closes and the list refreshes.
+// The company EDIT form (creation moved to the wizard dialog). A visible submit button means
+// this uses a Button spinner and an inline serverError, not a loading toast (the
+// async-feedback policy for forms). A success toast still fires, then the dialog closes and
+// the list refreshes.
 export function useCompanyForm({ company, onDone }: UseCompanyFormArgs) {
   const tv = useTranslations("admin.companies.validation");
   const te = useTranslations("admin.companies.errors");
@@ -28,7 +29,7 @@ export function useCompanyForm({ company, onDone }: UseCompanyFormArgs) {
   const resolver = useMemo(() => zodResolver(companyFormSchema(tv)), [tv]);
   const form = useForm<CompanyFormValues>({
     resolver,
-    defaultValues: { name: company?.name ?? "", sector: company?.sector ?? "" },
+    defaultValues: { name: company.name, sector: company.sector ?? "" },
   });
 
   const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
@@ -38,19 +39,15 @@ export function useCompanyForm({ company, onDone }: UseCompanyFormArgs) {
     const sector = values.sector.trim() ? values.sector.trim() : undefined;
     const name = values.name.trim();
 
-    const { error } = company
-      ? await updateCompany({ companyId: company.id, name, sector })
-      : await createCompany({ name, sector });
+    const { error } = await updateCompany({ companyId: company.id, name, sector });
 
     if (error) {
       setServerError(te(error));
       return;
     }
 
-    toast.success(tt(company ? "updated" : "created"));
-    form.reset(
-      company ? { name: values.name, sector: values.sector } : { name: "", sector: "" },
-    );
+    toast.success(tt("updated"));
+    form.reset({ name: values.name, sector: values.sector });
     onDone?.();
     router.refresh();
   });
