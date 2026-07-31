@@ -53,7 +53,6 @@
     "home": "Inicio",
     "administration": "Administración",
     "myCompany": "Mi empresa",
-    "comingSoon": "Pronto",
     "menu": "Menú",
     "account": "Cuenta",
     "changePassword": "Cambiar contraseña",
@@ -1160,6 +1159,31 @@
       "forbidden": "No tienes acceso a este reporte.",
       "notFound": "No hay datos para este reporte.",
       "badRequest": "No se pudo generar el reporte. Intenta de nuevo."
+    },
+    "page": {
+      "title": "Reportes",
+      "subtitle": "Descarga el reporte de huella de carbono por sede y año.",
+      "subtitleContext": "{facility} · año {year}",
+      "exportTitle": "Descargar reporte",
+      "exportHint": "El reporte usa la sede y el año seleccionados. Los archivos se generan en español.",
+      "formats": {
+        "pdfTitle": "PDF",
+        "pdfBody": "Resumen legible para compartir: totales por alcance, remociones, factores aplicados y la tabla de incertidumbre.",
+        "xlsxTitle": "Excel (.xlsx)",
+        "xlsxBody": "Tres hojas: Resumen, Datos y Cálculo. Valores numéricos, listos para sumar y comparar.",
+        "csvTitle": "CSV",
+        "csvBody": "El cálculo elemento por elemento en formato plano, para importar en otras herramientas."
+      },
+      "empty": {
+        "noFacilityTitle": "Aún no hay sedes",
+        "noFacilityBody": "Agrega una sede a tu empresa para poder generar reportes.",
+        "goToCompany": "Ir a la empresa",
+        "noYearTitle": "Aún no hay años de reporte",
+        "noYearBody": "Crea un año de reporte en Ingreso de datos para poder exportarlo.",
+        "noDataTitle": "Aún no hay datos para exportar",
+        "noDataBody": "Registra el consumo de tus fuentes en Ingreso de datos y podrás descargar el reporte.",
+        "goToDataEntry": "Ir a Ingreso de datos"
+      }
     }
   }
 }

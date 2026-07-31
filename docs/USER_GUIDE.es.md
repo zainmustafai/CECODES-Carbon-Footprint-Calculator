@@ -133,7 +133,7 @@ un usuario de empresa tiene cinco opciones:
   mayor parte del tiempo.
 - **Resumen**: todos tus datos en una tabla, y los botones de descarga.
 - **Empresa**: los datos de tu empresa y tus sedes.
-- **Reportes**: marcado como **Pronto**, así que todavía no hace nada.
+- **Reportes**: elige una sede y un año y descarga el reporte en PDF, Excel o CSV. Los mismos botones de descarga también aparecen en el Resumen.
 
 ### Paso 4. Encuentra los controles de arriba
 

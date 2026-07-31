@@ -15,7 +15,6 @@ export type NavLeaf = {
   key: string; // i18n key under "nav"
   segment: string; // relative segment, or an absolute path when it starts with "/"
   icon: LucideIcon;
-  comingSoon?: boolean;
   // Match the active state on an exact path only. "/admin" (the home) is a prefix of every other
   // admin route, so without this it would light up on all of them.
   exact?: boolean;
@@ -29,7 +28,7 @@ export const WORKSPACE_ITEMS: NavLeaf[] = [
   { key: "preview", segment: "preview", icon: Table2 },
   // Sedes (facilities) is managed inside the company page now, not as its own item.
   { key: "company", segment: "company", icon: Building },
-  { key: "reports", segment: "reports", icon: FileText, comingSoon: true },
+  { key: "reports", segment: "reports", icon: FileText },
 ];
 
 // CECODES admin only. Absolute paths.

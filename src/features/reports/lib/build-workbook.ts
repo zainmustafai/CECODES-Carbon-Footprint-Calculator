@@ -12,6 +12,11 @@ import type { ReportVM } from "./types";
 // point of shipping .xlsx rather than a PDF: CECODES is going to diff this against their own
 // spreadsheet, and a column of text they cannot total is useless to them.
 //
+// Every label is Spanish REGARDLESS of the UI locale, deliberately: the client's reference
+// workbook is Spanish and they diff this file against it, so localizing sheet names or headers
+// would break that comparison for zero users. The export route ignores the locale on purpose,
+// and the Reports page says so ("Los archivos se generan en español").
+//
 // The float conversion is honest here for the same reason it is honest in the roll-up: the
 // spreadsheet we are being compared against is itself float64. Stored precision is untouched; only
 // this rendering is lossy, and only at the last decimal place.

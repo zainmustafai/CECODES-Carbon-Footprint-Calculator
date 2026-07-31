@@ -133,7 +133,7 @@ bottom, a company user has five items:
   you will spend most of your time.
 - **Resumen** (Summary): all your data in one table, and the download buttons.
 - **Empresa** (Company): your company details and your locations.
-- **Reportes** (Reports): marked **Pronto** (Coming soon), so it does nothing yet.
+- **Reportes** (Reports): pick a sede and a year, then download the report as PDF, Excel or CSV. The same download buttons also appear on the Resumen screen.
 
 ### Step 4. Find the controls at the top
 

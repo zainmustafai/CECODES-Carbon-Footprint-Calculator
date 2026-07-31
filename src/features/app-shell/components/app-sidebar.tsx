@@ -12,7 +12,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -58,22 +57,6 @@ export function AppSidebar({ role }: AppSidebarProps) {
   function renderLeaf(item: NavLeaf, base: string) {
     const href = navHref(base, item);
     const label = t(item.key);
-
-    if (item.comingSoon) {
-      return (
-        <SidebarMenuItem key={item.key}>
-          <SidebarMenuButton
-            aria-disabled
-            tooltip={label}
-            className="cursor-default"
-          >
-            <item.icon aria-hidden />
-            <span>{label}</span>
-          </SidebarMenuButton>
-          <SidebarMenuBadge>{t("comingSoon")}</SidebarMenuBadge>
-        </SidebarMenuItem>
-      );
-    }
 
     const active = isActive(pathname, href, item.exact);
     return (
@@ -176,19 +159,6 @@ export function AppSidebar({ role }: AppSidebarProps) {
                         {WORKSPACE_ITEMS.map((sub) => {
                           const href = navHref(base, sub);
                           const label = t(sub.key);
-                          if (sub.comingSoon) {
-                            return (
-                              <SidebarMenuSubItem key={sub.key}>
-                                <SidebarMenuSubButton
-                                  aria-disabled
-                                  className="text-sidebar-foreground/60 cursor-default"
-                                >
-                                  <sub.icon aria-hidden />
-                                  <span>{label}</span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          }
                           const active = isActive(pathname, href);
                           return (
                             <SidebarMenuSubItem key={sub.key}>

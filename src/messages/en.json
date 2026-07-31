@@ -53,7 +53,6 @@
     "home": "Home",
     "administration": "Administration",
     "myCompany": "My company",
-    "comingSoon": "Soon",
     "menu": "Menu",
     "account": "Account",
     "changePassword": "Change password",
@@ -1160,6 +1159,31 @@
       "forbidden": "You do not have access to this report.",
       "notFound": "There is no data for this report.",
       "badRequest": "The report could not be generated. Try again."
+    },
+    "page": {
+      "title": "Reports",
+      "subtitle": "Download the carbon footprint report by facility and year.",
+      "subtitleContext": "{facility} · year {year}",
+      "exportTitle": "Download report",
+      "exportHint": "The report uses the selected facility and year. Files are generated in Spanish.",
+      "formats": {
+        "pdfTitle": "PDF",
+        "pdfBody": "A readable summary to share: totals per alcance, removals, applied factors and the uncertainty table.",
+        "xlsxTitle": "Excel (.xlsx)",
+        "xlsxBody": "Three sheets: Resumen, Datos and Cálculo. Numeric values, ready to total and compare.",
+        "csvTitle": "CSV",
+        "csvBody": "The element by element calculation as plain text, for importing into other tools."
+      },
+      "empty": {
+        "noFacilityTitle": "No facilities yet",
+        "noFacilityBody": "Add a facility to your company to generate reports.",
+        "goToCompany": "Go to the company",
+        "noYearTitle": "No reporting years yet",
+        "noYearBody": "Create a reporting year in Data entry to export it.",
+        "noDataTitle": "No data to export yet",
+        "noDataBody": "Record your sources' consumption in Data entry and you can download the report.",
+        "goToDataEntry": "Go to Data entry"
+      }
     }
   }
 }

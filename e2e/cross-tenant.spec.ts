@@ -77,7 +77,7 @@ test.describe("cross-tenant isolation", () => {
     // dropped from one of them, this is the test that fails.
     const base = `/admin/companies/${fixture.victimCompanyId}`;
 
-    for (const path of ["/dashboard", "/data-entry", "/preview", "/company"]) {
+    for (const path of ["/dashboard", "/data-entry", "/preview", "/company", "/reports"]) {
       await page.goto(`${base}${path}`);
 
       await expect(
