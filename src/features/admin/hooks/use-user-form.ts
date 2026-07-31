@@ -46,6 +46,12 @@ export function useUserForm({
   const tt = useTranslations("admin.users.toasts");
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  // Set after a successful CREATE: the dialog swaps to the credentials box so the admin can
+  // copy or download the password, the only moment it exists in plaintext. Edit never sets it.
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
 
   const resolver = useMemo(
     () =>
@@ -118,7 +124,12 @@ export function useUserForm({
             position: "",
           },
     );
-    onDone?.();
+    if (user) {
+      // Edit closes as before. Create keeps the dialog open on the credentials box instead.
+      onDone?.();
+    } else {
+      setCreatedCredentials({ email: values.email, password: values.tempPassword });
+    }
     router.refresh();
   });
 
@@ -138,6 +149,10 @@ export function useUserForm({
     });
   }
 
+  function clearCredentials() {
+    setCreatedCredentials(null);
+  }
+
   return {
     form,
     isEdit,
@@ -147,5 +162,7 @@ export function useUserForm({
     onSubmit,
     isSubmitting,
     serverError,
+    createdCredentials,
+    clearCredentials,
   };
 }

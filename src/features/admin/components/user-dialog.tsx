@@ -17,6 +17,7 @@ import {
 import { TextField } from "@/components/form/text-field";
 import { SelectField } from "@/components/form/select-field";
 import { NO_COMPANY } from "../schemas/user-schemas";
+import { CredentialsBox } from "./credentials-box";
 import { useUserForm, type EditableUser, type Role } from "../hooks/use-user-form";
 
 export type CompanyOption = { id: string; name: string };
@@ -33,12 +34,11 @@ type UserDialogProps = {
 
 export function UserDialog({ companies, user, open, onOpenChange }: UserDialogProps) {
   const t = useTranslations("admin.users");
+  const tCred = useTranslations("admin.credentials");
   const isEdit = Boolean(user);
   const isControlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = isControlled ? open : internalOpen;
-  const setOpen = (next: boolean) =>
-    isControlled ? onOpenChange?.(next) : setInternalOpen(next);
 
   const {
     form,
@@ -48,7 +48,16 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
     onSubmit,
     isSubmitting,
     serverError,
+    createdCredentials,
+    clearCredentials,
   } = useUserForm({ user, onDone: () => setOpen(false) });
+
+  function setOpen(next: boolean) {
+    // Closing by any path drops the plaintext credentials; they are not shown again.
+    if (!next) clearCredentials();
+    if (isControlled) onOpenChange?.(next);
+    else setInternalOpen(next);
+  }
 
   const roleOptions = [
     { value: "COMPANY_USER", label: t("roleCompany") },
@@ -72,6 +81,25 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
       )}
 
       <DialogContent>
+        {createdCredentials ? (
+          <div>
+            <DialogHeader>
+              <DialogTitle>{t("createdTitle")}</DialogTitle>
+              <DialogDescription>{t("createdSubtitle")}</DialogDescription>
+            </DialogHeader>
+            <div className="py-6">
+              <CredentialsBox
+                email={createdCredentials.email}
+                password={createdCredentials.password}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" onClick={() => setOpen(false)}>
+                {tCred("close")}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
         <form onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{isEdit ? t("editTitle") : t("createTitle")}</DialogTitle>
@@ -187,6 +215,7 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

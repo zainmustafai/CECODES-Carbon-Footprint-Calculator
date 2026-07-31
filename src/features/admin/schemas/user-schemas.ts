@@ -72,6 +72,13 @@ export const deleteUserInput = z
   })
   .strict();
 
+export const resetUserPasswordInput = z
+  .object({
+    userId: z.uuid(),
+    tempPassword: z.string().min(8),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // Client form schema factories (localized). The Radix Select cannot hold an empty-string
 // value, so "no company" is carried through the form as this sentinel and mapped to null
@@ -96,6 +103,15 @@ export function createUserFormSchema(t: T) {
   });
 }
 export type CreateUserFormValues = z.infer<ReturnType<typeof createUserFormSchema>>;
+
+export function regenerateCredentialsFormSchema(t: T) {
+  return z.object({
+    tempPassword: z.string().min(8, t("passwordMin")),
+  });
+}
+export type RegenerateCredentialsFormValues = z.infer<
+  ReturnType<typeof regenerateCredentialsFormSchema>
+>;
 
 export function updateUserFormSchema(t: T) {
   // Role and company always hold a valid value from the Select, so there is nothing to

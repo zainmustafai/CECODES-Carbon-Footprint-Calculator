@@ -56,6 +56,7 @@
     "comingSoon": "Soon",
     "menu": "Menu",
     "account": "Account",
+    "changePassword": "Change password",
     "signOut": "Sign out",
     "toggleSidebar": "Show or hide the sidebar",
     "skipToContent": "Skip to content",
@@ -696,18 +697,25 @@
       "positionPlaceholder": "Head of Sustainability",
       "phonePlaceholder": "+57 300 000 0000",
       "tempPassword": "Temporary password",
-      "tempPasswordHelp": "Share it with the person. They can change it through password reset.",
+      "tempPasswordHelp": "Share it with the person. They can change it from their account menu once signed in.",
       "generate": "Generate",
       "roleCompany": "Company user",
       "roleAdmin": "CECODES admin",
       "companyNone": "No company",
-      "companyNoneHelp": "A user with no company will create their own on first sign in. An admin never has a company.",
+      "companyNoneHelp": "A user with no company cannot enter data until you assign one. An admin never has a company.",
       "save": "Save",
       "edit": "Edit",
       "activate": "Activate",
       "deactivate": "Deactivate",
       "delete": "Delete",
       "you": "You",
+      "regenerate": "Regenerate credentials",
+      "regenerateTitle": "Regenerate credentials",
+      "regenerateBody": "A new temporary password will be assigned to {email}. The current password stops working on their next sign in.",
+      "regenerateConfirm": "Regenerate",
+      "regeneratedSubtitle": "Share the new credentials securely. They will not be shown again.",
+      "createdTitle": "User created",
+      "createdSubtitle": "The account can sign in with these credentials now.",
       "deactivateDialog": {
         "title": "Deactivate {email}?",
         "body": "They will not be able to sign in or save data until you reactivate them. Their data is kept.",
@@ -734,9 +742,9 @@
       "errors": {
         "forbidden": "You do not have permission for this action.",
         "emailInUse": "An account with this email already exists.",
-        "cannotEditSelf": "You cannot change your own role or deactivate your own account.",
+        "cannotEditSelf": "You cannot modify your own account from here.",
         "companyNotFound": "The selected company does not exist.",
-        "authFailed": "The sign-in account could not be created. Please try again.",
+        "authFailed": "The sign-in account operation could not be completed. Please try again.",
         "generic": "Something went wrong. Please try again."
       },
       "toasts": {
@@ -748,7 +756,28 @@
         "deactivating": "Deactivating user...",
         "deactivated": "User deactivated.",
         "deleting": "Deleting user...",
-        "deleted": "User deleted."
+        "deleted": "User deleted.",
+        "credentialsRegenerated": "Credentials regenerated."
+      }
+    },
+    "credentials": {
+      "title": "User credentials",
+      "email": "Email",
+      "password": "Password",
+      "help": "Share them securely. They will not be shown again.",
+      "copy": "Copy",
+      "copiedShort": "Copied",
+      "copied": "Credentials copied to the clipboard.",
+      "copyFailed": "Could not copy. Copy the values manually.",
+      "download": "Download .txt",
+      "close": "Done",
+      "file": {
+        "title": "CECODES Huella de Carbono",
+        "subtitle": "Access credentials",
+        "url": "Platform",
+        "email": "Email",
+        "password": "Temporary password",
+        "note": "This password is temporary. Change it after your first sign in from your account menu (Change password)."
       }
     },
     "factors": {

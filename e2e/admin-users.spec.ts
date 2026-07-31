@@ -18,6 +18,11 @@ test.describe.configure({ mode: "serial" });
 const suffix = randomUUID().slice(0, 8);
 const userEmail = `e2e-created-${suffix}@${E2E_EMAIL_DOMAIN}`;
 const tempPassword = "E2e-Created-Temp-1!";
+const regeneratedPassword = "E2e-Regen-Temp-2!";
+// The regenerate test rotates the password mid-suite; later tests must sign in with whatever
+// is CURRENT, not the original. Forgetting this makes the deactivate test fail on
+// invalidCredentials before it ever reaches the accountDisabled check.
+let currentPassword = tempPassword;
 
 let fixture: Fixture;
 
@@ -57,9 +62,53 @@ test.describe("admin users", () => {
     await page.getByRole("option", { name: fixture.companyName, exact: true }).click();
     await dialog.getByRole("button", { name: /nuevo usuario/i }).click();
 
-    await expect(page.getByText(/usuario creado/i)).toBeVisible({ timeout: 15_000 });
+    // The dialog stays open on the credentials box: the only moment the password is visible.
+    await expect(dialog.getByText(/usuario creado/i)).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText(userEmail)).toBeVisible();
+    await expect(dialog.getByText(tempPassword)).toBeVisible();
+
+    const download = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: /descargar/i }).click();
+    expect((await download).suggestedFilename()).toBe(`credenciales-${userEmail}.txt`);
+
+    await dialog.getByRole("button", { name: /^listo$/i }).click();
     await expect(userRow(page)).toBeVisible();
     await expect(userRow(page)).toContainText(fixture.companyName);
+  });
+
+  test("regenerates credentials: the old password is refused, the new one signs in", async ({
+    page,
+    browser,
+  }) => {
+    await page.goto("/admin/users");
+
+    await userRow(page).getByRole("button", { name: /acciones/i }).click();
+    await page.getByRole("menuitem", { name: /regenerar credenciales/i }).click();
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(/contraseña temporal/i).fill(regeneratedPassword);
+    await dialog.getByRole("button", { name: /^regenerar$/i }).click();
+
+    await expect(page.getByText(/credenciales regeneradas/i)).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText(regeneratedPassword)).toBeVisible();
+    await dialog.getByRole("button", { name: /^listo$/i }).click();
+    currentPassword = regeneratedPassword;
+
+    // Fresh anonymous context: the old password is dead, the new one works.
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const anon = await context.newPage();
+    await anon.goto("/login");
+    await anon.fill('input[name="email"]', userEmail);
+    await anon.fill('input[name="password"]', tempPassword);
+    await anon.getByRole("button", { name: /ingresar/i }).click();
+    await expect(anon.getByText(/correo o contraseña incorrectos/i)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await anon.fill('input[name="password"]', currentPassword);
+    await anon.getByRole("button", { name: /ingresar/i }).click();
+    await anon.waitForURL("**/dashboard", { timeout: 20_000 });
+    await context.close();
   });
 
   test("deactivating the user blocks their login", async ({ page, browser }) => {
@@ -76,7 +125,7 @@ test.describe("admin users", () => {
     const anon = await context.newPage();
     await anon.goto("/login");
     await anon.fill('input[name="email"]', userEmail);
-    await anon.fill('input[name="password"]', tempPassword);
+    await anon.fill('input[name="password"]', currentPassword);
     await anon.getByRole("button", { name: /ingresar/i }).click();
     await expect(anon.getByText(/tu cuenta fue desactivada/i)).toBeVisible({ timeout: 15_000 });
     await context.close();

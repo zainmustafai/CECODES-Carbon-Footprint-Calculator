@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, LogOut } from "lucide-react";
+import { Building2, KeyRound, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,13 @@ export function UserMenu({ email, role, companyName }: UserMenuProps) {
           <Link href={isAdmin ? "/admin/companies" : "/company"}>
             <Building2 className="size-4" aria-hidden />
             {isAdmin ? t("companies") : t("myCompany")}
+          </Link>
+        </DropdownMenuItem>
+        {/* /reset-password works for any signed-in session, no recovery email needed. */}
+        <DropdownMenuItem asChild>
+          <Link href="/reset-password">
+            <KeyRound className="size-4" aria-hidden />
+            {t("changePassword")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

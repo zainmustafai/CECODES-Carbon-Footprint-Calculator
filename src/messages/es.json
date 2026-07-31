@@ -56,6 +56,7 @@
     "comingSoon": "Pronto",
     "menu": "Menú",
     "account": "Cuenta",
+    "changePassword": "Cambiar contraseña",
     "signOut": "Cerrar sesión",
     "toggleSidebar": "Mostrar u ocultar el menú lateral",
     "skipToContent": "Saltar al contenido",
@@ -696,18 +697,25 @@
       "positionPlaceholder": "Jefe de Sostenibilidad",
       "phonePlaceholder": "+57 300 000 0000",
       "tempPassword": "Contraseña temporal",
-      "tempPasswordHelp": "Compártela con la persona. Podrá cambiarla desde recuperar contraseña.",
+      "tempPasswordHelp": "Compártela con la persona. Podrá cambiarla desde el menú de su cuenta al entrar.",
       "generate": "Generar",
       "roleCompany": "Usuario Empresa",
       "roleAdmin": "Administrador CECODES",
       "companyNone": "Sin empresa",
-      "companyNoneHelp": "Un usuario sin empresa creará la suya al iniciar sesión. Un administrador nunca tiene empresa.",
+      "companyNoneHelp": "Un usuario sin empresa no podrá ingresar datos hasta que le asignes una. Un administrador nunca tiene empresa.",
       "save": "Guardar",
       "edit": "Editar",
       "activate": "Activar",
       "deactivate": "Desactivar",
       "delete": "Eliminar",
       "you": "Tú",
+      "regenerate": "Regenerar credenciales",
+      "regenerateTitle": "Regenerar credenciales",
+      "regenerateBody": "Se asignará una nueva contraseña temporal a {email}. La contraseña actual dejará de funcionar en su próximo inicio de sesión.",
+      "regenerateConfirm": "Regenerar",
+      "regeneratedSubtitle": "Comparte las nuevas credenciales de forma segura. No se volverán a mostrar.",
+      "createdTitle": "Usuario creado",
+      "createdSubtitle": "La cuenta ya puede iniciar sesión con estas credenciales.",
       "deactivateDialog": {
         "title": "¿Desactivar a {email}?",
         "body": "No podrá iniciar sesión ni guardar datos hasta que lo reactives. Sus datos se conservan.",
@@ -734,9 +742,9 @@
       "errors": {
         "forbidden": "No tienes permisos para esta acción.",
         "emailInUse": "Ya existe una cuenta con este correo.",
-        "cannotEditSelf": "No puedes cambiar tu propio rol ni desactivar tu cuenta.",
+        "cannotEditSelf": "No puedes modificar tu propia cuenta desde aquí.",
         "companyNotFound": "La empresa seleccionada no existe.",
-        "authFailed": "No se pudo crear la cuenta de acceso. Inténtalo de nuevo.",
+        "authFailed": "No se pudo completar la operación con la cuenta de acceso. Inténtalo de nuevo.",
         "generic": "Algo salió mal. Inténtalo de nuevo."
       },
       "toasts": {
@@ -748,7 +756,28 @@
         "deactivating": "Desactivando usuario...",
         "deactivated": "Usuario desactivado.",
         "deleting": "Eliminando usuario...",
-        "deleted": "Usuario eliminado."
+        "deleted": "Usuario eliminado.",
+        "credentialsRegenerated": "Credenciales regeneradas."
+      }
+    },
+    "credentials": {
+      "title": "Credenciales del usuario",
+      "email": "Correo",
+      "password": "Contraseña",
+      "help": "Compártelas de forma segura. No se volverán a mostrar.",
+      "copy": "Copiar",
+      "copiedShort": "Copiado",
+      "copied": "Credenciales copiadas al portapapeles.",
+      "copyFailed": "No se pudo copiar. Copia los valores manualmente.",
+      "download": "Descargar .txt",
+      "close": "Listo",
+      "file": {
+        "title": "CECODES Huella de Carbono",
+        "subtitle": "Credenciales de acceso",
+        "url": "Plataforma",
+        "email": "Correo",
+        "password": "Contraseña temporal",
+        "note": "Esta contraseña es temporal. Cámbiala después de tu primer ingreso desde el menú de tu cuenta (Cambiar contraseña)."
       }
     },
     "factors": {

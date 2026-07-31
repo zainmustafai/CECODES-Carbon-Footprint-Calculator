@@ -100,9 +100,16 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 // The admin user actions reach for Supabase. They must never get that far in these tests.
 const supabaseCreateUser = vi.fn();
 const supabaseDeleteUser = vi.fn();
+const supabaseUpdateUserById = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
-    auth: { admin: { createUser: supabaseCreateUser, deleteUser: supabaseDeleteUser } },
+    auth: {
+      admin: {
+        createUser: supabaseCreateUser,
+        deleteUser: supabaseDeleteUser,
+        updateUserById: supabaseUpdateUserById,
+      },
+    },
   }),
   findAuthUserIdByEmail: vi.fn(),
 }));
@@ -127,6 +134,7 @@ function expectNothingWritten() {
   for (const mock of allWriteMocks()) expect(mock).not.toHaveBeenCalled();
   expect(supabaseCreateUser).not.toHaveBeenCalled();
   expect(supabaseDeleteUser).not.toHaveBeenCalled();
+  expect(supabaseUpdateUserById).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -276,6 +284,9 @@ describe("a company user cannot reach ANY admin action", () => {
       error: "forbidden",
     });
     expect(await adminUsers.deleteUser({ userId: USER_B })).toEqual({ error: "forbidden" });
+    expect(
+      await adminUsers.resetUserPassword({ userId: USER_B, tempPassword: "supersecret" }),
+    ).toEqual({ error: "forbidden" });
 
     // Privilege escalation to CECODES_ADMIN must not even reach the auth provider.
     expectNothingWritten();

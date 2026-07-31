@@ -16,6 +16,7 @@ import {
   updateUserInput,
   setUserActiveInput,
   deleteUserInput,
+  resetUserPasswordInput,
 } from "../schemas/user-schemas";
 
 // app_users.email is a Prisma-owned @unique, so a collision surfaces as P2002. The raw driver
@@ -207,6 +208,47 @@ export async function setUserActive(input: {
     // resolveCompanyScope and resolveAdminScope throw ScopeError; signInAction returns
     // "accountDisabled"). supabase-js exposes no by-user-id session revocation.
     revalidatePath("/admin/users");
+    return {};
+  } catch (error) {
+    return { error: scopeErrorKey(error) };
+  }
+}
+
+// Assigns a new temporary password to a user's auth account, so the admin can hand out fresh
+// credentials without any email involved (there is no SMTP; the recovery email may never
+// arrive on the free tier). Same admin API the seeds use.
+export async function resetUserPassword(input: {
+  userId: string;
+  tempPassword: string;
+}): Promise<{ error?: string }> {
+  const parsed = resetUserPasswordInput.safeParse(input);
+  if (!parsed.success) return { error: "generic" };
+  const { userId, tempPassword } = parsed.data;
+
+  try {
+    const scope = await resolveAdminScope();
+    // Self-guard: regeneration exists for handing credentials to someone else, which self
+    // never is. An admin changes their own password signed-in via /reset-password.
+    if (userId === scope.appUser.id) return { error: "cannotEditSelf" };
+
+    // The profile must exist; a missing one maps to the opaque "forbidden" like updateUser.
+    const profile = await prisma.appUser.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!profile) throw new ScopeError("not-found");
+
+    // Rotating the password does NOT revoke live sessions (supabase-js has no by-user-id
+    // revocation; see setUserActive above): it blocks the next sign-in, nothing more. For an
+    // immediate lockout, deactivate the user instead.
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+      email_confirm: true,
+    });
+    if (error) return { error: "authFailed" };
+
+    // Nothing rendered changes (passwords are never displayed), so no revalidatePath.
     return {};
   } catch (error) {
     return { error: scopeErrorKey(error) };

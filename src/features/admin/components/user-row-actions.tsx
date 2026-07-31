@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Pencil, Power, Trash2 } from "lucide-react";
+import { KeyRound, MoreHorizontal, Pencil, Power, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmActionDialog } from "@/components/feedback/confirm-action-dialog";
 import { UserDialog, type CompanyOption } from "./user-dialog";
+import { RegenerateCredentialsDialog } from "./regenerate-credentials-dialog";
 import { useUserActions } from "../hooks/use-user-actions";
 import type { EditableUser } from "../hooks/use-user-form";
 
@@ -27,6 +28,7 @@ export function UserRowActions({
   const t = useTranslations("admin.users");
   const tc = useTranslations("common");
   const [editOpen, setEditOpen] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
   const { isPending, setActive, remove } = useUserActions();
 
   // Literal keys (not a template) so next-intl and TypeScript both keep them checkable.
@@ -59,6 +61,11 @@ export function UserRowActions({
           <DropdownMenuItem onSelect={() => setEditOpen(true)}>
             <Pencil className="size-4" aria-hidden />
             {t("edit")}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={() => setRegenerateOpen(true)}>
+            <KeyRound className="size-4" aria-hidden />
+            {t("regenerate")}
           </DropdownMenuItem>
 
           {/* Activate / deactivate. The confirm's trigger IS this menu item, so onSelect must
@@ -106,6 +113,12 @@ export function UserRowActions({
         user={user}
         open={editOpen}
         onOpenChange={setEditOpen}
+      />
+
+      <RegenerateCredentialsDialog
+        user={{ id: user.id, email: user.email }}
+        open={regenerateOpen}
+        onOpenChange={setRegenerateOpen}
       />
     </div>
   );
