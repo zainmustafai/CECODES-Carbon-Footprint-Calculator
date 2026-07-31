@@ -128,7 +128,7 @@ will receive, by whatever channel CECODES uses to reach you (email, a shared fil
 - **If you are a Company account preparing to enter data**, it helps (but is not required on day
   one) to gather your consumption records for the year you are reporting: fuel purchases, your
   twelve monthly electricity bills, and any indirect activities you want to include, such as
-  business flights or waste. You can start with whatever you already have and add the rest later - 
+  business flights or waste. You can start with whatever you already have and add the rest later -
   an empty field simply means "not reported yet," never zero.
 - **If you are a CECODES Administrator preparing to onboard a company**, it helps to have on hand:
   the company's legal name, its sector (optional), a contact email, and - if you want to set them up
@@ -194,7 +194,7 @@ yourself - contact CECODES.
 
 1. On the sign-in screen, click **¿Olvidaste tu contraseña?** (Forgot your password?).
 2. Type your email and click **Enviar enlace** (Send link).
-3. You will always see the same confirmation message - **"Revisa tu correo"** (Check your email) - 
+3. You will always see the same confirmation message - **"Revisa tu correo"** (Check your email) -
    whether or not that email actually belongs to an account. This is deliberate: the tool never
    reveals whether a given email is registered.
 4. If an account does exist, an email arrives with a reset link. Open it - it signs you in
@@ -224,7 +224,7 @@ contraseña** to confirm; you land back on the Dashboard.
 
 > **Note:** If your account is deactivated *before* you try to sign in, you never reach a separate
 > screen for it - you simply see "Tu cuenta fue desactivada" as an inline message on the sign-in
-> form itself (see the table in [Logging in fails](#if-login-fails) above). The dedicated
+> form itself (see [If login fails](#if-login-fails) above). The dedicated
 > **Cuenta desactivada** screen only appears if you were already signed in when CECODES switched
 > your account off.
 
@@ -444,7 +444,7 @@ electricity, and any other consumption your company wants to report.
    standard, not just a display filter. **Once a category holds any source, the switch locks** until
    you delete those sources.
 6. Click **Agregar fuente** (Add source) inside an applicable category. Search for the item you
-   consumed (for example "diesel") and click it. You can only pick from CECODES's official list - 
+   consumed (for example "diesel") and click it. You can only pick from CECODES's official list -
    you cannot type a made-up name, which is what keeps every company's math comparable.
 7. **Enter the amount.**
    - Alcance 1 and 3: one box, **Valor anual** (Annual value), for the whole year.
@@ -539,13 +539,14 @@ emissions data, for your own reference or to show in a report.
 
 **How to use it, step by step:**
 
-1. On the Data Entry screen, scroll below the Alcance tabs to the **Cleaner technologies and good
-   practices** card.
-2. Click **Add record**.
-3. Fill in **Element** (the only required field - describe the technology or practice) and,
-   optionally, Scope, Category, Subcategory, an activity quantity, and its unit.
-4. Click **Add record** to save.
-5. To edit a row, click its pencil icon, change the fields, and click **Save changes**.
+1. On the Data Entry screen, scroll below the Alcance tabs to the **Datos sobre tecnologías más
+   limpias y buenas prácticas** card.
+2. Click **Agregar registro** (Add record).
+3. Fill in **Elemento** (the only required field - describe the technology or practice) and,
+   optionally, Alcance, Categoría, Subcategoría, a quantity, and its unit.
+4. Click **Agregar registro** to save.
+5. To edit a row, click its pencil icon, change the fields, and click **Guardar cambios** (Save
+   changes).
 6. To remove a row, click its trash icon.
 
 > **Warning - removing a record has no confirmation step.** Clicking the trash icon deletes it
@@ -561,7 +562,7 @@ section at all - it only carries the priced, calculated figures.
 
 ### 5.6 Summary (Resumen)
 
-**What it does:** shows every number you have entered, for one facility and year, in one table - 
+**What it does:** shows every number you have entered, for one facility and year, in one table -
 plus a full history of who entered or changed each figure. It exists so you can **sanity-check**
 your data before trusting the Dashboard's official totals.
 
@@ -767,7 +768,7 @@ keeps data) with **Eliminar** (permanent, removes the login and profile entirely
 every company's calculation draws from, plus the one number Alcance 2 needs each year (the national
 electricity grid factor), and a formal version-release log.
 
-**Why/when you'd use it:** maintaining the accuracy of every company's calculations platform-wide - 
+**Why/when you'd use it:** maintaining the accuracy of every company's calculations platform-wide -
 this is shared, not scoped to any one company.
 
 **How to use it, step by step:**
@@ -883,8 +884,9 @@ empty option would never return anything anyway.
 13. **Downloading a report.** You click **Reportes**, confirm the Sede and Año, and click **Descargar
     PDF** (or Excel, or CSV) to get a file you can share.
 14. **Managing records later in the year.** You come back whenever new data is available, add or
-    correct sources, and delete anything entered by mistake (with the confirmation windows guarding
-    every permanent action).
+    correct sources, and delete anything entered by mistake. Most permanent deletes ask you to
+    confirm first; the one exception is a Cleaner Technologies record, which deletes the moment you
+    click its trash icon, with no confirmation window at all.
 15. **Logging out.** You open your account menu and click **Cerrar sesión**.
 
 ### 6.2 A day in the life: CECODES Administrator
@@ -964,7 +966,7 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **Copiar Enero a los meses vacíos** | Fills only the still-empty months with January's value | Similar electricity use most months | Never overwrites a month you already typed |
 | Value fields | Record the amount consumed | Entering your data | Saves itself automatically after a short pause |
 | **Guardar meta** | Saves (or clears, if left blank) your reduction target | Setting or removing a target for one Alcance | Confirmation message; shows on the Dashboard afterward |
-| **Add record** (Cleaner technologies) | Opens the add-record window | Logging a clean-tech practice | Only the Element field is required |
+| **Agregar registro** (Cleaner technologies) | Opens the add-record window | Logging a clean-tech practice | Only the Elemento field is required |
 | Trash icon (Cleaner technologies row) | Deletes that record | Removing a logged practice | **No confirmation - immediate and permanent** |
 
 ### Summary (Resumen) & Reports (Reportes)
@@ -1170,8 +1172,10 @@ filters first, then contact CECODES if the problem persists.
 **Why can't I edit this?**
 A few fields are locked on purpose: a category's **¿Aplica?** switch locks once it has sources (delete
 them first); a facility can't be deleted while it has reporting years (delete those first); your own
-email and password can only be changed through the password-reset flow, never edited directly; and
-(Administrators) you cannot edit, suspend, or delete your **own** account from the Usuarios screen.
+password can only be changed through the **Cambiar contraseña** flow, never edited directly in a
+form; your own email cannot be changed by anyone from inside the tool at all, not even a CECODES
+Administrator editing your account, so contact CECODES if it needs to change; and (Administrators)
+you cannot edit, suspend, or delete your **own** account from the Usuarios screen.
 
 **Where are my records?**
 Everything you enter is organized by **Sede** (facility) and **Año** (year). If you don't see a
