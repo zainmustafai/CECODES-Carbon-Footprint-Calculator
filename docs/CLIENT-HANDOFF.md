@@ -1,4 +1,4 @@
-# CECODES Huella de Carbono — Client Handoff & User Guide
+# CECODES Huella de Carbono - Client Handoff & User Guide
 
 A complete, plain-language manual for the CECODES carbon footprint platform: what it does, every
 screen it has, and exactly how to use it. No technical background is assumed.
@@ -6,7 +6,7 @@ screen it has, and exactly how to use it. No technical background is assumed.
 **A note on language.** The tool itself is set to **Spanish (es-CO)** by default, with an
 **English** switch in the top corner. This guide is written in English, but wherever it names a
 button, field, or message, it gives you the **Spanish word you will actually see on screen** in
-bold, followed by its English meaning in parentheses — for example, click **Guardar** (Save). A
+bold, followed by its English meaning in parentheses - for example, click **Guardar** (Save). A
 handful of Spanish words are used throughout instead of translating them, because that is what the
 tool itself calls them everywhere, in both languages:
 
@@ -15,7 +15,7 @@ tool itself calls them everywhere, in both languages:
 | **Empresa** | Company |
 | **Sede** | Facility / site (a plant, office, or warehouse) |
 | **Planta** | The plant/site name field, when adding a Sede |
-| **Alcance** | Scope (1, 2, or 3) — the GHG Protocol's three groups of emissions |
+| **Alcance** | Scope (1, 2, or 3) - the GHG Protocol's three groups of emissions |
 | **Meta** | An optional reduction target |
 | **Tablero** | Dashboard |
 
@@ -57,15 +57,15 @@ tool itself calls them everywhere, in both languages:
 
 ### What this tool is
 
-This platform calculates a company's yearly **carbon footprint** — the total greenhouse gases it
+This platform calculates a company's yearly **carbon footprint** - the total greenhouse gases it
 produced, measured in **tonnes of CO2 equivalent (t CO2e)**. It replaces a spreadsheet CECODES used
 to send its member companies by hand, and it is built to produce the same totals that spreadsheet
 did, using the same official conversion numbers.
 
 In plain terms, the tool does four things:
 
-1. Lets a company **type in what it consumed** last year — diesel, electricity, refrigerant gas,
-   business flights, and so on — one number at a time.
+1. Lets a company **type in what it consumed** last year - diesel, electricity, refrigerant gas,
+   business flights, and so on - one number at a time.
 2. **Multiplies** each number by an official CECODES conversion figure ("emission factor") and adds
    it all up.
 3. Shows the result on a **Dashboard**, broken down by category, by facility, and by month.
@@ -77,13 +77,13 @@ There are two very different kinds of accounts, and this guide covers both:
 
 - **Company accounts.** Staff at a CECODES member company. They record their own company's
   consumption, watch their footprint on a dashboard, and download reports. A company account only
-  ever sees its own company's data — never another company's.
+  ever sees its own company's data - never another company's.
 - **CECODES Administrator accounts.** CECODES staff who run the whole platform. They create every
-  member company and every login (there is currently no "sign yourself up" option — see
+  member company and every login (there is currently no "sign yourself up" option - see
   [Section 2](#2-before-you-begin)), keep the shared library of official conversion numbers
   up to date, and can step into any company's workspace to check on their data or help them out.
 
-> **Screenshot: The two kinds of navigation menus side by side — a Company account's menu (Tablero,
+> **Screenshot: The two kinds of navigation menus side by side - a Company account's menu (Tablero,
 > Ingreso de datos, Resumen, Empresa, Reportes) and an Administrator's menu (Inicio, Empresas,
 > Usuarios, Biblioteca de factores, Trazabilidad).**
 
@@ -117,22 +117,22 @@ will receive, by whatever channel CECODES uses to reach you (email, a shared fil
 - A **temporary password**.
 
 > **Tip:** Keep these three things together until you have signed in for the first time.
-> There is nothing you can do in the tool before your account exists — if you have not received
+> There is nothing you can do in the tool before your account exists - if you have not received
 > these yet, contact CECODES (see [Section 12](#12-contact--support)).
 
 ### What you need before logging in
 
 - A computer, tablet, or phone with an internet connection and a modern web browser (Chrome, Edge,
-  Firefox, or Safari — all work; there is nothing to install).
+  Firefox, or Safari - all work; there is nothing to install).
 - Your email and temporary password.
 - **If you are a Company account preparing to enter data**, it helps (but is not required on day
   one) to gather your consumption records for the year you are reporting: fuel purchases, your
   twelve monthly electricity bills, and any indirect activities you want to include, such as
-  business flights or waste. You can start with whatever you already have and add the rest later —
+  business flights or waste. You can start with whatever you already have and add the rest later - 
   an empty field simply means "not reported yet," never zero.
 - **If you are a CECODES Administrator preparing to onboard a company**, it helps to have on hand:
-  the company's legal name, its sector (optional), a contact email, and — if you want to set them up
-  in the same sitting — its first facility's name and location and the reporting year to start with.
+  the company's legal name, its sector (optional), a contact email, and - if you want to set them up
+  in the same sitting - its first facility's name and location and the reporting year to start with.
   All of this can also be added later, piece by piece.
 
 ### Basic recommendations
@@ -141,7 +141,7 @@ will receive, by whatever channel CECODES uses to reach you (email, a shared fil
 > [Section 3](#3-logging-in)). Nobody else should know it once you have.
 
 > **Best Practice:** Do not share a single login between several people. Each person who needs
-> access should have their own account — a CECODES Administrator can create as many as needed, and
+> access should have their own account - a CECODES Administrator can create as many as needed, and
 > every entry made in the tool records who made it.
 
 > **Warning:** A handful of actions in this tool cannot be undone (deleting a facility's reporting
@@ -167,7 +167,7 @@ will receive, by whatever channel CECODES uses to reach you (email, a shared fil
 ### What each field means
 
 - **Correo electrónico (Email):** the address your account was created with. This cannot be changed
-  from inside the tool — contact CECODES if it needs to change.
+  from inside the tool - contact CECODES if it needs to change.
 - **Contraseña (Password):** your current password. The very first time, this is the temporary one
   CECODES gave you; change it as soon as you are in (see below).
 
@@ -180,36 +180,38 @@ On success, you are taken straight to your home screen:
 
 If you are ever redirected to a screen saying your account has no company yet ("Tu cuenta aún no
 tiene empresa"), it means your login has not been linked to a company. You cannot fix this
-yourself — contact CECODES.
+yourself - contact CECODES.
 
 ### If login fails
 
 | What you see | What it means | What to do |
 |---|---|---|
 | **Correo o contraseña incorrectos** (Wrong email or password) | The email/password pair does not match any account | Check for typos and try again |
-| **Tu cuenta fue desactivada** (Your account was deactivated) | A CECODES administrator switched off your personal login | Contact CECODES — this cannot be reversed by you |
+| **Tu cuenta fue desactivada** (Your account was deactivated) | A CECODES administrator switched off your personal login | Contact CECODES - this cannot be reversed by you |
 | A screen about your company not existing yet | Your login exists, but is not linked to a company | Contact CECODES |
 
 ### Forgetting your password
 
 1. On the sign-in screen, click **¿Olvidaste tu contraseña?** (Forgot your password?).
 2. Type your email and click **Enviar enlace** (Send link).
-3. You will always see the same confirmation message — **"Revisa tu correo"** (Check your email) —
+3. You will always see the same confirmation message - **"Revisa tu correo"** (Check your email) - 
    whether or not that email actually belongs to an account. This is deliberate: the tool never
    reveals whether a given email is registered.
-4. If an account does exist, an email arrives with a reset link. Open it — it signs you in
+4. If an account does exist, an email arrives with a reset link. Open it - it signs you in
    automatically and takes you to a **Nueva contraseña** (New password) screen.
 5. Type your new password twice (it must be at least 8 characters and match both times) and click
    **Guardar contraseña** (Save password). You are then taken to your Dashboard.
 
-> **Note:** If no email arrives, either the address was not registered, or it is a delivery delay —
+> **Note:** If no email arrives, either the address was not registered, or it is a delivery delay -
 > the tool intentionally cannot tell you which, to protect everyone's privacy. If you are sure the
-> address is right and nothing arrives, contact CECODES directly.
+> address is right and nothing still arrives after a while, don't keep waiting: contact CECODES
+> directly and ask a CECODES Administrator to issue you a fresh temporary password instead (see
+> [5.11](#511-managing-users-usuarios)) - that path does not depend on an email arriving at all.
 
 ### Changing your password once signed in
 
 Open your account menu (the round button with your initial, top right) and click **Cambiar
-contraseña** (Change password). This uses the same "new password twice" screen as above — you do
+contraseña** (Change password). This uses the same "new password twice" screen as above - you do
 not need to know your current password, since you are already signed in. Click **Guardar
 contraseña** to confirm; you land back on the Dashboard.
 
@@ -217,15 +219,21 @@ contraseña** to confirm; you land back on the Dashboard.
 
 | Screen | When you see it | What it means | Who can fix it |
 |---|---|---|---|
-| **Cuenta desactivada** (Account deactivated) | You try to sign in, or you were already signed in when it happened | Your *personal* login was switched off. Nothing else on your screen works except **Cerrar sesión** (Sign out) | Only CECODES |
+| **Cuenta desactivada** (Account deactivated) | You were already signed in, and your account is switched off partway through your session (your next click after that discovers it) | Your *personal* login was switched off. Nothing else on your screen works except **Cerrar sesión** (Sign out) | Only CECODES |
 | **Empresa desactivada** (Company deactivated) | You are signed in normally | Your *whole company* was switched off by CECODES. Your data is kept safe, untouched | Only CECODES |
+
+> **Note:** If your account is deactivated *before* you try to sign in, you never reach a separate
+> screen for it - you simply see "Tu cuenta fue desactivada" as an inline message on the sign-in
+> form itself (see the table in [Logging in fails](#if-login-fails) above). The dedicated
+> **Cuenta desactivada** screen only appears if you were already signed in when CECODES switched
+> your account off.
 
 > **Screenshot: The "Empresa desactivada" message shown in place of the normal company screens.**
 
 ### Signing out
 
 Open your account menu and click **Cerrar sesión** (Sign out). This happens immediately with no
-confirmation step — you are returned to the sign-in screen right away.
+confirmation step - you are returned to the sign-in screen right away.
 
 ---
 
@@ -245,17 +253,17 @@ role's home screen.
   switch between light and dark appearance, an **ES / EN** switch for the interface language, and
   your account avatar (a circle with your first initial).
 - **Account menu:** click your avatar to see your email, your role (Empresa or Administrador
-  CECODES), and — for Company accounts — your company's name. From here: **Cambiar contraseña**,
+  CECODES), and - for Company accounts - your company's name. From here: **Cambiar contraseña**,
   **Cerrar sesión**.
 
 > **Note:** Switching **ES / EN** changes every label on screen, but it does **not** change the
-> language of downloaded reports — those are always produced in Spanish, regardless of your
+> language of downloaded reports - those are always produced in Spanish, regardless of your
 > interface language, so that every company's paperwork stays consistent.
 
 ### 4a. Company Dashboard (Tablero)
 
 This is a Company account's home screen and the single place where your **official, calculated**
-footprint lives — everywhere else in the tool (like Resumen) is a preview; this screen is the real
+footprint lives - everywhere else in the tool (like Resumen) is a preview; this screen is the real
 number.
 
 > **Screenshot: The Tablero, showing the total-footprint card, the Alcance donut, the category bars,
@@ -263,10 +271,10 @@ number.
 
 What is on it, top to bottom:
 
-- **Filter bar:** four dropdowns — **Planta/Sede**, **Año**, **Alcance**, **Categoría** — plus a
+- **Filter bar:** four dropdowns - **Planta/Sede**, **Año**, **Alcance**, **Categoría** - plus a
   **Limpiar** (Clear) button that appears once you have narrowed by Alcance or Categoría. Filtering
   never changes your data, only what the screen shows you.
-- **KPI cards** — the headline numbers:
+- **KPI cards** - the headline numbers:
   - **Huella total** (Total footprint): the total in t CO2e for whatever the filters currently show.
   - **Change vs. previous year**: a green "Reducción" or a red "Aumento" badge, comparing this year
     to the last one with data.
@@ -286,12 +294,12 @@ What is on it, top to bottom:
 
 **Warnings you might see on this screen:**
 
-> **Warning — missing electricity factor:** *"Falta el factor de red eléctrica para {year}"* means
+> **Warning - missing electricity factor:** *"Falta el factor de red eléctrica para {year}"* means
 > Alcance 2 is showing as **zero right now only because CECODES has not yet loaded that year's
-> national electricity number** — not because you used no electricity. Nothing you do fixes this;
+> national electricity number** - not because you used no electricity. Nothing you do fixes this;
 > only a CECODES administrator can, by loading it in the Biblioteca de factores.
 
-> **Warning — some sources excluded:** if you see a note that N sources "no pudieron calcularse,"
+> **Warning - some sources excluded:** if you see a note that N sources "no pudieron calcularse,"
 > it means those entries are being **left out of every total on this screen**, so the totals shown
 > are a floor, not the real number. Contact CECODES if this persists.
 
@@ -305,8 +313,11 @@ This is a CECODES Administrator's home screen: a control-room view of the whole 
 - **Four KPI cards:** **Empresas** (active/inactive count), **Usuarios** (total across every
   company), **Reportando {year}** (how many active companies have data for the current year, out of
   all active companies), **Factores** (how many factors exist, and the current library version).
-- **Estado del portafolio** (a donut): every active company sorted into Reportando (has data this
-  year), Iniciadas (started, but not this year), or Sin actividad (nothing yet).
+- **Estado del portafolio** (a donut): every active company sorted into Reportando (has entered
+  data in at least one year, ever), Iniciadas (has created a reporting year but never actually
+  entered any data), or Sin actividad (no reporting year at all yet). This is a lifetime view, not
+  limited to the current year - the **Reportando {year}** KPI card above it is the one scoped to
+  this year specifically.
 - **Requieren seguimiento** (Need follow-up): a plain list of specific problems, each one a link
   straight into that company's Ingreso de datos screen. The four kinds of flags, from most to least
   urgent: **Año vacío** (a reporting year with nothing in it), **Sin datos** (stalled), **Falta
@@ -332,7 +343,7 @@ Every feature in the platform, what it is for, and exactly how to use it. Sectio
 **What it does:** lets you move between screens, adjust how the tool looks, switch language, and
 manage your own login.
 
-**Why/when you'd use it:** constantly — it is the frame around every other feature.
+**Why/when you'd use it:** constantly - it is the frame around every other feature.
 
 **How to use it, step by step:**
 
@@ -348,9 +359,9 @@ manage your own login.
 **What happens after:** navigation and appearance changes are instant, with no confirmation and no
 effect on your data. A password change shows a success message and returns you to your Dashboard.
 
-**Common mistakes to avoid:** expecting the theme button to offer a "match my device" option — it
+**Common mistakes to avoid:** expecting the theme button to offer a "match my device" option - it
 only ever flips between light and dark. Expecting **Cambiar contraseña** to ask for your current
-password first — it does not, since you are already signed in.
+password first - it does not, since you are already signed in.
 
 ---
 
@@ -366,40 +377,41 @@ entered), and afterward whenever a detail changes or a new facility opens.
 
 1. Click **Empresa** in the left menu.
 2. **To edit your company's details:** in the **Información de la empresa** card, update the
-   **Nombre** (Name, required), **Sector** (optional, from a dropdown), or **Contacto** (optional
-   contact email). Click **Guardar cambios** (Save changes).
-3. **To add a facility:** click **Agregar sede** (or, if you have none yet, the same button in the
-   empty-state message). Fill in **Planta** (the site's name) and **Ubicación** (its location), both
+   **Nombre de la empresa** (Name, required), **Sector** (optional, from a dropdown), or
+   **Contacto** (optional contact email). Click **Guardar cambios** (Save changes).
+3. **To add a facility:** click **Agregar sede**, at the top of the Sedes section - it is always
+   there, whether or not you already have any facilities. Fill in **Planta** (the site's name) and
+   **Ubicación** (its location), both
    required, and click **Agregar sede**.
 4. **To edit a facility:** click the pencil icon on its card, change the fields, save.
 5. **To delete a facility:** click the trash icon on its card and confirm. This only works if the
    facility has **no reporting years** left on it (see below for how to remove those).
 6. **To delete a reporting year:** click the small **×** on that year's chip on the facility's card
    and confirm.
-7. **To start entering data for a facility:** click **Ingresar datos** on its card — this takes you
+7. **To start entering data for a facility:** click **Ingresar datos** on its card - this takes you
    to Data Entry, already filtered to that facility.
 
 > **Screenshot: The Empresa screen, showing the company profile card at the top and a grid of Sede
 > cards below it, each with its year chips.**
 
 **What happens after each action:** a small green confirmation message appears (for example, "Sede
-agregada"), and the page updates immediately — no reload needed.
+agregada"), and the page updates immediately - no reload needed.
 
 **Confirmations & warnings:**
 
-> **Warning — deleting a facility is permanent.** *"Esta acción no se puede deshacer."* You can only
+> **Warning - deleting a facility is permanent.** *"Esta acción no se puede deshacer."* You can only
 > delete a facility once every one of its reporting years has already been removed.
 
-> **Warning — deleting a reporting year is the single most destructive click in this whole section.**
+> **Warning - deleting a reporting year is the single most destructive click in this whole section.**
 > The confirmation window tells you exactly how many activity records will be permanently deleted
-> with it. This removes every number entered for that facility and year — there is no undo.
+> with it. This removes every number entered for that facility and year - there is no undo.
 
 **Common mistakes to avoid:**
 
-- Looking on this screen for a way to **create** a reporting year — you can only create one from the
+- Looking on this screen for a way to **create** a reporting year - you can only create one from the
   Data Entry screen (via **Ingresar datos**, or the **Crear año** button once you're there).
-- Assuming a blank **Contacto** field is an error — it is treated as "no contact set," not invalid.
-- Trying to delete a facility that still has years on it — the tool refuses and tells you to remove
+- Assuming a blank **Contacto** field is an error - it is treated as "no contact set," not invalid.
+- Trying to delete a facility that still has years on it - the tool refuses and tells you to remove
   the years first, on purpose, so a single click can never wipe real data.
 
 ---
@@ -419,64 +431,69 @@ electricity, and any other consumption your company wants to report.
    one of either, it is chosen automatically.
 3. **If there is no reporting year yet** for that facility, click **Crear año**, type a year (for
    example `2024`), and confirm. A note tells you which official scientific conversion set (the
-   "GWP set") will be used — this locks in permanently the moment the year is created, so results
+   "GWP set") will be used - this locks in permanently the moment the year is created, so results
    never silently change later if the science is updated. A year can never be renamed afterward,
    only deleted and recreated.
 4. Click one of the three tabs: **Alcance 1**, **Alcance 2**, or **Alcance 3**.
    - **Alcance 1**: what your company burns or leaks directly (fuel, refrigerant leaks).
-   - **Alcance 2**: the electricity you buy — the only Alcance entered **month by month**.
+   - **Alcance 2**: the electricity you buy - the only Alcance entered **month by month**.
    - **Alcance 3**: everything indirect (flights, purchased goods, waste, and similar).
 5. For each category (e.g. "Fuentes fijas"), decide whether it **¿Aplica?** (Applies) to your
    company. Leave it on if you have that kind of source; turn it off only for something your company
-   genuinely does not do — this switch is itself meaningful, reportable information under the GHG
+   genuinely does not do - this switch is itself meaningful, reportable information under the GHG
    standard, not just a display filter. **Once a category holds any source, the switch locks** until
    you delete those sources.
 6. Click **Agregar fuente** (Add source) inside an applicable category. Search for the item you
-   consumed (for example "diesel") and click it. You can only pick from CECODES's official list —
+   consumed (for example "diesel") and click it. You can only pick from CECODES's official list - 
    you cannot type a made-up name, which is what keeps every company's math comparable.
 7. **Enter the amount.**
    - Alcance 1 and 3: one box, **Valor anual** (Annual value), for the whole year.
    - Alcance 2: twelve boxes, **Enero** through **Diciembre**, one per month.
-   - Type numbers with a comma or a dot as the decimal point (`3,4` or `3.4`, both work) and
-     **never** a thousands separator — type `14957,1`, not `14.957,1`. Leaving a box blank means
-     "not reported yet," which is different from typing `0`.
+   - Type numbers with a comma or a dot as the decimal point (`3,4` or `3.4`, both work). A
+     Colombian-style thousands separator plus decimal comma, like `14.957,1`, is also read
+     correctly. The one pattern to avoid is a bare number with a single dot and **no comma**, like
+     `14.957` on its own - the tool has no way to tell that apart from a decimal, so it reads it as
+     fourteen point nine five seven, not fourteen thousand nine hundred fifty-seven. When in doubt,
+     leave the dot out and type digits only, e.g. `14957,1`. Leaving a box blank means "not
+     reported yet," which is different from typing `0`.
 8. **For monthly electricity**, if most months are similar, type January and click **Copiar Enero a
-   los meses vacíos** — it fills only the still-empty months and never overwrites one you already
+   los meses vacíos** - it fills only the still-empty months and never overwrites one you already
    typed.
 9. There is **no Save button**. A small indicator near the top tells you the state of your typing:
    **Se guarda automáticamente** (nothing pending) → **Guardando...** (in progress) → **Guardado
-   {time}** (confirmed) — or, if something goes wrong, **No se pudo guardar**, in which case the box
+   {time}** (confirmed) - or, if something goes wrong, **No se pudo guardar**, in which case the box
    reverts to its last saved value and you should try again.
 10. **To remove a source entirely**, click its trash icon and confirm. This deletes every value
     recorded for it (all twelve months, if it was electricity).
 
-> **Screenshot: The Ingreso de datos screen mid-entry — the Alcance tabs, a category card open with
+> **Screenshot: The Ingreso de datos screen mid-entry - the Alcance tabs, a category card open with
 > one annual source and one twelve-month electricity source, and the autosave indicator.**
 
 **Live estimates while you type:** each source shows a running estimate in t CO2e as you type.
 Click it to see exactly how it was calculated (the factor used, the scientific set, and its source).
-This number is always labeled a **reference estimate** — the official total is calculated on the
+This number is always labeled a **reference estimate** - the official total is calculated on the
 Dashboard, not here.
 
 **Confirmations & warnings:**
 
-> **Warning — deleting a source is permanent.** No undo. Confirm you have the right one before
+> **Warning - deleting a source is permanent.** No undo. Confirm you have the right one before
 > clicking through.
 
-> **Note — a missing factor is never shown as a false zero.** If an electricity year has no national
+> **Note - a missing factor is never shown as a false zero.** If an electricity year has no national
 > grid factor loaded yet, or an item has no valid conversion number, the tool says so in words ("Sin
 > factor de red," "Sin factor") rather than showing `0.0`, so a real zero is never confused with a
 > gap in the data.
 
 **Common mistakes to avoid:**
 
-- Typing `14.957,1` when you mean fourteen thousand nine hundred fifty-seven point one — the tool
-  reads a lone dot as a decimal point, so this becomes 14.9571 and nothing on screen flags it as
-  wrong. Drop the thousands separator entirely.
-- Treating the live per-source estimate as your official total — it is a preview only.
-- Trying to turn **¿Aplica?** off for a category that already has sources — the switch is
+- Typing a bare number like `14.957` (with a dot but no comma) when you mean fourteen thousand
+  nine hundred fifty-seven - the tool has no way to know that isn't a decimal, so it silently
+  stores fourteen point nine five seven instead, and nothing on screen flags it as wrong. If you
+  are not also typing a decimal comma, leave the dot out entirely: type `14957`.
+- Treating the live per-source estimate as your official total - it is a preview only.
+- Trying to turn **¿Aplica?** off for a category that already has sources - the switch is
   intentionally locked until those sources are deleted, so a click can never silently erase data.
-- Assuming a reporting year can be corrected if the year number itself was wrong — it cannot; delete
+- Assuming a reporting year can be corrected if the year number itself was wrong - it cannot; delete
   it (from Empresa) and create a new one.
 
 ---
@@ -484,7 +501,7 @@ Dashboard, not here.
 ### 5.4 Reduction Targets (Meta)
 
 **What it does:** lets you set your own optional yearly reduction goal, in t CO2e, for each Alcance.
-It is purely a number you choose — the tool never calculates or suggests one for you.
+It is purely a number you choose - the tool never calculates or suggests one for you.
 
 **Why/when you'd use it:** if your company has committed to a reduction goal and wants to track
 progress against it visually on the Dashboard.
@@ -494,7 +511,7 @@ progress against it visually on the Dashboard.
 1. On the Data Entry screen, open the Alcance tab you want a target for.
 2. At the top of that tab, type a number into the **Target for Alcance N** box.
 3. Click **Guardar meta** (Save target).
-4. To remove a target later, clear the box and click **Guardar meta** again — an empty box deletes
+4. To remove a target later, clear the box and click **Guardar meta** again - an empty box deletes
    the target; it is not the same as setting it to zero.
 
 **What happens after:** a confirmation message appears, and your progress shows up on the
@@ -504,7 +521,7 @@ Dashboard's "Target vs. actual by Alcance" chart the next time you view it.
 > facility or year at the top of Data Entry shows that combination's own saved target (or nothing,
 > if none was set there).
 
-**Common mistakes to avoid:** assuming clearing the box and saving sets your target to zero — it
+**Common mistakes to avoid:** assuming clearing the box and saving sets your target to zero - it
 removes the target entirely. A target of `0` and "no target" behave differently on the Dashboard
 chart (a zero target still draws a line at zero; no target simply leaves that Alcance off the
 chart).
@@ -514,7 +531,7 @@ chart).
 ### 5.5 Cleaner Technologies and Good Practices
 
 **What it does:** a free-text logbook for recording clean technologies or good practices your
-company has adopted — for example, an LED retrofit or a biomass boiler. **It is purely
+company has adopted - for example, an LED retrofit or a biomass boiler. **It is purely
 informational: nothing typed here is ever added to any total or calculation.**
 
 **Why/when you'd use it:** whenever you want a record of sustainability initiatives alongside your
@@ -525,25 +542,26 @@ emissions data, for your own reference or to show in a report.
 1. On the Data Entry screen, scroll below the Alcance tabs to the **Cleaner technologies and good
    practices** card.
 2. Click **Add record**.
-3. Fill in **Element** (the only required field — describe the technology or practice) and,
+3. Fill in **Element** (the only required field - describe the technology or practice) and,
    optionally, Scope, Category, Subcategory, an activity quantity, and its unit.
 4. Click **Add record** to save.
 5. To edit a row, click its pencil icon, change the fields, and click **Save changes**.
 6. To remove a row, click its trash icon.
 
-> **Warning — removing a record has no confirmation step.** Clicking the trash icon deletes it
+> **Warning - removing a record has no confirmation step.** Clicking the trash icon deletes it
 > immediately; there is no "are you sure" window and no undo.
 
 **Common mistakes to avoid:** assuming the "Activity data" quantity typed here counts toward your
-Alcance totals — it never does, anywhere in the tool. This section is repeated, word for word, on
-the Resumen screen and in every exported report, always with the same reminder that it does not
-affect any calculation.
+Alcance totals - it never does, anywhere in the tool. This section is repeated on the Resumen
+screen and in the PDF and Excel reports (whenever there are records to show), always with the same
+reminder that it does not affect any calculation. The plain-text CSV export does not include this
+section at all - it only carries the priced, calculated figures.
 
 ---
 
 ### 5.6 Summary (Resumen)
 
-**What it does:** shows every number you have entered, for one facility and year, in one table —
+**What it does:** shows every number you have entered, for one facility and year, in one table - 
 plus a full history of who entered or changed each figure. It exists so you can **sanity-check**
 your data before trusting the Dashboard's official totals.
 
@@ -554,34 +572,34 @@ or see who touched it.
 
 1. Click **Resumen** in the left menu.
 2. Choose a **Sede** and **Año** from the filter bar at the top.
-3. Review the totals cards (**Total estimado**, plus one per Alcance) and the tables below — one per
+3. Review the totals cards (**Total estimado**, plus one per Alcance) and the tables below - one per
    Alcance with data, listing each item's quantity, factor, and t CO2e.
 4. Scroll down for the **Historial de cambios** (Change history) panel: who entered or edited each
    figure, and when. If nothing has ever been changed for that facility/year, this panel simply does
-   not appear — that is normal, not a sign anything is broken.
+   not appear - that is normal, not a sign anything is broken.
 
 > **Screenshot: The Resumen screen, showing the totals cards, one Alcance table, and the Historial de
 > cambios panel at the bottom.**
 
 **Confirmations & warnings:**
 
-> **Note — this is a reference estimate, not your official number.** The footer of this screen
+> **Note - this is a reference estimate, not your official number.** The footer of this screen
 > always says so. Your **official**, authoritative totals are on the **Tablero** (Dashboard) and in
-> your downloaded reports — both are computed by the same underlying engine, which this preview
+> your downloaded reports - both are computed by the same underlying engine, which this preview
 > screen is not.
 
-> **Note — a dash (–) is not a zero.** A dash means no number is available (nothing was reported, or
+> **Note - a dash (–) is not a zero.** A dash means no number is available (nothing was reported, or
 > the item has no valid factor). A true reported zero always shows as `0`.
 
-**Common mistakes to avoid:** treating this screen's totals as final — they are a quick check, not
+**Common mistakes to avoid:** treating this screen's totals as final - they are a quick check, not
 the official figure. Expecting removals or cleaner-technology rows to count toward the totals shown
-here — both are always kept in their own separate section.
+here - both are always kept in their own separate section.
 
 ---
 
 ### 5.7 Reports (Reportes)
 
-**What it does:** downloads your company's official footprint — for one facility and year — as a
+**What it does:** downloads your company's official footprint - for one facility and year - as a
 file you can share or file away.
 
 **Why/when you'd use it:** whenever you need a document to send to a partner, keep on record, or
@@ -597,18 +615,18 @@ compare against your own spreadsheet.
 | Format | What it contains | Best for |
 |---|---|---|
 | **Descargar PDF** | A readable document: totals, breakdown by Alcance and category, removals (if any), cleaner-technology log (if any), and an uncertainty table | Sharing with a partner or keeping a signed-off record |
-| **Exportar a Excel** | A workbook with three sheets: **Resumen** (totals and notes), **Datos** (exactly what you typed, no math), **Cálculo** (the full element-by-element working) | Comparing against your own spreadsheet, or further analysis |
+| **Exportar a Excel** | A workbook with three sheets - **Resumen** (totals and notes), **Datos** (exactly what you typed, no math), **Cálculo** (the full element-by-element working) - plus a fourth, **Tecnologías más limpias**, whenever that year has any cleaner-technology records | Comparing against your own spreadsheet, or further analysis |
 | **CSV** | A plain-text, element-by-element version of the calculation | Loading into another system or tool |
 
 **What happens after clicking:** a short "Generando el reporte" message appears, then the file
 downloads to your device automatically, with a confirmation message.
 
 > **Note:** Reports are always generated in **Spanish**, no matter what language the interface is
-> set to. They are computed live, by the same official engine as the Dashboard — not a snapshot, and
+> set to. They are computed live, by the same official engine as the Dashboard - not a snapshot, and
 > not the same as the Resumen screen's quick preview.
 
 **Common mistakes to avoid:** expecting the export buttons to appear before you have chosen a
-facility, year, and have some data recorded — they are intentionally hidden until there is something
+facility, year, and have some data recorded - they are intentionally hidden until there is something
 real to download.
 
 ---
@@ -616,7 +634,7 @@ real to download.
 ### 5.8 Dashboard (Tablero)
 
 Covered in full in [Section 4a](#4a-company-dashboard-tablero). This is your read-only results
-screen — there is nothing to enter or save here; every chart recalculates live from what you typed
+screen - there is nothing to enter or save here; every chart recalculates live from what you typed
 in Data Entry.
 
 ---
@@ -624,7 +642,7 @@ in Data Entry.
 ### 5.9 Administrator Overview (Panel de administración)
 
 Covered in full in [Section 4b](#4b-administrator-dashboard-panel-de-administración). This is a
-CECODES Administrator's home screen — a bird's-eye view of every member company's status, with
+CECODES Administrator's home screen - a bird's-eye view of every member company's status, with
 direct links into whatever needs attention.
 
 ---
@@ -638,21 +656,21 @@ any company's own workspace to work on their data directly.
 **Why/when you'd use it:** onboarding a new member, correcting a company's details, handling
 non-payment or off-boarding, or helping a company with its data entry.
 
-**How to use it, step by step — creating a new company:**
+**How to use it, step by step - creating a new company:**
 
 1. Click **Empresas** in the left menu, then **Nueva empresa**. A four-step guided window opens.
-2. **Step 1 — Empresa:** type the company **Nombre** (required), and optionally its **Sector** and a
+2. **Step 1 - Empresa:** type the **Nombre de la empresa** (required), and optionally its **Sector** and a
    contact email. Click **Siguiente**.
-3. **Step 2 — Primera sede (optional):** enter a facility name and location, or leave both blank to
+3. **Step 2 - Primera sede (optional):** enter a facility name and location, or leave both blank to
    skip this step entirely. Click **Siguiente**.
-4. **Step 3 — Primer año de reporte (optional):** only usable if step 2 was filled in; enter a
+4. **Step 3 - Primer año de reporte (optional):** only usable if step 2 was filled in; enter a
    starting year, or leave it blank. Click **Siguiente**.
-5. **Step 4 — Primer usuario (optional):** enter an email and either type or click **Generar** to
+5. **Step 4 - Primer usuario (optional):** enter an email and either type or click **Generar** to
    auto-fill a random temporary password. Click **Crear empresa**.
 6. A summary screen reports what happened for each of the four items (the company itself always
    succeeds or the whole thing fails; the facility, year, and user are each attempted independently,
    so one can fail or be skipped without affecting the others). If a user was created, its
-   credentials appear once — **Copiar** or **Descargar .txt** now, because they cannot be viewed
+   credentials appear once - **Copiar** or **Descargar .txt** now, because they cannot be viewed
    again later.
 7. From the summary: **Abrir empresa** (go straight to the new company's page), **Crear otra
    empresa** (start onboarding another one), or **Cerrar**.
@@ -660,33 +678,33 @@ non-payment or off-boarding, or helping a company with its data entry.
 > **Screenshot: The four-step Nueva empresa wizard, showing the step counter and the current step's
 > form.**
 
-**How to use it, step by step — day-to-day management:**
+**How to use it, step by step - day-to-day management:**
 
 - **Edit a company's name or sector:** open its **⋯** menu → **Editar**.
 - **Suspend a company (reversible):** **⋯** → **Desactivar**, then confirm. Its own users can no
-  longer sign in or save data, but nothing is deleted — an Administrator can still open and work in
+  longer sign in or save data, but nothing is deleted - an Administrator can still open and work in
   its workspace. Reverse it any time with **Activar**.
 - **Permanently delete a company (irreversible):** **⋯** → **Eliminar**. This only works if the
-  company currently has **zero facilities and zero users** — otherwise it is refused with an
+  company currently has **zero facilities and zero users** - otherwise it is refused with an
   explanation. Use **Desactivar** instead for anything that isn't a genuinely empty test record.
 - **Work inside a company's data:** click **Ingresar datos** or **Abrir tablero** on its card, or
   open the company and use the sidebar sub-menu that appears (Tablero, Ingreso de datos, Resumen,
-  Empresa, Reportes) to move between its screens — the exact same screens a Company account sees.
+  Empresa, Reportes) to move between its screens - the exact same screens a Company account sees.
 
 **Confirmations & warnings:**
 
-> **Note — Desactivar is reversible, even though it is styled with a red warning button.** It blocks
+> **Note - Desactivar is reversible, even though it is styled with a red warning button.** It blocks
 > that company's own users; it deletes nothing.
 
-> **Warning — Eliminar is truly permanent** and only ever possible on an empty company.
+> **Warning - Eliminar is truly permanent** and only ever possible on an empty company.
 
-> **Warning — a credential shown after creating a company is shown exactly once.** If it is lost,
-> there is no way to see the same password again — only to issue a new one (from Usuarios, see
+> **Warning - a credential shown after creating a company is shown exactly once.** If it is lost,
+> there is no way to see the same password again - only to issue a new one (from Usuarios, see
 > [5.11](#511-managing-users-usuarios)).
 
-**Common mistakes to avoid:** trying to use **Eliminar** to temporarily suspend a company — it will
+**Common mistakes to avoid:** trying to use **Eliminar** to temporarily suspend a company - it will
 simply be refused unless the company is empty; **Desactivar** is the correct, reversible tool.
-Assuming the wizard's optional steps roll back the company if one fails — they do not; the company
+Assuming the wizard's optional steps roll back the company if one fails - they do not; the company
 itself is created permanently as soon as step 4 is submitted, regardless of whether the facility,
 year, or user step succeeded.
 
@@ -704,15 +722,16 @@ member), fixing someone's details, resetting a lost password, or removing/suspen
 **How to use it, step by step:**
 
 1. Click **Usuarios** in the left menu. This table shows **every** account platform-wide; there is no
-   search or pagination — it is the complete list every time.
+   search or pagination - it is the complete list every time.
 2. **To create an account:** click **Nuevo usuario**. Fill in **Correo** (Email), a **Contraseña
    temporal** (type one or click **Generar** for a random one), **Nombre**, **Cargo** (position),
-   **Teléfono**, a **Rol** (Usuario Empresa or Administrador CECODES), and — for a Company role — the
+   **Teléfono**, a **Rol** (Usuario Empresa or Administrador CECODES), and - for a Company role - the
    **Empresa** to assign them to. (Picking Administrador CECODES automatically clears and disables
-   the company field, since an administrator never belongs to a company.) Click **Crear**. The new
-   account's credentials appear once — **Copiar** or **Descargar .txt** immediately.
+   the company field, since an administrator never belongs to a company.) Click **Nuevo usuario**
+   again to submit (the dialog's submit button keeps the same label). The new account's credentials
+   appear once - **Copiar** or **Descargar .txt** immediately.
 3. **To edit an account:** open its **⋯** menu → **Editar**. You can change role, company, name,
-   position, and phone — never the email or password from here.
+   position, and phone - never the email or password from here.
 4. **To reset someone's password:** **⋯** → **Regenerar credenciales**, type or generate a new
    temporary password, and confirm. The old password stops working the next time that person tries
    to sign in; the new one is shown once, exactly like at creation.
@@ -720,23 +739,23 @@ member), fixing someone's details, resetting a lost password, or removing/suspen
    sign in or save data, but their historical data is kept. Reverse with **Activar**.
 6. **To permanently remove an account (irreversible):** **⋯** → **Eliminar**, confirm.
 
-> **Screenshot: The Usuarios table, showing the Correo, Persona, Rol, Empresa, and Estado columns,
-> with the ⋯ actions menu open on one row.**
+> **Screenshot: The Usuarios table, showing the Correo, Persona, Teléfono, Rol, Empresa, Estado,
+> and Creado columns, with the ⋯ actions menu open on one row.**
 
 **Confirmations & warnings:**
 
-> **Warning — there is no invitation email anywhere in this flow.** Every credential (new account or
+> **Warning - there is no invitation email anywhere in this flow.** Every credential (new account or
 > reset) must be delivered by the Administrator, by hand, using the copy or download-.txt button.
 > There is no automated email step to rely on.
 
-> **Note — neither Desactivar/Regenerar credenciales forces out an already-open browser session.**
+> **Note - neither Desactivar/Regenerar credenciales forces out an already-open browser session.**
 > They only block the *next* sign-in attempt. If someone needs to be locked out immediately, this is
 > the closest available control, but an existing open tab is not instantly closed.
 
-> **Note — you cannot edit, suspend, reset, or delete your own account from this screen.** Your own
+> **Note - you cannot edit, suspend, reset, or delete your own account from this screen.** Your own
 > row simply has no actions menu (just a "You" badge). This is a deliberate safeguard.
 
-**Common mistakes to avoid:** assuming a lost temporary password can be looked up again later — it
+**Common mistakes to avoid:** assuming a lost temporary password can be looked up again later - it
 cannot; use **Regenerar credenciales** to issue a brand-new one. Confusing **Desactivar** (reversible,
 keeps data) with **Eliminar** (permanent, removes the login and profile entirely).
 
@@ -748,7 +767,7 @@ keeps data) with **Eliminar** (permanent, removes the login and profile entirely
 every company's calculation draws from, plus the one number Alcance 2 needs each year (the national
 electricity grid factor), and a formal version-release log.
 
-**Why/when you'd use it:** maintaining the accuracy of every company's calculations platform-wide —
+**Why/when you'd use it:** maintaining the accuracy of every company's calculations platform-wide - 
 this is shared, not scoped to any one company.
 
 **How to use it, step by step:**
@@ -759,11 +778,11 @@ this is shared, not scoped to any one company.
 **Factores tab:**
 
 - Use the search box and the **Alcance / Categoría / Estado** filters to find a factor among the
-  full library (shown **Active only** by default — switch **Estado** to see retired ones too).
+  full library (shown **Active only** by default - switch **Estado** to see retired ones too).
 - **To add a new factor:** click **Nuevo factor**, fill in its identification (Alcance, Categoría,
   Subcategoría, Elemento, Unidad), at least one of its emission-factor numbers, and any metadata
   (GWP set, uncertainty, effective year, source, whether it is biogenic). Click **Guardar**.
-  (Alcance 2 factors are **not** entered here — see Red eléctrica below.)
+  (Alcance 2 factors are **not** entered here - see Red eléctrica below.)
 - **To edit a factor:** open it and change any field, then **Guardar**. If nothing actually changed,
   the tool tells you there is nothing to save and writes no history entry.
 - **To retire a factor:** open its **⋯** menu → **Desactivar**, confirm. It disappears from the list
@@ -771,7 +790,7 @@ this is shared, not scoped to any one company.
   unaffected. Bring it back any time with **Activar**.
 - Every factor has its own **Historial de cambios** showing exactly what changed, by whom, and when.
 
-> **Note — there is intentionally no delete button for a factor.** Desactivar/Activar is its entire
+> **Note - there is intentionally no delete button for a factor.** Desactivar/Activar is its entire
 > lifecycle, so a retired factor can never orphan a company's already-recorded data.
 
 **Red eléctrica tab:**
@@ -790,17 +809,17 @@ this is shared, not scoped to any one company.
 
 **Versiones tab:**
 
-- A permanent, append-only release log — mirrors CECODES's own change-control sheet. Click **Nueva
+- A permanent, append-only release log - mirrors CECODES's own change-control sheet. Click **Nueva
   versión**, fill in Versión, Fecha, Elaboró, Revisó, Autorizó, and a Descripción, then create it.
   There is no edit or delete for a version once created.
 
 > **Best Practice:** create the new version entry **before** making the batch of factor edits it is
-> meant to cover — every factor create/edit is automatically stamped with whichever version is most
+> meant to cover - every factor create/edit is automatically stamped with whichever version is most
 > recent by date at that moment, so creating the version afterward attributes your edits to the wrong
 > release.
 
-**Common mistakes to avoid:** looking for a delete button on an emission factor — it does not exist,
-by design; use Desactivar. Trying to enter an Alcance 2 factor on the regular factor form — that
+**Common mistakes to avoid:** looking for a delete button on an emission factor - it does not exist,
+by design; use Desactivar. Trying to enter an Alcance 2 factor on the regular factor form - that
 scope's number lives only on the Red eléctrica tab, entered once per year. Forgetting to load a
 year's grid factor before companies start reporting electricity for it.
 
@@ -811,22 +830,22 @@ year's grid factor before companies start reporting electricity for it.
 **What it does:** a plain-language, filterable audit trail of every figure any company (or admin
 working inside one) has entered or changed, across the entire platform.
 
-**Why/when you'd use it:** whenever you need to answer "who entered this number, and when?" — for
+**Why/when you'd use it:** whenever you need to answer "who entered this number, and when?" - for
 one company or across all of them.
 
 **How to use it, step by step:**
 
 1. Click **Trazabilidad** in the left menu.
 2. Optionally filter by **Empresa**, **Persona**, and/or a **Desde/Hasta** date range.
-3. Read the feed: each row is a plain sentence — who did what, to which element, in which company
+3. Read the feed: each row is a plain sentence - who did what, to which element, in which company
    and facility/year, and when.
 
 > **Note:** this is different from a single factor's own **Historial de cambios** (in the Factor
-> library) — that one tracks edits to the *factor itself* (its metadata); Trazabilidad tracks
+> library) - that one tracks edits to the *factor itself* (its metadata); Trazabilidad tracks
 > *company data entries* across every tenant. Neither replaces the other.
 
 **Common mistakes to avoid:** expecting the Empresa or Persona filter dropdowns to list every company
-or user in the system — they only list ones that already have at least one logged change, since an
+or user in the system - they only list ones that already have at least one logged change, since an
 empty option would never return anything anyway.
 
 ---
@@ -838,28 +857,28 @@ empty option would never return anything anyway.
 1. **Receiving your credentials.** CECODES sends your email and a temporary password.
 2. **Opening the website.** You open the platform's address in your browser.
 3. **Logging in.** You type your email and password and click **Ingresar**. You land on your
-   **Tablero** — likely empty, if this is your very first visit.
+   **Tablero** - likely empty, if this is your very first visit.
 4. **Checking your company's setup.** You click **Empresa** and confirm your company's name, sector,
    and at least one **Sede** are correct. If a facility is missing, you add it with **Agregar sede**.
-5. **Entering data.** You click **Ingreso de datos**, pick your Sede, and — since this is a new
-   facility — click **Crear año** to start a reporting year. You open **Alcance 1**, mark which
+5. **Entering data.** You click **Ingreso de datos**, pick your Sede, and - since this is a new
+   facility - click **Crear año** to start a reporting year. You open **Alcance 1**, mark which
    categories apply, and use **Agregar fuente** to add your first source (say, diesel), then type its
    **Valor anual**. You repeat this for every fuel and refrigerant your company uses.
 6. **Moving to electricity.** You click the **Alcance 2** tab, add your electricity source, and type
-   each month's kWh — using **Copiar Enero a los meses vacíos** where the bills were similar.
+   each month's kWh - using **Copiar Enero a los meses vacíos** where the bills were similar.
 7. **Covering indirect emissions.** You click **Alcance 3** and add anything indirect you want to
-   report — business flights, purchased goods, waste.
+   report - business flights, purchased goods, waste.
 8. **Setting a target (optional).** For any Alcance your company has a reduction goal for, you type
    it and click **Guardar meta**.
 9. **Logging good practices (optional).** You scroll to **Cleaner technologies and good practices**
    and record anything relevant, such as a recent LED retrofit.
-10. **Saving your work.** There is nothing to click — every field you typed already saved itself, and
+10. **Saving your work.** There is nothing to click - every field you typed already saved itself, and
     the indicator near the top confirmed each one.
 11. **Reviewing what you entered.** You click **Resumen**, check the totals and tables for your Sede
     and Año, and scroll to **Historial de cambios** to confirm everything you (or a colleague)
     entered is there.
 12. **Seeing the real picture.** You click **Tablero** and watch the charts populate: your total
-    footprint, the split by Alcance, the monthly electricity trend, and — once you set one — your
+    footprint, the split by Alcance, the monthly electricity trend, and - once you set one - your
     progress toward your target.
 13. **Downloading a report.** You click **Reportes**, confirm the Sede and Año, and click **Descargar
     PDF** (or Excel, or CSV) to get a file you can share.
@@ -875,7 +894,7 @@ empty option would never return anything anyway.
 2. **Opening the website and logging in.** Same sign-in screen as everyone else; you land on the
    **Panel de administración** instead of a company dashboard.
 3. **Reviewing the overview.** You scan the four KPI cards and the **Requieren seguimiento** list for
-   companies that need a nudge — say, one with **Falta factor de red** for the current year.
+   companies that need a nudge - say, one with **Falta factor de red** for the current year.
 4. **Onboarding a new member company.** You click **Empresas** → **Nueva empresa**, fill in the
    company's name and sector, optionally its first facility and reporting year, and optionally a
    first user with a generated temporary password. You submit, review the summary, and **Descargar
@@ -890,9 +909,9 @@ empty option would never return anything anyway.
    company's Alcance 2 data can be priced as soon as they start entering it.
 8. **Recording a version release.** Before making a batch of factor corrections, you open the
    **Versiones** tab and click **Nueva versión** to log the release, then make your edits.
-9. **Tracing a figure.** A company asks who changed a number — you open **Trazabilidad**, filter by
+9. **Tracing a figure.** A company asks who changed a number - you open **Trazabilidad**, filter by
    their company name, and find the exact entry, person, and time.
-10. **Suspending an account.** A company stops paying dues — you find it under **Empresas** and click
+10. **Suspending an account.** A company stops paying dues - you find it under **Empresas** and click
     **Desactivar**, which blocks its users without touching its data.
 11. **Logging out.** Account menu → **Cerrar sesión**.
 
@@ -931,7 +950,7 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **Agregar sede** | Opens the add-facility window | To register a new location | Fill Planta + Ubicación, both required |
 | Pencil icon (Sede card) | Opens the edit-facility window, pre-filled | To correct a facility's details | Same window, in edit mode |
 | Trash icon (Sede card) | Opens a delete-facility confirmation | To remove a facility entirely | Only succeeds if it has zero reporting years |
-| **×** on a year chip | Opens a delete-reporting-year confirmation | To remove one year's data from a facility | States exactly how many records will be deleted — irreversible |
+| **×** on a year chip | Opens a delete-reporting-year confirmation | To remove one year's data from a facility | States exactly how many records will be deleted - irreversible |
 | **Ingresar datos** (Sede card) | Jumps to Data Entry for that facility | To start recording its consumption | Leaves this screen |
 
 ### Data entry (Ingreso de datos)
@@ -941,12 +960,12 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **Crear año** | Opens the create-reporting-year window | A facility has no year open yet, or needs another one | New year created and selected; its scientific set is locked in permanently |
 | **¿Aplica?** switch | Marks a category as relevant or not | Declaring whether your company has that kind of source | Locks once the category has any source |
 | **Agregar fuente** | Opens the element search | To add a new item to an applicable category | Pick from the official list only; added instantly |
-| Trash icon (source row) | Opens a delete-source confirmation | To remove an item and all its recorded values | Irreversible — confirm carefully |
+| Trash icon (source row) | Opens a delete-source confirmation | To remove an item and all its recorded values | Irreversible - confirm carefully |
 | **Copiar Enero a los meses vacíos** | Fills only the still-empty months with January's value | Similar electricity use most months | Never overwrites a month you already typed |
 | Value fields | Record the amount consumed | Entering your data | Saves itself automatically after a short pause |
 | **Guardar meta** | Saves (or clears, if left blank) your reduction target | Setting or removing a target for one Alcance | Confirmation message; shows on the Dashboard afterward |
 | **Add record** (Cleaner technologies) | Opens the add-record window | Logging a clean-tech practice | Only the Element field is required |
-| Trash icon (Cleaner technologies row) | Deletes that record | Removing a logged practice | **No confirmation — immediate and permanent** |
+| Trash icon (Cleaner technologies row) | Deletes that record | Removing a logged practice | **No confirmation - immediate and permanent** |
 
 ### Summary (Resumen) & Reports (Reportes)
 
@@ -954,7 +973,7 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 |---|---|---|---|
 | Sede / Año filters | Switch which facility/year the screen shows | Reviewing a specific facility's year | Page updates to match |
 | **Descargar PDF** | Downloads a readable summary document | Sharing with a partner or filing a record | File downloads with a confirmation message |
-| **Exportar a Excel** | Downloads a three-sheet workbook | Reconciling against your own spreadsheet | File downloads |
+| **Exportar a Excel** | Downloads a workbook (three sheets, or four if there are cleaner-technology records) | Reconciling against your own spreadsheet | File downloads |
 | **CSV** | Downloads a plain-text calculation table | Loading into another tool | File downloads |
 
 ### Dashboard (Tablero)
@@ -973,7 +992,7 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **Siguiente / Atrás** (wizard) | Moves between wizard steps | Filling in the wizard | Validates the current step first |
 | **Generar** (wizard) | Fills a random temporary password | Not inventing one by hand | Field updates instantly, still editable |
 | **Crear empresa** (wizard, step 4) | Creates the company and attempts the optional steps | Finishing the wizard | Switches to a results summary |
-| **Copiar** / **Descargar .txt** (credentials box) | Copies or downloads new login details | Handing credentials to someone | Shown once — cannot be reopened later |
+| **Copiar** / **Descargar .txt** (credentials box) | Copies or downloads new login details | Handing credentials to someone | Shown once - cannot be reopened later |
 | **⋯ → Editar** | Opens the edit-company window (name/sector only) | Correcting a company's details | Confirmation message |
 | **⋯ → Activar / Desactivar** | Reversibly restores/blocks a company's access | Restoring or suspending a member | Confirm in the dialog first |
 | **⋯ → Eliminar** | Permanently deletes an empty company | Removing a mistaken/test entry | Only works with zero facilities and zero users |
@@ -988,7 +1007,7 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **⋯ → Editar** | Changes role, company, name, position, phone | Fixing or reassigning an account | Email/password stay unchanged here |
 | **⋯ → Regenerar credenciales** | Issues a brand-new temporary password | Password lost or needs rotating | Old password stops working on next sign-in |
 | **⋯ → Activar / Desactivar** | Reversibly restores/blocks one login | Access needs to pause or resume | Confirm first; data is always kept |
-| **⋯ → Eliminar** | Permanently removes a login and profile | Account should never return | Confirm — irreversible |
+| **⋯ → Eliminar** | Permanently removes a login and profile | Account should never return | Confirm - irreversible |
 
 ### Administrator: Factor library
 
@@ -997,10 +1016,10 @@ click it. Organized by screen, in the same order as [Section 5](#5-complete-feat
 | **Nuevo factor** | Opens a blank factor form | Adding a new conversion number | Fill identification + at least one factor value |
 | **Guardar** (factor form) | Saves a new or edited factor | Creating/correcting a factor | Confirmation, or "nothing to save" if unchanged |
 | **⋯ → Desactivar / Activar** | Reversibly retires/restores a factor from the picker | Retiring an outdated factor | Existing entries that used it are unaffected either way |
-| **Agregar año** (Red eléctrica) | Adds a year's national electricity factor | Loading each new year's number | Refused if that year already exists — edit instead |
+| **Agregar año** (Red eléctrica) | Adds a year's national electricity factor | Loading each new year's number | Refused if that year already exists - edit instead |
 | Pencil icon (Red eléctrica row) | Edits an existing year's factor | Correcting a value | Overwrites that year's number and source |
-| Trash icon (Red eléctrica row) | Deletes a year's factor — **the one true delete in this area** | Rare corrections only | Breaks that year's Alcance 2 pricing platform-wide until reloaded |
-| **Nueva versión** | Records a library release in the version log | Before a batch of factor edits | Purely additive — no edit/delete afterward |
+| Trash icon (Red eléctrica row) | Deletes a year's factor - **the one true delete in this area** | Rare corrections only | Breaks that year's Alcance 2 pricing platform-wide until reloaded |
+| **Nueva versión** | Records a library release in the version log | Before a batch of factor edits | Purely additive - no edit/delete afterward |
 
 ### Administrator: Traceability (Trazabilidad)
 
@@ -1035,8 +1054,8 @@ Quick, numbered recipes for the things you will do most often.
 1. Open an Alcance tab → type (or clear) the target box → **Guardar meta**.
 
 **Log a cleaner-technology practice**
-1. Scroll to the Cleaner technologies card on Data Entry → **Add record** → fill in Element (required)
-   → **Add record** to save.
+1. Scroll to the Cleaner technologies card on Data Entry → **Agregar registro** (Add record) → fill
+   in Element (required) → **Agregar registro** to save.
 
 **Review your data before trusting the totals**
 1. **Resumen** → pick Sede + Año → read the tables and the Historial de cambios.
@@ -1045,7 +1064,7 @@ Quick, numbered recipes for the things you will do most often.
 1. **Reportes** (or the same buttons on Resumen) → pick Sede + Año → click PDF, Excel, or CSV.
 
 **Delete a source you added by mistake**
-1. Find the source row → trash icon → confirm in the window. Permanent — double-check first.
+1. Find the source row → trash icon → confirm in the window. Permanent - double-check first.
 
 **Delete an entire reporting year**
 1. **Empresa** → find the facility → click the **×** on that year's chip → read how many records will
@@ -1059,7 +1078,8 @@ Quick, numbered recipes for the things you will do most often.
 
 **Create a user and hand out credentials**
 1. **Usuarios** → **Nuevo usuario** → fill the fields, generate or type a password, pick a role and
-   (for company users) a company → **Crear** → **Copiar** or **Descargar .txt** immediately.
+   (for company users) a company → **Nuevo usuario** again to submit → **Copiar** or **Descargar
+   .txt** immediately.
 
 **Reset someone's password**
 1. **Usuarios** → their row's **⋯** → **Regenerar credenciales** → set a new password → deliver it.
@@ -1091,33 +1111,38 @@ Quick, numbered recipes for the things you will do most often.
 
 ## 9. Tips & Best Practices
 
-> **Tip:** Type decimals with either a comma or a dot — both work. What matters is that you
-> **never** type a thousands separator (write `14957,1`, not `14.957,1`).
+> **Tip:** Type decimals with either a comma or a dot - both work, and the tool also correctly
+> reads a full Colombian-style number like `14.957,1` (dot for thousands, comma for the decimal).
+> The one thing to avoid is a bare number with a dot and **no** decimal comma, like `14.957` on its
+> own - that gets read as a decimal, not as fourteen thousand nine hundred fifty-seven. If you're
+> not typing a decimal, leave the dot out and just type digits: `14957`.
 
 > **Tip:** Leave a value blank instead of typing `0` when you simply have not reported it yet. The
 > tool treats "not reported" and "reported as zero" as two different, meaningful things.
 
-> **Tip:** There is no Save button anywhere in Data Entry. Watch the small autosave indicator instead
-> of looking for one — it tells you exactly when your last change is safely stored.
+> **Tip:** The consumption values you type save themselves - watch the small autosave indicator
+> instead of looking for a Save button. The one exception on the Data Entry screen is the
+> reduction target (Meta) box, which has its own **Guardar meta** button - see
+> [5.4](#54-reduction-targets-meta).
 
 > **Tip:** Before turning a category's **¿Aplica?** switch off, make sure that is really what you
-> mean — the GHG standard treats this as a real, reportable declaration, not just a display filter.
+> mean - the GHG standard treats this as a real, reportable declaration, not just a display filter.
 
-> **Tip:** Review your numbers on **Resumen** before you trust the **Tablero** — Resumen is your
+> **Tip:** Review your numbers on **Resumen** before you trust the **Tablero** - Resumen is your
 > quickest way to spot a typo, and its Historial de cambios shows exactly who typed what.
 
 > **Tip:** If Alcance 2 shows zero and a "falta el factor de red" warning, keep entering your kWh
-> anyway — it is not lost, it is simply waiting for CECODES to load that year's national factor.
+> anyway - it is not lost, it is simply waiting for CECODES to load that year's national factor.
 
 > **Best Practice (everyone):** Change your temporary password on your very first sign-in, and never
-> share a login between two people — every entry records who made it.
+> share a login between two people - every entry records who made it.
 
 > **Best Practice (Administrators):** Load each year's national electricity factor as early as
 > possible, ideally before member companies start entering that year's data, so nobody sees an
 > avoidable warning.
 
 > **Best Practice (Administrators):** Create a new library **Versión** before starting a batch of
-> factor corrections, not after — edits are attributed to whichever version is most recent at the
+> factor corrections, not after - edits are attributed to whichever version is most recent at the
 > moment you save them.
 
 > **Best Practice (Administrators):** Reach for **Desactivar** by default over **Eliminar**. Deletion
@@ -1125,7 +1150,7 @@ Quick, numbered recipes for the things you will do most often.
 > deactivation is instantly reversible and keeps every record intact.
 
 > **Best Practice (Administrators):** Deliver every generated credential (new account or reset)
-> immediately after creating it — the plaintext password is shown exactly once and can never be
+> immediately after creating it - the plaintext password is shown exactly once and can never be
 > retrieved again afterward, only replaced with a new one.
 
 ---
@@ -1135,7 +1160,7 @@ Quick, numbered recipes for the things you will do most often.
 **I forgot my password. What do I do?**
 Click **¿Olvidaste tu contraseña?** on the sign-in screen and follow the emailed link. If you are
 already signed in and just want to change it, use **Cambiar contraseña** in your account menu
-instead — no old password required.
+instead - no old password required.
 
 **Why can't I see something I expect to see?**
 Most likely one of: you have the wrong Sede or Año selected in the filter bar; the data has not been
@@ -1150,28 +1175,30 @@ email and password can only be changed through the password-reset flow, never ed
 
 **Where are my records?**
 Everything you enter is organized by **Sede** (facility) and **Año** (year). If you don't see a
-number, check that you have the right facility and year selected — Data Entry, Resumen, Reportes, and
+number, check that you have the right facility and year selected - Data Entry, Resumen, Reportes, and
 the Dashboard all use the same two filters.
 
 **What happens after I save?**
-There is no explicit save step in Data Entry — every field saves itself a fraction of a second after
-you stop typing or move to the next field, confirmed by the small indicator near the top of the
-screen. Everywhere else (profile edits, adding a facility, creating a company or user), a click on the
-visible save/confirm button submits it, and a short confirmation message tells you it worked.
+The consumption values in Data Entry have no explicit save step - every field saves itself a
+fraction of a second after you stop typing or move to the next field, confirmed by the small
+indicator near the top of the screen. The reduction target (Meta) box is the one exception on that
+same screen: it has its own **Guardar meta** button. Everywhere else (profile edits, adding a
+facility, creating a company or user), a click on the visible save/confirm button submits it, and a
+short confirmation message tells you it worked.
 
 **Can I undo changes?**
 Most edits (profile details, factor values, a company's name) can simply be edited again to correct
 them. A short list of actions **cannot** be undone: deleting a data source, deleting a reporting year,
 deleting a facility, deleting a cleaner-technology record, deleting a company or a user, and deleting
 a yearly electricity factor. Every one of these (except the cleaner-technology record) shows a
-confirmation window first — read it before confirming.
+confirmation window first - read it before confirming.
 
 **Can two people from my company use the tool at the same time?**
 Yes. Each person should have their own login (a CECODES Administrator can create as many as needed),
 and everyone sees the same company data. Every entry records who made it.
 
 **Is the number shown next to a source, while I'm typing, my official total?**
-No — it is a quick reference estimate to help you as you go. Your official total is calculated on the
+No - it is a quick reference estimate to help you as you go. Your official total is calculated on the
 **Tablero** (Dashboard) and in your downloaded reports.
 
 **Can I create my own account or company?**
@@ -1179,7 +1206,7 @@ Not at the moment. Every company and every login is currently set up by CECODES 
 self-service sign-up option live on the platform today.
 
 **Why is my downloaded report in Spanish even though I switched the interface to English?**
-That is expected — reports are always generated in Spanish, regardless of the interface language, so
+That is expected - reports are always generated in Spanish, regardless of the interface language, so
 every company's paperwork stays consistent.
 
 ---
@@ -1188,21 +1215,21 @@ every company's paperwork stays consistent.
 
 | Problem | Likely cause | What to do |
 |---|---|---|
-| Can't sign in — "Correo o contraseña incorrectos" | Typo in email or password | Re-check both fields carefully, or use **¿Olvidaste tu contraseña?** |
-| Can't sign in — "Tu cuenta fue desactivada" | A CECODES admin deactivated your login | Contact CECODES — you cannot reverse this yourself |
+| Can't sign in - "Correo o contraseña incorrectos" | Typo in email or password | Re-check both fields carefully, or use **¿Olvidaste tu contraseña?** |
+| Can't sign in - "Tu cuenta fue desactivada" | A CECODES admin deactivated your login | Contact CECODES - you cannot reverse this yourself |
 | Signed in, but every screen says "Empresa desactivada" | Your whole company was deactivated | Contact CECODES; your data is safe and untouched |
 | A category's **¿Aplica?** switch won't turn off | It already has one or more sources | Delete every source in that category first, then the switch unlocks |
 | A facility won't delete | It still has one or more reporting years | Delete each reporting year from the facility's card first |
-| Alcance 2 shows zero for a year | That year's national electricity factor has not been loaded yet | Keep entering your data — only a CECODES administrator can load the missing factor |
-| A number shows a dash (–) instead of a value | Nothing was reported there, or that item has no valid factor | Not an error; a dash always means "no number available," never zero |
-| My typed value doesn't look right after saving | You likely typed a thousands separator (e.g. `14.957,1`) | Re-type without it: `14957,1` |
-| A password-reset email never arrived | Either the address isn't registered, or there's a delivery delay | Double-check the address is correct; if it should exist, contact CECODES directly |
+| Alcance 2 shows zero for a year | That year's national electricity factor has not been loaded yet | Keep entering your data - only a CECODES administrator can load the missing factor |
+| A number shows a dash (-) instead of a value | Nothing was reported there, or that item has no valid factor | Not an error; a dash always means "no number available," never zero |
+| My typed value doesn't look right after saving | You likely typed a dot with no decimal comma, like `14.957` on its own, meaning it as a whole number | Re-type it without the dot: `14957`. (A full Colombian-style number like `14.957,1` is read correctly, dot and all.) |
+| A password-reset email never arrived | Either the address isn't registered, there's a delivery delay, or (Company accounts) email delivery isn't set up for this deployment yet | Double-check the address is correct; if it should exist and still nothing arrives, contact CECODES directly and ask a CECODES administrator to issue you new credentials instead |
 | **Copiar Enero a los meses vacíos** is greyed out | Either January is empty, or every month already has a value | Fill January first, or note that nothing is left to copy |
 | (Admin) Can't delete a company | It still has facilities or users under it | Deactivate it instead, or remove every facility and user first |
 | (Admin) Can't find an option to edit your own user account | Self-editing is disabled by design on the Usuarios screen | Ask another CECODES administrator, or use your own account menu for password changes |
 | A page shows "not found" instead of loading | You may not have permission for that screen, or the link is stale | Navigate there again from the menu rather than an old link |
 
-> **Note:** the platform never shows raw technical error text — every message you see is
+> **Note:** the platform never shows raw technical error text - every message you see is
 > deliberately written in plain language. If something goes wrong that isn't covered above, the
 > on-screen message is the most accurate description available; if it doesn't make sense, contact
 > CECODES with the exact wording.
@@ -1219,7 +1246,7 @@ Contact CECODES whenever:
 - You spot something on screen that looks **wrong or broken**, not just unfamiliar.
 - You need a **year's electricity factor** loaded, or believe a **conversion number** in the shared
   library is incorrect (Company accounts cannot fix either of these themselves).
-- You want to understand a figure you didn't enter yourself — CECODES can look it up in
+- You want to understand a figure you didn't enter yourself - CECODES can look it up in
   Trazabilidad.
 
 **When you reach out, it helps CECODES resolve things faster if you include:**
@@ -1227,7 +1254,7 @@ Contact CECODES whenever:
 - Your **email address** (your username in the tool).
 - Your **company name**, and the **facility (Sede)** and **year (Año)** involved, if relevant.
 - The **exact screen** you were on (e.g. "Ingreso de datos, Alcance 2").
-- The **exact message** shown on screen, if there was one — a screenshot is ideal.
+- The **exact message** shown on screen, if there was one - a screenshot is ideal.
 - What you **expected** to happen, versus what actually happened.
 
 ---

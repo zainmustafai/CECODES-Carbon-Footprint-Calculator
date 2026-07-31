@@ -20,8 +20,10 @@ export const E2E_GRID_YEAR = 2031;
 
 // 2024 has a seeded grid electricity factor, so Scope 2 shows no missing-factor warning.
 export const E2E_YEAR = 2024;
-// 2020 has no grid factor, so Scope 2 must show the missing-factor warning.
-export const E2E_YEAR_WITHOUT_GRID_FACTOR = 2020;
+// A year with no grid factor, so Scope 2 must show the missing-factor warning. The UPME
+// import covers 2008-2025 (2020 included, which silently broke this fixture once), so it
+// must sit below that series while staying >= the app's MIN_REPORTING_YEAR of 2000.
+export const E2E_YEAR_WITHOUT_GRID_FACTOR = 2001;
 export const E2E_PASSWORD = "E2e-Playwright-1!";
 
 export const FIXTURE_PATH = "e2e/.auth/fixture.json";

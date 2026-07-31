@@ -162,14 +162,16 @@ test.describe("data entry edge cases", () => {
   test("Scope 2 warns about a missing grid factor only for a year without one", async ({
     page,
   }) => {
-    // 2020 has no national grid factor.
     await page.goto(
       `/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR_WITHOUT_GRID_FACTOR}`,
     );
     await page.getByRole("tab", { name: "Alcance 2" }).click();
-    const warning = page
-      .locator('[role="status"]')
-      .filter({ hasText: /factor de red eléctrica para 2020/i });
+    const warning = page.locator('[role="status"]').filter({
+      hasText: new RegExp(
+        `factor de red eléctrica para ${E2E_YEAR_WITHOUT_GRID_FACTOR}`,
+        "i",
+      ),
+    });
     await expect(warning).toBeVisible();
 
     // 2024 has a seeded grid factor, so no warning is shown.
