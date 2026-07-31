@@ -6,4 +6,5 @@ export { AdminOverviewScreen } from "./components/admin-overview-screen";
 export { TraceabilityScreen } from "./components/traceability-screen";
 export { TraceabilityFeed } from "./components/traceability-feed";
 export { AdminTableSkeleton } from "./components/admin-table-skeleton";
+export { AdminOverviewSkeleton } from "./components/admin-overview-skeleton";
 export { CompaniesSkeleton } from "./components/companies-skeleton";

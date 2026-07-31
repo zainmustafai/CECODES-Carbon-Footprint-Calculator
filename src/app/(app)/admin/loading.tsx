@@ -1,5 +1,5 @@
-import { AdminTableSkeleton } from "@/features/admin";
+import { AdminOverviewSkeleton } from "@/features/admin";
 
 export default function Loading() {
-  return <AdminTableSkeleton />;
+  return <AdminOverviewSkeleton />;
 }

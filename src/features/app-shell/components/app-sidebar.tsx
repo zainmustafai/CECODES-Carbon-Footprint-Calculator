@@ -221,7 +221,9 @@ export function AppSidebar({ role }: AppSidebarProps) {
           </SidebarGroup>
         }
       </SidebarContent>
-      <SidebarRail />
+      {/* The vendored rail hardcodes an English "Toggle Sidebar"; props spread after the
+          defaults, so passing both localizes the accessible name and the native tooltip. */}
+      <SidebarRail aria-label={t("toggleSidebar")} title={t("toggleSidebar")} />
     </Sidebar>
   );
 }

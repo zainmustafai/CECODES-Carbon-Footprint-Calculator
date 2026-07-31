@@ -26,6 +26,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   companies: "companies",
   users: "users",
   factors: "factorLibrary",
+  traceability: "traceability",
   onboarding: "onboarding",
 };
 
@@ -47,6 +48,13 @@ export function AppBreadcrumbs() {
 
     if (companyId && segment === companyId) {
       crumbs.push({ label: companyName, href: `/admin/companies/${companyId}/dashboard` });
+      continue;
+    }
+
+    // "new" is a leaf under the factor library; without this the trail would end on
+    // "Biblioteca de factores" as if the list were the current page.
+    if (segment === "new" && segments[i - 1] === "factors") {
+      crumbs.push({ label: t("newFactor") });
       continue;
     }
 
