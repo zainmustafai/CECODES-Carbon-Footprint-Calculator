@@ -1,7 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
 
-const AUTH_PAGES = ["/login", "/register", "/forgot-password"];
+// /register is public only while self-serve onboarding is open; closed, an anonymous visit
+// bounces to /login here and a signed-in visit is redirected by the page itself.
+const AUTH_PAGES = [
+  "/login",
+  ...(FEATURE_SELF_ONBOARDING ? ["/register"] : []),
+  "/forgot-password",
+];
 
 function isAuthPage(pathname: string) {
   return AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

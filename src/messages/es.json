@@ -123,6 +123,7 @@
       "invalidCredentials": "Correo o contraseña incorrectos.",
       "emailInUse": "Ya existe una cuenta con este correo.",
       "accountDisabled": "Tu cuenta fue desactivada. Contacta a CECODES.",
+      "registrationDisabled": "El registro lo gestiona CECODES. Escríbenos para obtener tu cuenta.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "toasts": {

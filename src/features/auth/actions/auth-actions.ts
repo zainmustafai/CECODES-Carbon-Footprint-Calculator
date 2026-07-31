@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
 import { isEmailInUse } from "../lib/errors";
 
 // Server-side origin for email redirect links.
@@ -46,6 +47,10 @@ export async function signUpAction(input: {
   email: string;
   password: string;
 }): Promise<{ error?: string; needsConfirmation?: boolean }> {
+  // Server Actions are public POST endpoints, so the gate lives here, not only in the UI:
+  // hiding the /register page does nothing against a hand-crafted request.
+  if (!FEATURE_SELF_ONBOARDING) return { error: "registrationDisabled" };
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: input.email,

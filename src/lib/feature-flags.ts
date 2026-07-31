@@ -9,4 +9,9 @@ export const FEATURE_SCOPE_TARGETS = true;
 // signal for WHICH company they belong to. Until a proper "join an existing company" flow exists,
 // CECODES provisions every account through the admin (createUser assigns the companyId directly),
 // and this path is closed. Flip to true to reopen it, e.g. once a join/invite flow lands.
+//
+// This flag gates the WHOLE self-serve path atomically, not just the onboarding form:
+// /register (page + middleware public list), signUpAction, and the login page's sign-up link
+// all check it too. Two flags would allow a half-open state where a person registers and then
+// hits the "contact CECODES" wall here, which is worse than either state.
 export const FEATURE_SELF_ONBOARDING = false;

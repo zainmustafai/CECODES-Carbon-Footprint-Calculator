@@ -203,7 +203,7 @@ test("guide: sign in", async ({ page }) => {
   await focus(page, "signin-button", [page.getByRole("button", { name: /ingresar/i })], {
     clipRect: { x: VW / 2, y: 0, width: VW / 2, height: VH },
   });
-  await focus(page, "signin-no-register", [page.getByRole("link", { name: /Regístrate/i })], { pad: 70 });
+  // The sign-up link is gone while self-serve registration is closed (FEATURE_SELF_ONBOARDING).
 });
 
 // ------------------------------------------------------------------------ demo1: dashboard + shell
