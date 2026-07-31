@@ -1,13 +1,8 @@
 {
   "common": {
-    "appName": "CECODES Carbon Footprint",
     "loading": "Loading...",
-    "cancel": "Cancel",
     "save": "Save",
-    "clear": "Clear",
-    "actions": "Actions",
-    "yes": "Yes",
-    "no": "No"
+    "actions": "Actions"
   },
   "language": {
     "label": "Language",
@@ -56,7 +51,6 @@
     "onboarding": "Setup",
     "home": "Home",
     "administration": "Administration",
-    "workspace": "My company",
     "myCompany": "My company",
     "comingSoon": "Soon",
     "menu": "Menu",
@@ -64,7 +58,6 @@
     "signOut": "Sign out",
     "toggleSidebar": "Show or hide the sidebar",
     "skipToContent": "Skip to content",
-    "platformVersion": "CECODES · Platform v1.0",
     "roleBadge": {
       "company": "Company",
       "admin": "CECODES admin"
@@ -251,12 +244,9 @@
       "increase": "Increase",
       "noPreviousYear": "No previous year to compare",
       "target": "Progress toward target",
-      "targetDetail": "Target {scope}: {target} tCO2e",
-      "targetOverall": "Actual vs. total target",
       "underTarget": "Within target",
       "overTarget": "Target exceeded",
       "noTarget": "No target set",
-      "setTarget": "Set a target",
       "variationIncomplete": "Year {year} is incomplete, so this comparison understates the change."
     },
     "byScope": {
@@ -270,8 +260,7 @@
     "monthly": {
       "title": "Monthly trend",
       "subtitle": "Electricity (Alcance 2)",
-      "empty": "No monthly electricity consumption recorded yet.",
-      "noMonth": "No data"
+      "empty": "No monthly electricity consumption recorded yet."
     },
     "comparison": {
       "title": "Year-over-year comparison",
@@ -281,7 +270,6 @@
     "targets": {
       "title": "Target vs. actual by alcance",
       "meta": "Target",
-      "real": "Actual",
       "empty": "You have not set reduction targets yet.",
       "cta": "Set targets"
     },
@@ -309,8 +297,6 @@
     "emptyTitle": "No emissions data yet",
     "emptyBody": "Create a reporting year and record your source consumption. Your calculated footprint will appear here, by alcance and by category.",
     "emptyCta": "Go to Data entry",
-    "noYearTitle": "This year has no data",
-    "noYearBody": "Record {year}'s consumption to see its footprint.",
     "unpricedNote": "{count, plural, one {# source could not be calculated} other {# sources could not be calculated}} and was left out of the totals. The totals are incomplete.",
     "bySede": {
       "title": "Emissions by sede (t CO2e)",
@@ -394,7 +380,6 @@
       "applies": "Applies?",
       "notApplicable": "Marked as not applicable. Turn it on to record sources.",
       "lockedBySources": "To mark it as not applicable, delete its sources first.",
-      "noSources": "No sources added in this category yet.",
       "sourceCount": "{count, plural, =1 {# source} other {# sources}}",
       "noSourcesShort": "No sources",
       "notApplicableShort": "Not applicable",
@@ -563,11 +548,8 @@
         "empty": "No active companies",
         "activeCompanies": "active",
         "reporting": "Reporting",
-        "reportingHint": "Data entered",
         "started": "Started",
-        "startedHint": "Year created, no data",
-        "noData": "No activity",
-        "noDataHint": "No reporting year"
+        "noData": "No activity"
       },
       "attention": {
         "title": "Need follow-up",
@@ -770,7 +752,6 @@
     "factors": {
       "title": "Factor library",
       "subtitle": "Emission factors and their version history.",
-      "loaded": "Loaded: {factors} active factors, {gridFactors} grid electricity factors. Latest version: {version}.",
       "tabs": {
         "library": "Factors",
         "grid": "Grid electricity",
@@ -955,9 +936,7 @@
         "activated": "Factor activated.",
         "deactivating": "Deactivating factor...",
         "deactivated": "Factor deactivated.",
-        "versionSaving": "Creating version...",
         "versionCreated": "Version created.",
-        "gridSaving": "Saving grid factor...",
         "gridSaved": "Grid factor saved.",
         "gridDeleting": "Deleting grid factor...",
         "gridDeleted": "Grid factor deleted."

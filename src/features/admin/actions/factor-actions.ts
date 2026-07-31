@@ -230,7 +230,18 @@ export async function upsertGridFactor(input: unknown): Promise<{ error?: string
 
   try {
     const scope = await resolveAdminScope();
-    const { year, factor, source } = parsed.data;
+    const { year, factor, source, mode } = parsed.data;
+
+    // The "Agregar año" dialog lets the admin type any year, so a create must refuse a
+    // collision instead of silently overwriting the existing national factor. The upsert
+    // below keeps the residual race (two concurrent creates) harmless.
+    if (mode === "create") {
+      const existing = await prisma.gridElectricityFactor.findUnique({
+        where: { year },
+        select: { year: true },
+      });
+      if (existing) return { error: "gridYearExists" };
+    }
 
     await prisma.gridElectricityFactor.upsert({
       where: { year },

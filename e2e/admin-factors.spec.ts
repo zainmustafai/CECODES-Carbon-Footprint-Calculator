@@ -126,6 +126,19 @@ test.describe("admin factor library", () => {
       page.getByRole("cell", { name: String(E2E_GRID_YEAR), exact: true }),
     ).toBeVisible({ timeout: 15_000 });
 
+    // Creating the same year again must be refused, not silently overwritten.
+    await page.getByRole("button", { name: /agregar año/i }).click();
+    const duplicate = page.getByRole("dialog");
+    await duplicate.getByLabel(/^año$/i).fill(String(E2E_GRID_YEAR));
+    await duplicate.getByLabel(/^factor$/i).fill("0.201");
+    await duplicate.getByLabel(/^fuente$/i).fill("E2E harness duplicate");
+    await duplicate.getByRole("button", { name: /guardar/i }).click();
+    await expect(
+      duplicate.getByText(/ya existe un factor para ese año/i),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.keyboard.press("Escape");
+    await expect(duplicate).toHaveCount(0);
+
     // And remove it again, so the shared library is left as we found it.
     const row = page.getByRole("row", { name: new RegExp(String(E2E_GRID_YEAR)) });
     await row.getByRole("button", { name: /eliminar/i }).click();

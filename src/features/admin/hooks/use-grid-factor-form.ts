@@ -43,7 +43,10 @@ export function useGridFactorForm({
 
   const { onSubmit, isSubmitting } = useFormSubmit(form, async (values) => {
     setServerError(null);
-    const { error } = await upsertGridFactor(values);
+    const { error } = await upsertGridFactor({
+      ...values,
+      mode: gridFactor ? "edit" : "create",
+    });
     if (error) {
       setServerError(te(error));
       return;

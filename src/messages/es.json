@@ -1,13 +1,8 @@
 {
   "common": {
-    "appName": "Huella de Carbono CECODES",
     "loading": "Cargando...",
-    "cancel": "Cancelar",
     "save": "Guardar",
-    "clear": "Limpiar",
-    "actions": "Acciones",
-    "yes": "Sí",
-    "no": "No"
+    "actions": "Acciones"
   },
   "language": {
     "label": "Idioma",
@@ -56,7 +51,6 @@
     "onboarding": "Configuración",
     "home": "Inicio",
     "administration": "Administración",
-    "workspace": "Mi empresa",
     "myCompany": "Mi empresa",
     "comingSoon": "Pronto",
     "menu": "Menú",
@@ -64,7 +58,6 @@
     "signOut": "Cerrar sesión",
     "toggleSidebar": "Mostrar u ocultar el menú lateral",
     "skipToContent": "Saltar al contenido",
-    "platformVersion": "CECODES · Plataforma v1.0",
     "roleBadge": {
       "company": "Empresa",
       "admin": "Administrador CECODES"
@@ -251,12 +244,9 @@
       "increase": "Aumento",
       "noPreviousYear": "Sin año anterior para comparar",
       "target": "Avance hacia la meta",
-      "targetDetail": "Meta {scope}: {target} tCO2e",
-      "targetOverall": "Real vs. meta total",
       "underTarget": "Dentro de la meta",
       "overTarget": "Meta superada",
       "noTarget": "Sin meta definida",
-      "setTarget": "Definir meta",
       "variationIncomplete": "El año {year} está incompleto, así que esta comparación subestima el cambio."
     },
     "byScope": {
@@ -270,8 +260,7 @@
     "monthly": {
       "title": "Tendencia mensual",
       "subtitle": "Electricidad (Alcance 2)",
-      "empty": "Aún no hay consumo de electricidad registrado por mes.",
-      "noMonth": "Sin dato"
+      "empty": "Aún no hay consumo de electricidad registrado por mes."
     },
     "comparison": {
       "title": "Comparación entre años",
@@ -281,7 +270,6 @@
     "targets": {
       "title": "Meta vs. real por alcance",
       "meta": "Meta",
-      "real": "Real",
       "empty": "Aún no defines metas de reducción.",
       "cta": "Definir metas"
     },
@@ -309,8 +297,6 @@
     "emptyTitle": "Aún no hay datos de emisiones",
     "emptyBody": "Crea un año de reporte y registra el consumo de tus fuentes. Aquí verás tu huella calculada, por alcance y por categoría.",
     "emptyCta": "Ir a Ingreso de datos",
-    "noYearTitle": "Este año no tiene datos",
-    "noYearBody": "Registra el consumo de {year} para ver su huella.",
     "unpricedNote": "{count, plural, one {# fuente no pudo calcularse} other {# fuentes no pudieron calcularse}} y quedó fuera de los totales. Los totales están incompletos.",
     "bySede": {
       "title": "Emisiones por sede (t CO2e)",
@@ -394,7 +380,6 @@
       "applies": "¿Aplica?",
       "notApplicable": "Marcada como no aplica. Actívala para registrar fuentes.",
       "lockedBySources": "Para marcarla como no aplica, elimina primero sus fuentes.",
-      "noSources": "Aún no agregas fuentes en esta categoría.",
       "sourceCount": "{count, plural, =1 {# fuente} other {# fuentes}}",
       "noSourcesShort": "Sin fuentes",
       "notApplicableShort": "No aplica",
@@ -563,11 +548,8 @@
         "empty": "Sin empresas activas",
         "activeCompanies": "activas",
         "reporting": "Reportando",
-        "reportingHint": "Con datos ingresados",
         "started": "Iniciadas",
-        "startedHint": "Con año creado, sin datos",
-        "noData": "Sin actividad",
-        "noDataHint": "Sin año de reporte"
+        "noData": "Sin actividad"
       },
       "attention": {
         "title": "Requieren seguimiento",
@@ -770,7 +752,6 @@
     "factors": {
       "title": "Biblioteca de factores",
       "subtitle": "Factores de emisión y su historial de versiones.",
-      "loaded": "Cargados: {factors} factores activos, {gridFactors} factores de red eléctrica. Última versión: {version}.",
       "tabs": {
         "library": "Factores",
         "grid": "Red eléctrica",
@@ -955,9 +936,7 @@
         "activated": "Factor activado.",
         "deactivating": "Desactivando factor...",
         "deactivated": "Factor desactivado.",
-        "versionSaving": "Creando versión...",
         "versionCreated": "Versión creada.",
-        "gridSaving": "Guardando factor de red...",
         "gridSaved": "Factor de red guardado.",
         "gridDeleting": "Eliminando factor de red...",
         "gridDeleted": "Factor de red eliminado."

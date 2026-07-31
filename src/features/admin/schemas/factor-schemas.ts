@@ -105,6 +105,9 @@ export const upsertGridFactorInput = z
       .transform((value) => normalizeDecimalInput(value.trim()))
       .refine((value) => DECIMAL_30_10.test(value), { message: "decimalInvalid" }),
     source: optionalString(200),
+    // "create" makes the action refuse a year that already exists instead of silently
+    // overwriting it; "edit" (or absent) keeps the plain upsert.
+    mode: z.enum(["create", "edit"]).optional(),
   })
   .strict();
 
