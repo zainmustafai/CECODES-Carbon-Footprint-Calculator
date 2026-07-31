@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "Cargando...",
     "save": "Guardar",
     "actions": "Acciones"
   },
@@ -550,8 +549,11 @@
         "empty": "Sin empresas activas",
         "activeCompanies": "activas",
         "reporting": "Reportando",
+        "reportingHint": "Con datos ingresados",
         "started": "Iniciadas",
-        "noData": "Sin actividad"
+        "startedHint": "Con año creado, sin datos",
+        "noData": "Sin actividad",
+        "noDataHint": "Sin año de reporte"
       },
       "attention": {
         "title": "Requieren seguimiento",

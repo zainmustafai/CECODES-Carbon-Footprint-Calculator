@@ -52,7 +52,9 @@ export function CompanyProfileForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          {/* Two columns at sm, three only at xl: three ~220px columns at tablet width crush
+              the sector select and the email. */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <TextField
               label={t("name")}
               placeholder={t("namePlaceholder")}

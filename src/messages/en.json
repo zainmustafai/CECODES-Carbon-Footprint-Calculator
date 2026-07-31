@@ -1,6 +1,5 @@
 {
   "common": {
-    "loading": "Loading...",
     "save": "Save",
     "actions": "Actions"
   },
@@ -550,8 +549,11 @@
         "empty": "No active companies",
         "activeCompanies": "active",
         "reporting": "Reporting",
+        "reportingHint": "Data entered",
         "started": "Started",
-        "noData": "No activity"
+        "startedHint": "Year created, no data",
+        "noData": "No activity",
+        "noDataHint": "No reporting year"
       },
       "attention": {
         "title": "Need follow-up",

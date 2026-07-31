@@ -17,7 +17,7 @@ export function CompanySkeleton() {
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-4 w-72 max-w-full" />
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Skeleton className="h-16 rounded-md" />
           <Skeleton className="h-16 rounded-md" />
           <Skeleton className="h-16 rounded-md" />

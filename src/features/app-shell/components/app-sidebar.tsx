@@ -119,7 +119,11 @@ export function AppSidebar({ role }: AppSidebarProps) {
                     aria-hidden
                     width={200}
                     height={200}
-                    className="mx-auto"
+                    // h-auto: preflight's max-width shrinks the rendered width inside the
+                    // rail, and without it the fixed height attr would distort the lockup
+                    // (next/image warns about exactly this). priority: it is the LCP.
+                    className="mx-auto h-auto"
+                    priority
                   />
                 }
               </Link>

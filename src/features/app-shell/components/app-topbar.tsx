@@ -17,7 +17,13 @@ export async function AppTopbar({ email, role, companyName }: AppTopbarProps) {
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
-      <SidebarTrigger className="-ml-1" aria-label={t("toggleSidebar")} />
+      {/* title too: aria-label localizes the accessible name, but the native tooltip comes
+          from the vendored component's hardcoded English title unless overridden. */}
+      <SidebarTrigger
+        className="-ml-1"
+        aria-label={t("toggleSidebar")}
+        title={t("toggleSidebar")}
+      />
       <Separator
         orientation="vertical"
         className="mr-1 data-vertical:h-4 data-vertical:self-auto"
