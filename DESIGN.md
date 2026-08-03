@@ -1,15 +1,17 @@
 # CECODES Design System
 
 The visual language for the CECODES carbon footprint app. It is a calm, data first
-product for Colombian companies. One green brand accent, generous whitespace, clear
-hierarchy, and honest empty states. This file is the source of truth. Build UI from
-tokens, not ad hoc values.
+product for Colombian companies. A navy brand primary with a supporting green accent,
+generous whitespace, clear hierarchy, and honest empty states. This file is the source of
+truth. Build UI from tokens, not ad hoc values.
 
 ## Principles
 
-1. **Green is the only accent.** All emphasis (primary buttons, active nav, focus rings,
-   key figures, charts) flows through the green `--primary` scale. Everything else is
-   neutral. No competing accent colors.
+1. **Navy is the primary accent, green is the supporting one.** Primary buttons, links,
+   focus rings, and the sidebar chrome flow through the navy `--primary` scale. The
+   client's green is `--secondary`: soft tint fills, the sidebar's active-state accent bar,
+   and the Alcance 1 chart series. Everything else stays neutral; the remaining client
+   colors (orange, light blue, violet, gray) are chart series only, never general UI accents.
 2. **Data first, quiet chrome.** Surfaces are white or very light. Chrome (borders,
    labels) is low contrast so numbers and charts read first.
 3. **Tokens, not hex.** Use `bg-primary`, `text-muted-foreground`, `border-border`,
@@ -28,18 +30,21 @@ Defined in `src/app/globals.css` as OKLCH, mapped to Tailwind via `@theme inline
 |---|---|
 | `background` / `foreground` | Page background and default text |
 | `card` / `card-foreground` | Card and panel surfaces |
-| `primary` / `primary-foreground` | Brand green. Primary actions, active states, brand panel |
-| `secondary` | Soft green tint fill for secondary controls |
+| `primary` / `primary-foreground` | Brand navy. Primary actions, links, focus rings, sidebar chrome |
+| `secondary` | Brand green: soft tint fill for secondary controls, sidebar active accent |
 | `muted` / `muted-foreground` | Subtle fills and secondary text |
-| `accent` / `accent-foreground` | Hover and highlight tint (light green) |
-| `border` / `input` / `ring` | Hairlines, field borders, focus ring (green) |
+| `accent` / `accent-foreground` | Hover and highlight tint (light green, same family as secondary) |
+| `border` / `input` / `ring` | Hairlines, field borders, focus ring (navy) |
 | `destructive` | Errors and destructive actions (red) |
 | `sidebar*` | The app shell navigation surface |
 | `chart-1..5` | Category palette (see below) |
 
-**Brand green** is roughly a mid forest green (`oklch(0.5 0.12 157)` in light). It reads well
-with white text and as a large brand panel. Do not introduce other greens outside the token
-scale.
+**Brand navy** is the client's literal Primary (`oklch(0.272 0.12 261.3)` in light, lifted to
+`oklch(0.62 0.1 261.3)` in dark so it stays visible against a dark card instead of reading as
+near-black). It reads well with white text and as a large brand panel. **Brand green** (the
+client's Secondary, `oklch(0.6 0.129 159.3)`) is reserved for secondary surfaces, the
+sidebar's active accent, and Alcance 1. Do not introduce other blues or greens outside the
+token scale.
 
 ## Chart and scope palette
 
@@ -48,10 +53,10 @@ Use `chart-1..5` for all data visualization, and keep the scope mapping consiste
 | Series | Token | Meaning |
 |---|---|---|
 | `chart-1` | Green | **Alcance 1** (direct) |
-| `chart-2` | Amber | **Alcance 2** (electricity) |
+| `chart-2` | Orange | **Alcance 2** (electricity) |
 | `chart-3` | Blue | **Alcance 3** (other indirect) |
-| `chart-4` | Teal | Extra category |
-| `chart-5` | Slate | Extra category / neutral |
+| `chart-4` | Violet | Extra category |
+| `chart-5` | Gray | Extra category / neutral |
 
 Totals and "good" figures use green. Reference lines and gridlines use `border`. All footprint
 figures are shown in tonnes (t CO2e).
@@ -81,7 +86,7 @@ Reach for the primitive, do not rebuild it:
 
 | Need | Use |
 |---|---|
-| Actions | `Button` (default = green primary, `outline`, `ghost`, `secondary`) |
+| Actions | `Button` (default = navy primary, `outline`, `ghost`, `secondary`) |
 | Content grouping | `Card` (+ `CardHeader` / `CardTitle` / `CardContent` / `CardFooter`) |
 | Forms | `TextField` / `PasswordField` (in `src/components/form`) wrapping shadcn `Input` + `Label`, wired with React Hook Form + Zod |
 | Status | `Badge` (`secondary` for neutral, `outline` for "coming soon") |
@@ -103,23 +108,24 @@ es-CO types a decimal comma and a number input round-trips through a float.
 
 **Nothing ever feels stuck.** Every button that triggers work takes `loading`, which shows a
 spinner and sets `aria-busy`. Row actions show a loading toast that becomes the success or
-error toast. A thin green progress bar (`--primary`) crosses the top of the viewport the
+error toast. A thin navy progress bar (`--primary`) crosses the top of the viewport the
 instant any navigation starts and completes when the destination commits, so even a slow
 route load has immediate feedback. See the async-feedback table in IMPLEMENTATION.md section 4.
 
 ## Layout patterns
 
-- **Auth (login, register, reset):** full height split. Left is the green brand panel
+- **Auth (login, register, reset):** full height split. Left is the navy brand panel
   (logo, eyebrow, headline, scope pills) hidden below `lg`. Right is the form, centered and
   sized by responsive padding, not a fixed `max-w`.
 - **App shell:** the shadcn `sidebar` block, `variant="inset" collapsible="icon"`, plus a
   top bar (sidebar trigger, breadcrumbs, language toggle, avatar menu). Content is
   `p-6 lg:p-8`. Below `lg` the sidebar becomes a `Sheet`; at or above it collapses to an
-  icon rail. The sidebar is a **deep forest green** surface, darker than the `--primary`
-  button green, driven entirely by the `--sidebar*` tokens: no component hardcodes a color.
-  - The active nav item is `bg-sidebar-accent` with a near white label (about 7:1) plus a
-    bright green inset bar and icon. Never put 14px text on a bright green fill: it lands
-    near 3.2:1 and fails AA.
+  icon rail. The sidebar is the brand navy at full strength (unlike the old green scheme,
+  navy is already dark enough that it needs no separately darkened variant to read as
+  chrome), driven entirely by the `--sidebar*` tokens: no component hardcodes a color.
+  - The active nav item is `bg-sidebar-accent` with a near white label (about 12:1) plus a
+    bright green inset bar and icon (the client's Secondary, carried only here and at
+    Alcance 1). Never put 14px text on that green fill: it is well under AA there.
   - Nav is one sidebar with role filtered groups, not one sidebar per role. An admin drilled
     into a company gets that company's workspace under a `SidebarMenuSub`.
 - **Data entry:** a sticky context bar (Sede, Año, save status), scope tabs, then a scope
@@ -161,7 +167,8 @@ route load has immediate feedback. See the async-feedback table in IMPLEMENTATIO
 
 ## Accessibility
 
-- Maintain AA contrast. Green primary carries white text; do not put green text on green.
+- Maintain AA contrast. Navy primary carries white text; do not put navy text on navy, or
+  green text on green.
 - Every interactive element is keyboard reachable with a visible focus ring (`ring-ring`).
 - Icons that convey state have an `aria-label`. Inputs are tied to their label and error id.
 

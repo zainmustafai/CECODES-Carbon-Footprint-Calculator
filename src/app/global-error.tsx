@@ -11,8 +11,8 @@ import { useEffect } from "react";
 //
 // The theme tokens and next-themes are gone too (both live in the crashed tree), so colors
 // cannot come from tokens. We honor the OS preference directly with prefers-color-scheme, so a
-// dark-mode user is not flashbanged by a white screen. The green brand button reads in both
-// themes, so it stays fixed.
+// dark-mode user is not flashbanged by a white screen. The navy brand button (the client's
+// Primary, #002060) reads in both themes, so it stays fixed.
 const STYLES = `
   .ge-body { background: #fff; color: #18181b; color-scheme: light; }
   .ge-muted { color: #52525b; }
@@ -68,7 +68,7 @@ export default function GlobalError({
               cursor: "pointer",
               borderRadius: "0.5rem",
               border: "none",
-              background: "#166534",
+              background: "#002060",
               color: "#fff",
               padding: "0.5rem 1rem",
               fontSize: "0.875rem",
