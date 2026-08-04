@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { prisma } from "@/lib/prisma";
 import { FacilitiesSection } from "@/features/facilities";
+import { getCompanyFirstReportedYear } from "../lib/first-reported-year";
 import { CompanyProfileForm } from "./company-profile-form";
+import { CompanyTargetForm } from "./company-target-form";
 
 type CompanyScreenProps = {
   /** Already authorized by the route. The action re-authorizes it anyway. */
@@ -19,10 +21,17 @@ type CompanyScreenProps = {
 export async function CompanyScreen({ companyId, basePath }: CompanyScreenProps) {
   const t = await getTranslations("company");
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { id: true, name: true, sector: true, contactEmail: true },
-  });
+  const [company, target, firstReportedYear] = await Promise.all([
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, sector: true, contactEmail: true },
+    }),
+    prisma.companyTarget.findUnique({
+      where: { companyId },
+      select: { reductionPct: true },
+    }),
+    getCompanyFirstReportedYear(companyId),
+  ]);
   if (!company) notFound();
 
   return (
@@ -37,6 +46,12 @@ export async function CompanyScreen({ companyId, basePath }: CompanyScreenProps)
         name={company.name}
         sector={company.sector}
         contactEmail={company.contactEmail}
+      />
+
+      <CompanyTargetForm
+        companyId={company.id}
+        firstReportedYear={firstReportedYear}
+        initialReductionPct={target ? target.reductionPct.toString() : ""}
       />
 
       <Separator />

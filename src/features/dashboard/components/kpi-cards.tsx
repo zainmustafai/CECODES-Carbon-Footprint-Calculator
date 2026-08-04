@@ -4,18 +4,20 @@ import { useFormatter, useTranslations } from "next-intl";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { DashboardCurrent, TargetRow, YearTotal } from "../lib/types";
+import type { CompanyTargetProgress, DashboardCurrent, YearTotal } from "../lib/types";
 
 // The three headline KPIs, matching the mockup: the total footprint (honouring any scope or
 // category refinement), the year-over-year change, and progress against the target.
 export function KpiCards({
   current,
   previous,
-  targets,
+  companyTarget,
+  companyProfileHref,
 }: {
   current: DashboardCurrent;
   previous: YearTotal | null;
-  targets: TargetRow[];
+  companyTarget: CompanyTargetProgress | null;
+  companyProfileHref: string;
 }) {
   const t = useTranslations("dashboard.kpi");
   const tScopes = useTranslations("dashboard.scopeNames");
@@ -116,18 +118,24 @@ export function KpiCards({
       </Card>
 
       {/* Target progress */}
-      <TargetKpi targets={targets} />
+      <TargetKpi target={companyTarget} companyProfileHref={companyProfileHref} />
     </div>
   );
 }
 
-function TargetKpi({ targets }: { targets: TargetRow[] }) {
+function TargetKpi({
+  target,
+  companyProfileHref,
+}: {
+  target: CompanyTargetProgress | null;
+  companyProfileHref: string;
+}) {
   const t = useTranslations("dashboard.kpi");
   const format = useFormatter();
   const n = (value: number, digits = 1) =>
     format.number(value, { maximumFractionDigits: digits });
 
-  if (targets.length === 0) {
+  if (!target) {
     return (
       <Card>
         <CardContent className="space-y-1 pt-6">
@@ -135,16 +143,18 @@ function TargetKpi({ targets }: { targets: TargetRow[] }) {
           <p className="flex items-center gap-1.5 font-mono text-4xl font-semibold tabular-nums text-muted-foreground">
             <Minus className="size-7" aria-hidden />
           </p>
-          <p className="text-xs text-muted-foreground">{t("noTarget")}</p>
+          <a href={companyProfileHref} className="text-xs text-primary underline underline-offset-2">
+            {t("noTarget")}
+          </a>
         </CardContent>
       </Card>
     );
   }
 
-  const totalTarget = targets.reduce((s, r) => s + r.targetTonnes, 0);
-  const totalActual = targets.reduce((s, r) => s + r.actualTonnes, 0);
-  const pct = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
-  const over = totalActual > totalTarget;
+  const isBaselineYear = target.currentYear === target.baselineYear;
+  // A reduction target is a floor on progress, not a ceiling on a number: achieving AT LEAST
+  // the promised reduction is on track. Below the target, or an actual increase, is off track.
+  const onTrack = target.actualReductionPct >= target.reductionPct;
 
   return (
     <Card>
@@ -153,20 +163,27 @@ function TargetKpi({ targets }: { targets: TargetRow[] }) {
         <p
           className={cn(
             "font-mono text-4xl font-semibold tabular-nums",
-            over ? "text-destructive" : "text-primary",
+            onTrack ? "text-primary" : "text-destructive",
           )}
         >
-          {n(pct, 0)}%
+          {target.actualReductionPct > 0 ? "-" : target.actualReductionPct < 0 ? "+" : ""}
+          {n(Math.abs(target.actualReductionPct), 0)}%
         </p>
         <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
-            className={cn("h-full rounded-full", over ? "bg-destructive" : "bg-primary")}
-            style={{ width: `${Math.min(pct, 100)}%` }}
+            className={cn("h-full rounded-full", onTrack ? "bg-primary" : "bg-destructive")}
+            style={{
+              width: `${Math.min(Math.max((target.actualReductionPct / target.reductionPct) * 100, 0), 100)}%`,
+            }}
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          {over ? t("overTarget") : t("underTarget")} · {n(totalActual)} / {n(totalTarget)}{" "}
-          tCO2e
+          {isBaselineYear
+            ? t("isBaselineYear", { year: String(target.baselineYear) })
+            : t("targetCaption", {
+                pct: n(target.reductionPct, 0),
+                year: String(target.baselineYear),
+              })}
         </p>
       </CardContent>
     </Card>

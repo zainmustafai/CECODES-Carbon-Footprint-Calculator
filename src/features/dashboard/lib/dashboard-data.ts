@@ -1,15 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { resolveGwpSet } from "@/lib/gwp";
-import { rollupYear, type RollupEntry, type YearRollup } from "@/lib/calc/rollup";
+import { rollupYear, type YearRollup } from "@/lib/calc/rollup";
+import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type {
   CategorySlice,
+  CompanyTargetProgress,
   DashboardCurrent,
   DashboardFilters,
   DashboardVM,
   ScopeSlice,
   SedeTotal,
-  TargetRow,
   YearTotal,
 } from "./types";
 
@@ -63,11 +64,15 @@ export async function loadDashboard(
     previous: null,
     yearComparison: [],
     bySede: [],
-    targets: [],
+    companyTarget: null,
     isEmpty: years.length === 0,
   };
 
   if (years.length === 0) return emptyVM;
+
+  // The baseline the company's reduction goal is measured against - always the company's
+  // OVERALL first reported year across every facility, never just this view's facility filter.
+  const companyFirstYear = Math.min(...reportingYears.map((ry) => ry.year));
 
   // The selected calendar year, defaulting to the most recent one with data.
   const year =
@@ -83,8 +88,8 @@ export async function loadDashboard(
   }
   const allReportingYearIds = scopedYears.map((ry) => ry.id);
 
-  // One pass for every entry, plus the grid factors and this year's targets.
-  const [entries, gridFactors, targetRows] = await Promise.all([
+  // One pass for every entry, plus the grid factors and the company's reduction target (if any).
+  const [entries, gridFactors, companyTargetRow] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: { in: allReportingYearIds } },
       select: {
@@ -113,9 +118,9 @@ export async function loadDashboard(
       where: { year: { in: years } },
       select: { year: true, factor: true },
     }),
-    prisma.scopeTarget.findMany({
-      where: { reportingYearId: { in: idsByYear.get(year) ?? [] } },
-      select: { scope: true, targetTonnes: true },
+    prisma.companyTarget.findUnique({
+      where: { companyId },
+      select: { reductionPct: true },
     }),
   ]);
 
@@ -132,27 +137,9 @@ export async function loadDashboard(
   // Roll an arbitrary set of reporting-year ids up under one calendar year's grid factor and
   // GWP set. Shared by the whole-year totals and the per-sede split, so they cannot disagree.
   function rollupForIds(ids: string[], targetYear: number): YearRollup {
-    const rollupEntries: RollupEntry[] = ids.flatMap((id) =>
-      (entriesByReportingYear.get(id) ?? []).map((e) => ({
-        scope: e.scope,
-        category: e.category,
-        subcategory: e.subcategory,
-        element: e.element,
-        month: e.month,
-        value: e.value === null ? null : e.value.toString(),
-        factor: e.emissionFactor
-          ? {
-              co2Factor: e.emissionFactor.co2Factor?.toString() ?? null,
-              ch4Factor: e.emissionFactor.ch4Factor?.toString() ?? null,
-              n2oFactor: e.emissionFactor.n2oFactor?.toString() ?? null,
-              co2eFactor: e.emissionFactor.co2eFactor?.toString() ?? null,
-              biogenic: e.emissionFactor.biogenic,
-            }
-          : null,
-      })),
-    );
+    const rows = ids.flatMap((id) => entriesByReportingYear.get(id) ?? []);
     return rollupYear({
-      entries: rollupEntries,
+      entries: toRollupEntries(rows),
       gridFactor: gridByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     });
@@ -269,21 +256,19 @@ export async function loadDashboard(
     if (bySede.length < 2) bySede = [];
   }
 
-  // Targets are summed per scope across the year's reporting years; actual is the scope total.
-  const targetByScope = new Map<Scope, number>();
-  for (const row of targetRows) {
-    targetByScope.set(row.scope, (targetByScope.get(row.scope) ?? 0) + Number(row.targetTonnes));
-  }
-  const targets: TargetRow[] = SCOPES.filter((s) => targetByScope.has(s)).map((s) => {
-    const targetTonnes = targetByScope.get(s) ?? 0;
-    const actualTonnes = rollup.byScope[s];
-    return {
-      scope: s,
-      targetTonnes,
-      actualTonnes,
-      progressPct: targetTonnes > 0 ? (actualTonnes / targetTonnes) * 100 : 0,
-    };
-  });
+  // The reduction goal is always company-wide (every facility, every Alcance), regardless of
+  // any facility filter active on this view - it is set once on the Empresa screen, not per
+  // Sede. Computed from a dedicated fetch rather than the facility-scoped `entries` above,
+  // since that array may exclude the baseline year's facility entirely when a filter is active.
+  const companyTarget: CompanyTargetProgress | null = companyTargetRow
+    ? await loadCompanyTargetProgress(
+        companyId,
+        reportingYears,
+        companyFirstYear,
+        year,
+        Number(companyTargetRow.reductionPct),
+      )
+    : null;
 
   return {
     company: companyVM,
@@ -294,7 +279,74 @@ export async function loadDashboard(
     previous,
     yearComparison,
     bySede,
-    targets,
+    companyTarget,
     isEmpty: false,
+  };
+}
+
+// The company's reduction-goal progress: baseline year's company-wide total vs. the currently
+// selected year's company-wide total, both computed fresh here rather than reused from the
+// facility-scoped rollup above, which may not cover the baseline year's facility at all when a
+// facility filter is active.
+async function loadCompanyTargetProgress(
+  companyId: string,
+  allReportingYears: { id: string; facilityId: string; year: number; gwpSet: GwpSet }[],
+  baselineYear: number,
+  selectedYear: number,
+  reductionPct: number,
+): Promise<CompanyTargetProgress> {
+  const idsFor = (y: number) => allReportingYears.filter((ry) => ry.year === y).map((ry) => ry.id);
+  const baselineIds = idsFor(baselineYear);
+  const currentIds = idsFor(selectedYear);
+
+  const [entries, gridFactors] = await Promise.all([
+    prisma.activityEntry.findMany({
+      where: { companyId, reportingYearId: { in: [...baselineIds, ...currentIds] } },
+      select: {
+        reportingYearId: true,
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        month: true,
+        value: true,
+        emissionFactor: {
+          select: {
+            co2Factor: true,
+            ch4Factor: true,
+            n2oFactor: true,
+            co2eFactor: true,
+            biogenic: true,
+          },
+        },
+      },
+    }),
+    prisma.gridElectricityFactor.findMany({
+      where: { year: { in: [baselineYear, selectedYear] } },
+      select: { year: true, factor: true },
+    }),
+  ]);
+
+  const gridByYear = new Map(gridFactors.map((g) => [g.year, g.factor.toString()]));
+  const gwpByYear = new Map(allReportingYears.map((ry) => [ry.year, ry.gwpSet]));
+
+  const rollFor = (ids: string[], targetYear: number) =>
+    rollupYear({
+      entries: toRollupEntries(entries.filter((e) => ids.includes(e.reportingYearId))),
+      gridFactor: gridByYear.get(targetYear) ?? null,
+      gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
+    }).totalTonnes;
+
+  const baselineTonnes = rollFor(baselineIds, baselineYear);
+  const currentTonnes = rollFor(currentIds, selectedYear);
+
+  return {
+    reductionPct,
+    baselineYear,
+    baselineTonnes,
+    currentYear: selectedYear,
+    currentTonnes,
+    actualReductionPct:
+      baselineTonnes > 0 ? ((baselineTonnes - currentTonnes) / baselineTonnes) * 100 : 0,
   };
 }

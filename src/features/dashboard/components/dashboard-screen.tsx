@@ -49,7 +49,7 @@ export async function DashboardScreen({
     category: searchParams.category ?? null,
   });
 
-  const dataEntryHref = basePath.replace(/\/dashboard$/, "/data-entry");
+  const companyProfileHref = basePath.replace(/\/dashboard$/, "/company");
 
   if (vm.isEmpty || !vm.current) {
     return <EmptyDashboard basePath={basePath} companyName={vm.company.name} />;
@@ -114,7 +114,12 @@ export async function DashboardScreen({
         </Note>
       : null}
 
-      <KpiCards current={current} previous={vm.previous} targets={vm.targets} />
+      <KpiCards
+        current={current}
+        previous={vm.previous}
+        companyTarget={vm.companyTarget}
+        companyProfileHref={companyProfileHref}
+      />
 
       {/* Scope + category */}
       <div className="gap-6 grid lg:grid-cols-2">
@@ -131,7 +136,7 @@ export async function DashboardScreen({
       {/* Year comparison + meta */}
       <div className="gap-6 grid lg:grid-cols-2">
         <YearComparison totals={vm.yearComparison} currentYear={current.year} />
-        <MetaVsReal targets={vm.targets} dataEntryHref={dataEntryHref} />
+        <MetaVsReal target={vm.companyTarget} companyProfileHref={companyProfileHref} />
       </div>
 
       {current.removalsTonnes !== 0 ?

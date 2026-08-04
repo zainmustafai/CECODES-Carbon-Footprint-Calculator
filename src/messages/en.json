@@ -204,6 +204,27 @@
     },
     "toasts": {
       "saved": "Company updated."
+    },
+    "target": {
+      "title": "Reduction target",
+      "subtitle": "One target for the whole company, measured against {year}, your first reported year.",
+      "subtitleNoBaseline": "You do not have a reporting year yet to use as a baseline.",
+      "noBaselineBody": "Create your first reporting year in Data Entry before setting a target.",
+      "label": "Reduce",
+      "save": "Save target",
+      "validation": {
+        "format": "Enter a percentage between 0 and 100, with up to 2 decimals."
+      },
+      "errors": {
+        "forbidden": "You do not have access to this company.",
+        "invalidValue": "Enter a valid percentage.",
+        "noBaselineYear": "Create your first reporting year before setting a target.",
+        "generic": "Something went wrong. Please try again."
+      },
+      "toasts": {
+        "saved": "Target saved.",
+        "cleared": "Target removed."
+      }
     }
   },
   "dashboard": {
@@ -245,9 +266,9 @@
       "increase": "Increase",
       "noPreviousYear": "No previous year to compare",
       "target": "Progress toward target",
-      "underTarget": "Within target",
-      "overTarget": "Target exceeded",
-      "noTarget": "No target set",
+      "isBaselineYear": "{year} is your baseline year: there is no progress to show yet.",
+      "targetCaption": "Target: reduce {pct}% vs. {year}",
+      "noTarget": "Set a target in Company",
       "variationIncomplete": "Year {year} is incomplete, so this comparison understates the change."
     },
     "byScope": {
@@ -269,10 +290,11 @@
       "single": "Record another year to see the comparison."
     },
     "targets": {
-      "title": "Target vs. actual by alcance",
+      "title": "Target vs. actual",
       "meta": "Target",
-      "empty": "You have not set reduction targets yet.",
-      "cta": "Set targets"
+      "empty": "You have not set a reduction target yet.",
+      "cta": "Set a target",
+      "baselineCaption": "Target: reduce {pct}% vs. {year} ({tonnes} tCO2e)"
     },
     "biogenic": "Includes {tonnes} tCO2e biogenic, reported as a memo item.",
     "removalsNote": "Carbon removals: {tonnes} tCO2e, reported separately (never subtracted from the emissions total). Details are on the Summary.",
@@ -415,21 +437,6 @@
       "noFactorShort": "No factor",
       "note": "Reference estimate. Official totals are calculated on the Dashboard.",
       "notReportedYet": "Nothing reported yet"
-    },
-    "meta": {
-      "title": "Reduction target",
-      "label": "Target for {scope}",
-      "help": "Annual target for this alcance, in tonnes of CO2e. Progress will appear on the Dashboard.",
-      "helpAria": "About the reduction target",
-      "save": "Save target",
-      "validation": {
-        "format": "Enter a non-negative number with up to 6 decimals."
-      },
-      "toasts": {
-        "saving": "Saving target...",
-        "saved": "Target saved.",
-        "cleared": "Target removed."
-      }
     },
     "deleteDialog": {
       "title": "Delete this source?",

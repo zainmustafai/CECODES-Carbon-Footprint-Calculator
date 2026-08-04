@@ -204,6 +204,27 @@
     },
     "toasts": {
       "saved": "Empresa actualizada."
+    },
+    "target": {
+      "title": "Meta de reducción",
+      "subtitle": "Una meta para toda la empresa, medida frente a {year}, tu primer año reportado.",
+      "subtitleNoBaseline": "Aún no tienes un año de reporte para usar como referencia.",
+      "noBaselineBody": "Crea tu primer año de reporte en Ingreso de datos antes de definir una meta.",
+      "label": "Reducir",
+      "save": "Guardar meta",
+      "validation": {
+        "format": "Ingresa un porcentaje entre 0 y 100, con hasta 2 decimales."
+      },
+      "errors": {
+        "forbidden": "No tienes acceso a esta empresa.",
+        "invalidValue": "Ingresa un porcentaje válido.",
+        "noBaselineYear": "Crea tu primer año de reporte antes de definir una meta.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      },
+      "toasts": {
+        "saved": "Meta guardada.",
+        "cleared": "Meta eliminada."
+      }
     }
   },
   "dashboard": {
@@ -245,9 +266,9 @@
       "increase": "Aumento",
       "noPreviousYear": "Sin año anterior para comparar",
       "target": "Avance hacia la meta",
-      "underTarget": "Dentro de la meta",
-      "overTarget": "Meta superada",
-      "noTarget": "Sin meta definida",
+      "isBaselineYear": "{year} es tu año base: aún no hay avance que mostrar.",
+      "targetCaption": "Meta: reducir {pct}% frente a {year}",
+      "noTarget": "Define una meta en Empresa",
       "variationIncomplete": "El año {year} está incompleto, así que esta comparación subestima el cambio."
     },
     "byScope": {
@@ -269,10 +290,11 @@
       "single": "Registra otro año para ver la comparación."
     },
     "targets": {
-      "title": "Meta vs. real por alcance",
+      "title": "Meta vs. real",
       "meta": "Meta",
-      "empty": "Aún no defines metas de reducción.",
-      "cta": "Definir metas"
+      "empty": "Aún no defines una meta de reducción.",
+      "cta": "Definir meta",
+      "baselineCaption": "Meta: reducir {pct}% frente a {year} ({tonnes} tCO2e)"
     },
     "biogenic": "Incluye {tonnes} tCO2e biogénicas, reportadas como memoria.",
     "removalsNote": "Remociones o absorciones de carbono: {tonnes} tCO2e, reportadas por separado (no se restan del total de emisiones). El detalle está en el Resumen.",
@@ -415,21 +437,6 @@
       "noFactorShort": "Sin factor",
       "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
       "notReportedYet": "Sin registrar aún"
-    },
-    "meta": {
-      "title": "Meta de reducción",
-      "label": "Meta para {scope}",
-      "help": "Meta anual para este alcance, en toneladas de CO2e. El avance se mostrará en el Tablero.",
-      "helpAria": "Sobre la meta de reducción",
-      "save": "Guardar meta",
-      "validation": {
-        "format": "Ingresa un número no negativo, con hasta 6 decimales."
-      },
-      "toasts": {
-        "saving": "Guardando meta...",
-        "saved": "Meta guardada.",
-        "cleared": "Meta eliminada."
-      }
     },
     "deleteDialog": {
       "title": "¿Eliminar esta fuente?",

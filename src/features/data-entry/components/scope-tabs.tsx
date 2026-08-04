@@ -21,8 +21,6 @@ type ScopeTabsProps = {
   gridFactor: PreviewGridFactor | null;
   gwpSet: GwpSet;
   year: number;
-  /** Saved reduction targets, keyed by scope. Absent means no target was set. */
-  targets: Record<string, string>;
 };
 
 const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
@@ -34,7 +32,6 @@ export function ScopeTabs({
   gridFactor,
   gwpSet,
   year,
-  targets,
 }: ScopeTabsProps) {
   const t = useTranslations("dataEntry");
   const searchParams = useSearchParams();
@@ -108,13 +105,9 @@ export function ScopeTabs({
               </div>
             ) : null}
 
-            {/* The format rule, stated once for the panel, and the Meta as a single row. Both
-                are chrome: they sit above the data without competing with it. */}
-            <ScopeToolbar
-              scope={scope.scope}
-              hintId={hintId}
-              target={targets[scope.scope] ?? ""}
-            />
+            {/* The format rule, stated once for the panel. It is chrome: it sits above the
+                data without competing with it. */}
+            <ScopeToolbar hintId={hintId} />
 
             {!hasAnySource ? (
               <p className="text-sm text-muted-foreground">{t("empty.noSourcesInScope")}</p>

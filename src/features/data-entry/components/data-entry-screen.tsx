@@ -102,7 +102,7 @@ export async function DataEntryScreen({
     );
   }
 
-  const [entries, applicability, factors, gridFactor, targets, cleanTech] = await Promise.all([
+  const [entries, applicability, factors, gridFactor, cleanTech] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -142,10 +142,6 @@ export async function DataEntryScreen({
     prisma.gridElectricityFactor.findUnique({
       where: { year: selectedYear.year },
       select: { factor: true, source: true },
-    }),
-    prisma.scopeTarget.findMany({
-      where: { reportingYearId: selectedYear.id, companyId },
-      select: { scope: true, targetTonnes: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
@@ -198,10 +194,6 @@ export async function DataEntryScreen({
     ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
     : null;
 
-  const targetsByScope: Record<string, string> = Object.fromEntries(
-    targets.map((target) => [target.scope, target.targetTonnes.toString()]),
-  );
-
   return (
     <div className="space-y-8">
       {header}
@@ -224,7 +216,6 @@ export async function DataEntryScreen({
           gridFactor={gridFactorVM}
           gwpSet={selectedYear.gwpSet}
           year={selectedYear.year}
-          targets={targetsByScope}
         />
         {/* Free-form reporting, outside the calculation entirely (CECODES 2026-07-24).
             Decimals cross to the client as strings, like everything else. */}

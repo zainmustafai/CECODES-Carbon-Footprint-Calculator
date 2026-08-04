@@ -302,27 +302,13 @@ async function seedFullCompany(password: string): Promise<void> {
   }
   console.log("  2023 and 2024 (Sede Bogota) seeded");
 
-  // Reduction targets per scope, so the Meta card and the "avance hacia la meta" KPI have
-  // values to render. Each facility carries its own targets, so the company aggregate compares
-  // like with like: without Bogota's electricity target, the summed target would sit below the
-  // summed actual and the demo would read "meta superada" for a company that is on track.
-  const targetsByRy: [string, [Scope, string][]][] = [
-    [yumbo2024.id, [
-      [Scope.SCOPE_1, "240"],
-      [Scope.SCOPE_2, "235"],
-      [Scope.SCOPE_3, "55"],
-    ]],
-    [bogota2024.id, [[Scope.SCOPE_2, "80"]]],
-  ];
-  for (const [reportingYearId, rows] of targetsByRy) {
-    for (const [scope, targetTonnes] of rows) {
-      await prisma.scopeTarget.upsert({
-        where: { reportingYearId_scope: { reportingYearId, scope } },
-        update: { targetTonnes },
-        create: { reportingYearId, companyId, scope, targetTonnes },
-      });
-    }
-  }
+  // A company-wide reduction goal, so the target KPI and the "meta vs. real" card have a value
+  // to render: reduce 10% versus the company's first reported year.
+  await prisma.companyTarget.upsert({
+    where: { companyId },
+    update: { reductionPct: "10" },
+    create: { companyId, reductionPct: "10" },
+  });
 
   await upsertCompanyUser(`demo1@${DEMO_EMAIL_DOMAIN}`, password, companyId);
   console.log(`  user demo1@${DEMO_EMAIL_DOMAIN}`);

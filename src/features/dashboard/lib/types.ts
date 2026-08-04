@@ -11,12 +11,23 @@ export type ScopeSlice = { scope: Scope; tonnes: number; pct: number };
 
 export type CategorySlice = { scope: Scope; category: string; tonnes: number; pct: number };
 
-export type TargetRow = {
-  scope: Scope;
-  targetTonnes: number;
-  actualTonnes: number;
-  /** actual / target, clamped display handled in the UI. Null when there is no target. */
-  progressPct: number;
+// The company's single reduction goal (set on the Empresa screen) vs. its actual progress.
+// Always company-wide - every facility, every Alcance combined - regardless of any facility
+// filter active elsewhere on this dashboard, because the goal itself is company-wide by
+// definition (set once, not per Sede). Null means: no target is configured, or the company has
+// no reporting years yet (nothing to set a baseline from).
+export type CompanyTargetProgress = {
+  reductionPct: number;
+  baselineYear: number;
+  baselineTonnes: number;
+  currentYear: number;
+  currentTonnes: number;
+  /**
+   * (baseline - current) / baseline * 100: how much has actually been reduced so far. Negative
+   * means an increase, not a reduction. Exactly 0 when currentYear IS the baseline year (nothing
+   * to compare against yet) - a true statement, not a special case to guard against.
+   */
+  actualReductionPct: number;
 };
 
 // One sede's total for the selected year, for the "Emisiones por sede" chart the client's
@@ -101,8 +112,8 @@ export type DashboardVM = {
    * view with at least two sedes reporting; a single-facility view has nothing to compare.
    */
   bySede: SedeTotal[];
-  /** Per scope target versus actual, when any target is set for the selected year. */
-  targets: TargetRow[];
+  /** The company's reduction-goal progress. Null when not configured (see CompanyTargetProgress). */
+  companyTarget: CompanyTargetProgress | null;
 
   /** No reporting years exist for this company at all: the honest empty state. */
   isEmpty: boolean;

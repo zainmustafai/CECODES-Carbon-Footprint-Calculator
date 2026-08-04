@@ -94,6 +94,7 @@ model Company {
   updatedAt    DateTime   @updatedAt
   facilities   Facility[]
   users        AppUser[]
+  target       CompanyTarget?
 
   @@map("companies")
 }
@@ -125,7 +126,6 @@ model ReportingYear {
 
   entries       ActivityEntry[]
   entryChanges  ActivityEntryChange[]
-  targets       ScopeTarget[]
   results       ResultSnapshot[]
   applicability CategoryApplicability[]
   cleanTech     CleanTechEntry[]
@@ -239,18 +239,21 @@ model CategoryApplicability {
 }
 
 // Reduction target per scope (Meta) - inclusion pending CECODES confirmation (Req. §12.9)
-model ScopeTarget {
-  id              String        @id @default(uuid())
-  reportingYear   ReportingYear @relation(fields: [reportingYearId], references: [id], onDelete: Cascade)
-  reportingYearId String
-  companyId       String // denormalized for RLS
-  scope           Scope
-  targetTonnes    Decimal       @db.Decimal(20, 6)
-  createdAt       DateTime      @default(now())
+// One reduction goal per company: a single percentage of the company's TOTAL footprint (every
+// facility, every Alcance combined), replacing an earlier per-Sede/per-Alcance tonnes design that
+// the client's own decision memo (2026-07-28) never actually asked for. The baseline is always
+// the company's first reported year, computed live as MIN(ReportingYear.year) - never snapshotted
+// here, so if a company later deletes its original first year the baseline simply becomes
+// whatever is now earliest, which is the same "first reported year" concept either way.
+model CompanyTarget {
+  id           String   @id @default(uuid())
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String   @unique
+  reductionPct Decimal  @db.Decimal(5, 2) // e.g. 5.00 = "reduce total footprint by 5%"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@unique([reportingYearId, scope])
-  @@index([companyId])
-  @@map("scope_targets")
+  @@map("company_targets")
 }
 
 // ---------------------------------------------------------------------------

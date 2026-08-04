@@ -56,7 +56,7 @@ const MODELS = [
   "reportingYear",
   "activityEntry",
   "categoryApplicability",
-  "scopeTarget",
+  "companyTarget",
   "cleanTechEntry",
   "appUser",
   "emissionFactor",
@@ -118,7 +118,9 @@ const { createFacility, updateFacility, deleteFacility } = await import(
   "@/features/facilities/actions/facility-actions"
 );
 const { updateCompanyProfile } = await import("@/features/company/actions/company-actions");
-const { saveScopeTarget } = await import("@/features/data-entry/actions/scope-targets");
+const { saveCompanyTarget } = await import(
+  "@/features/company/actions/company-target-actions"
+);
 const cleanTech = await import("@/features/data-entry/actions/clean-tech");
 const { deleteReportingYear } = await import("@/features/data-entry/actions/reporting-years");
 const adminCompanies = await import("@/features/admin/actions/company-actions");
@@ -199,17 +201,6 @@ describe("a company user cannot reach another company's REPORTING YEARS", () => 
     expectNothingWritten();
   });
 
-  it("refuses saveScopeTarget on a foreign year", async () => {
-    const result = await saveScopeTarget({
-      reportingYearId: YEAR_B,
-      scope: "SCOPE_1",
-      targetTonnes: "100",
-    });
-
-    expect(result).toEqual({ error: "forbidden" });
-    expectNothingWritten();
-  });
-
   it("refuses every clean-tech action on a foreign year", async () => {
     // The free-form section is still tenant data behind public POST endpoints; being
     // "informational only" buys it no exemption from the boundary.
@@ -244,6 +235,13 @@ describe("a company user cannot edit another company's PROFILE", () => {
       sector: "energia",
       contactEmail: "attacker@example.com",
     });
+
+    expect(result).toEqual({ error: "forbidden" });
+    expectNothingWritten();
+  });
+
+  it("refuses saveCompanyTarget against a foreign companyId", async () => {
+    const result = await saveCompanyTarget({ companyId: COMPANY_B, reductionPct: "10" });
 
     expect(result).toEqual({ error: "forbidden" });
     expectNothingWritten();
@@ -352,12 +350,8 @@ describe("a DEACTIVATED user is refused everywhere, even on their OWN company", 
     expectNothingWritten();
   });
 
-  it("cannot save a target on their own reporting year", async () => {
-    const result = await saveScopeTarget({
-      reportingYearId: YEAR_A,
-      scope: "SCOPE_1",
-      targetTonnes: "10",
-    });
+  it("cannot save a target on their own company", async () => {
+    const result = await saveCompanyTarget({ companyId: COMPANY_A, reductionPct: "10" });
 
     expect(result).toEqual({ error: "forbidden" });
     expectNothingWritten();
