@@ -48,66 +48,67 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* CECODES design tokens, per the client's brand palette (System Colors: Primary #002060,
-   Secondary #1E9764, Text #000000, Emphasis #EB6428; Custom Colors: Light Blue #006282,
-   Gray #51636C, Violet #623E5E). Every value below is that hex converted to OKLCH (verified
-   by round-trip and WCAG contrast check), not an approximation. Navy (--primary) is now the
-   dominant interactive color (buttons, links, focus rings, the sidebar backdrop); the client's
-   green becomes --secondary and keeps the Alcance 1 chart slot it already held. Emphasis/Light
-   Blue/Violet/Gray fill the remaining chart slots (Alcance 2, Alcance 3, and two general-purpose
-   series) so every client color has a real, visible role. See DESIGN.md for the rationale. */
+/* CECODES design tokens. Exactly THREE branded hues, everywhere in the app: navy #002060
+   (--primary, the client's dominant System Color: buttons, links, focus rings, sidebar chrome),
+   green #1E9764 (--secondary, the client's other System Color: soft fills, sidebar active accent,
+   Alcance 1), and orange #EB6428 (the client's Emphasis color, Alcance 2 only). Alcance 3 is a
+   lighter shade of navy itself, not a fourth hue. Every ambient surface - background, card,
+   border, muted text - is TRUE NEUTRAL (zero chroma): color only ever appears where it carries
+   real meaning (a brand action or a chart legend), never as ambient tint. This replaced an
+   earlier six-color version (the client's Light Blue/Gray/Violet each had a chart slot too) that
+   read as busy and cold; the fix was fewer hues plus neutral chrome, not different hues. Every
+   hex-to-OKLCH value here is round-trip and WCAG-contrast verified. See DESIGN.md. */
 :root {
-  --background: oklch(0.99 0.003 261.3);
-  /* Text: literal black per the client's spec, with a barely-there navy tint instead of raw
-     0-chroma black, so large flat-black fills don't stand out from the rest of the palette. */
-  --foreground: oklch(0.09 0.01 261.3);
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.05 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.09 0.01 261.3);
+  --card-foreground: oklch(0.05 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.09 0.01 261.3);
+  --popover-foreground: oklch(0.05 0 0);
   --primary: oklch(0.272 0.12 261.3);
-  --primary-foreground: oklch(0.99 0.005 261.3);
+  --primary-foreground: oklch(0.99 0.003 261.3);
   --secondary: oklch(0.96 0.02 159.3);
   --secondary-foreground: oklch(0.32 0.06 159.3);
-  --muted: oklch(0.97 0.008 261.3);
-  --muted-foreground: oklch(0.46 0.02 261.3);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.46 0 0);
   --accent: oklch(0.95 0.03 159.3);
   --accent-foreground: oklch(0.3 0.07 159.3);
   --destructive: oklch(0.58 0.22 27.3);
-  --border: oklch(0.91 0.008 261.3);
-  --input: oklch(0.91 0.008 261.3);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
   --ring: oklch(0.272 0.12 261.3);
-  /* chart-1/2/3 carry the fixed Alcance 1/2/3 hues (green/warm/blue); see the Dashboard
-     donut/bar components for that mapping. chart-4/5 are unconstrained series colors. */
+  /* chart-1/2/3 are the fixed Alcance 1/2/3 hues (green/orange/navy-shade); see the Dashboard
+     donut/bar components for that mapping. chart-4/5 are general-purpose series - tints/shades
+     of green and navy, deliberately not new hues. */
   --chart-1: oklch(0.6 0.129 159.3);
   --chart-2: oklch(0.664 0.181 41.6);
-  --chart-3: oklch(0.464 0.092 229.3);
-  --chart-4: oklch(0.5 0.08 330.7);
-  --chart-5: oklch(0.55 0.03 229.6);
+  --chart-3: oklch(0.55 0.11 261.3);
+  --chart-4: oklch(0.75 0.08 159.3);
+  --chart-5: oklch(0.6 0.025 261.3);
   --radius: 0.625rem;
-  /* The sidebar is the client's navy Primary at full brand strength; unlike the old brand
-     green, navy is already dark enough to serve as a moody chrome surface on its own, so it
-     is not a separately darkened variant of --primary the way the old green sidebar was.
-     Labels sit on --sidebar-accent (about 12:1); the bright green --sidebar-primary (the
-     client's Secondary) is carried only by the active indicator bar and icon, never by 14px
-     text, so it can stay saturated enough to read against navy. */
+  /* The sidebar is the client's navy Primary at full brand strength; navy is already dark
+     enough to serve as a moody chrome surface on its own, so it is not a separately darkened
+     variant of --primary the way the old green sidebar was. Labels sit on --sidebar-accent
+     (about 12:1); the bright green --sidebar-primary (the client's Secondary) is carried only
+     by the active indicator bar and icon, never by 14px text, so it can stay saturated enough
+     to read against navy. */
   --sidebar: oklch(0.24 0.09 261.3);
-  --sidebar-foreground: oklch(0.96 0.008 261.3);
+  --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.68 0.13 159.3);
   --sidebar-primary-foreground: oklch(0.18 0.05 261.3);
   --sidebar-accent: oklch(0.32 0.08 261.3);
-  --sidebar-accent-foreground: oklch(0.98 0.006 261.3);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.68 0.13 159.3);
 }
 
 .dark {
-  --background: oklch(0.16 0.015 261.3);
-  --foreground: oklch(0.96 0.006 261.3);
-  --card: oklch(0.2 0.02 261.3);
-  --card-foreground: oklch(0.96 0.006 261.3);
-  --popover: oklch(0.2 0.02 261.3);
-  --popover-foreground: oklch(0.96 0.006 261.3);
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.2 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.2 0 0);
+  --popover-foreground: oklch(0.96 0 0);
   /* Dark-mode primary is lifted well above the client's literal navy L=0.272: at that
      lightness it reads as near-black and disappears against a dark card. Same convention the
      old green primary used (0.5 in light mode -> 0.62 in dark). */
@@ -115,25 +116,25 @@
   --primary-foreground: oklch(0.14 0.02 261.3);
   --secondary: oklch(0.28 0.03 159.3);
   --secondary-foreground: oklch(0.96 0.01 159.3);
-  --muted: oklch(0.26 0.012 261.3);
-  --muted-foreground: oklch(0.72 0.012 261.3);
-  --accent: oklch(0.3 0.04 159.3);
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.31 0.04 159.3);
   --accent-foreground: oklch(0.96 0.01 159.3);
   --destructive: oklch(0.7 0.19 22.2);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.62 0.1 261.3);
-  --chart-1: oklch(0.66 0.13 159.3);
+  --chart-1: oklch(0.63 0.13 159.3);
   --chart-2: oklch(0.72 0.17 41.6);
-  --chart-3: oklch(0.58 0.1 229.3);
-  --chart-4: oklch(0.6 0.09 330.7);
-  --chart-5: oklch(0.65 0.03 229.6);
-  --sidebar: oklch(0.2 0.06 261.3);
-  --sidebar-foreground: oklch(0.96 0.006 261.3);
+  --chart-3: oklch(0.68 0.09 261.3);
+  --chart-4: oklch(0.78 0.07 159.3);
+  --chart-5: oklch(0.65 0.02 261.3);
+  --sidebar: oklch(0.24 0.09 261.3);
+  --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.68 0.13 159.3);
-  --sidebar-primary-foreground: oklch(0.16 0.03 261.3);
-  --sidebar-accent: oklch(0.28 0.06 261.3);
-  --sidebar-accent-foreground: oklch(0.96 0.006 261.3);
+  --sidebar-primary-foreground: oklch(0.18 0.05 261.3);
+  --sidebar-accent: oklch(0.32 0.08 261.3);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.68 0.13 159.3);
 }

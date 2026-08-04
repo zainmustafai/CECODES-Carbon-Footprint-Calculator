@@ -1,8 +1,8 @@
 import type { Scope } from "@/lib/generated/prisma/client";
 
 // The scope-to-colour mapping is fixed across the whole product (DESIGN.md): Alcance 1 green,
-// Alcance 2 amber, Alcance 3 blue. Everything that draws a scope uses these, so the donut,
-// the legend, the category bars and the target bars stay consistent.
+// Alcance 2 orange, Alcance 3 a lighter shade of the brand navy. Everything that draws a scope
+// uses these, so the donut, the legend, the category bars and the target bars stay consistent.
 export const SCOPE_COLOR: Record<Scope, string> = {
   SCOPE_1: "var(--chart-1)",
   SCOPE_2: "var(--chart-2)",

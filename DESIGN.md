@@ -7,13 +7,15 @@ truth. Build UI from tokens, not ad hoc values.
 
 ## Principles
 
-1. **Navy is the primary accent, green is the supporting one.** Primary buttons, links,
-   focus rings, and the sidebar chrome flow through the navy `--primary` scale. The
-   client's green is `--secondary`: soft tint fills, the sidebar's active-state accent bar,
-   and the Alcance 1 chart series. Everything else stays neutral; the remaining client
-   colors (orange, light blue, violet, gray) are chart series only, never general UI accents.
-2. **Data first, quiet chrome.** Surfaces are white or very light. Chrome (borders,
-   labels) is low contrast so numbers and charts read first.
+1. **Exactly three branded hues, everywhere.** Navy `--primary` (buttons, links, focus
+   rings, sidebar chrome), green `--secondary` (soft tint fills, the sidebar's active-state
+   accent bar, Alcance 1), and orange (Alcance 2 only). Alcance 3 is a lighter shade of navy
+   itself, not a fourth hue. The client's other custom colors (light blue, gray, violet) are
+   not used anywhere in the product: an earlier version gave each of them a chart slot too,
+   which read as busy and cold. Do not reintroduce them.
+2. **Data first, quiet chrome, and chrome is NEUTRAL.** Surfaces are white or very light,
+   with zero color tint (background, card, border, muted text are all zero-chroma gray).
+   Color only ever appears where it carries real meaning: a brand action or a chart legend.
 3. **Tokens, not hex.** Use `bg-primary`, `text-muted-foreground`, `border-border`,
    `bg-card`, `ring-ring`. Never hardcode colors.
 4. **One density per surface.** Comfortable by default: `p-6`, `gap-6`, `text-sm` body.
@@ -43,8 +45,10 @@ Defined in `src/app/globals.css` as OKLCH, mapped to Tailwind via `@theme inline
 `oklch(0.62 0.1 261.3)` in dark so it stays visible against a dark card instead of reading as
 near-black). It reads well with white text and as a large brand panel. **Brand green** (the
 client's Secondary, `oklch(0.6 0.129 159.3)`) is reserved for secondary surfaces, the
-sidebar's active accent, and Alcance 1. Do not introduce other blues or greens outside the
-token scale.
+sidebar's active accent, and Alcance 1. **Ambient neutrals are zero-chroma**: `background`,
+`card`, `border`, `muted`, `muted-foreground` carry no hue at all, on purpose, so color never
+shows up by accident on a surface that isn't meant to carry it. Do not introduce other blues,
+greens, or any tint on an ambient/chrome token.
 
 ## Chart and scope palette
 
@@ -52,14 +56,15 @@ Use `chart-1..5` for all data visualization, and keep the scope mapping consiste
 
 | Series | Token | Meaning |
 |---|---|---|
-| `chart-1` | Green | **Alcance 1** (direct) |
-| `chart-2` | Orange | **Alcance 2** (electricity) |
-| `chart-3` | Blue | **Alcance 3** (other indirect) |
-| `chart-4` | Violet | Extra category |
-| `chart-5` | Gray | Extra category / neutral |
+| `chart-1` | Green (brand secondary) | **Alcance 1** (direct) |
+| `chart-2` | Orange (client's Emphasis) | **Alcance 2** (electricity) |
+| `chart-3` | A lighter shade of navy, not a new hue | **Alcance 3** (other indirect) |
+| `chart-4` | Green tint | General-purpose series |
+| `chart-5` | Muted navy | General-purpose series |
 
-Totals and "good" figures use green. Reference lines and gridlines use `border`. All footprint
-figures are shown in tonnes (t CO2e).
+Every chart color in the app is a shade of one of the three branded hues (navy, green,
+orange). Totals and "good" figures use green. Reference lines and gridlines use `border`. All
+footprint figures are shown in tonnes (t CO2e).
 
 ## Typography
 
