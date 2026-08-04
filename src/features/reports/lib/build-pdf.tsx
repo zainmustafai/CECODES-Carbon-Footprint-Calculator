@@ -1,4 +1,6 @@
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { Document, Image, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
@@ -18,6 +20,21 @@ const SCOPE_LABEL: Record<string, string> = {
   SCOPE_3: "Alcance 3",
 };
 
+// The report's fixed print palette, matching the app's brand tokens (globals.css) exactly. A
+// plain hardcoded literal on purpose: react-pdf renders server-side through its own layout
+// engine, not a browser DOM, so a CSS custom property has no meaning here, and a report is a
+// fixed light/print artifact that never follows the app's light/dark theme toggle anyway.
+const SCOPE_COLOR: Record<string, string> = {
+  SCOPE_1: "#1d9764",
+  SCOPE_2: "#eb6428",
+  SCOPE_3: "#4c71b1",
+};
+const BRAND_NAVY = "#002060";
+
+// Loaded once per module, not per request. react-pdf's server-side render cannot fetch a
+// `/public` URL, so the asset is read directly; the export route pins runtime = "nodejs".
+const logoBuffer = readFileSync(path.join(process.cwd(), "public", "logo-square.png"));
+
 const tonnesFmt = new Intl.NumberFormat("es-CO", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 3,
@@ -30,21 +47,48 @@ const dateFmt = new Intl.DateTimeFormat("es-CO", {
 
 const t = (n: number) => `${tonnesFmt.format(n)} t CO2e`;
 
+const factorFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 6 });
+const qtyFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 3 });
+
+// Display-only, like build-workbook.ts's own num() helper: the Decimal string is never fed
+// back into a calculation, only formatted for this one cell.
+function factorCell(value: string | null, unit: string | null): string {
+  if (value === null) return "-";
+  const parsed = Number(value);
+  const text = Number.isFinite(parsed) ? factorFmt.format(parsed) : value;
+  return unit ? `${text} ${unit}` : text;
+}
+
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, color: "#1a1a1a", fontFamily: "Helvetica" },
-  h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  sub: { fontSize: 10, color: "#666", marginBottom: 16 },
+  logo: { position: "absolute", top: 30, right: 40, width: 54, height: 54 },
+  h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2, marginRight: 70 },
+  sub: { fontSize: 10, color: "#666", marginBottom: 16, marginRight: 70 },
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6 },
-  totalBox: {
+  kpiRow: { flexDirection: "row", gap: 10 },
+  kpiBox: {
+    flex: 1,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 4,
-    padding: 12,
-    marginBottom: 4,
+    padding: 10,
   },
-  totalLabel: { fontSize: 9, color: "#666", textTransform: "uppercase" },
-  totalValue: { fontSize: 22, fontFamily: "Helvetica-Bold", marginTop: 2 },
+  kpiLabel: { fontSize: 8, color: "#666", textTransform: "uppercase" },
+  kpiValue: { fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 },
+  kpiPct: { fontSize: 8, color: "#666", marginTop: 1 },
+  barTrack: {
+    flexDirection: "row",
+    height: 10,
+    borderRadius: 3,
+    overflow: "hidden",
+    marginTop: 10,
+    backgroundColor: "#eee",
+  },
+  legendRow: { flexDirection: "row", gap: 14, marginTop: 6 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  legendSwatch: { width: 8, height: 8, borderRadius: 2 },
+  legendText: { fontSize: 8, color: "#666" },
   row: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
@@ -61,6 +105,13 @@ const styles = StyleSheet.create({
   cellName: { flex: 4, paddingRight: 8 },
   cellScope: { flex: 2, paddingRight: 8, color: "#666" },
   cellNum: { flex: 2, textAlign: "right" },
+  // The element results table needs finer-grained columns than the 3-column layout above.
+  resElement: { flex: 3, paddingRight: 6 },
+  resCategory: { flex: 2, paddingRight: 6, color: "#666" },
+  resScope: { flex: 1.3, paddingRight: 6, color: "#666" },
+  resQty: { flex: 1.5, textAlign: "right", paddingRight: 6 },
+  resFactor: { flex: 1.6, textAlign: "right", paddingRight: 6 },
+  resTonnes: { flex: 1.2, textAlign: "right" },
   note: { fontSize: 9, color: "#555", marginTop: 4 },
   footer: {
     position: "absolute",
@@ -84,9 +135,17 @@ function KeyVal({ k, v }: { k: string; v: string }) {
 
 function ReportDocument({ vm }: { vm: ReportVM }) {
   const categories = [...vm.byCategory].sort((a, b) => b.tonnes - a.tonnes).slice(0, 14);
+  // The complete element-by-element reference, unlike the top-14-truncated category rollup
+  // above: this table's entire purpose is being the detailed audit trail.
+  const elements: ResultRow[] = [...vm.results].sort((a, b) => b.tonnes - a.tonnes);
   // Uncertainty is a per-element disclosure; list the priced elements, uncertainty or not.
-  const uncertainty: ResultRow[] = [...vm.results].sort((a, b) => b.tonnes - a.tonnes);
+  const uncertainty: ResultRow[] = elements;
   const anyUncertainty = uncertainty.some((r) => r.uncertaintyPct !== null);
+
+  // Zero new arithmetic: a pure display ratio of numbers rollupYear already computed, the same
+  // pattern already used for the dashboard's own percentages.
+  const total = vm.totalTonnes;
+  const pctOf = (value: number) => (total > 0 ? (value / total) * 100 : 0);
 
   return (
     <Document
@@ -94,32 +153,67 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
       author="CECODES - Huella de Carbono"
     >
       <Page size="A4" style={styles.page}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is not an
+            HTML img (it renders into a PDF content stream, not a DOM); its type has no alt prop. */}
+        <Image src={logoBuffer} style={styles.logo} fixed />
         <Text style={styles.h1}>Huella de Carbono Corporativa</Text>
         <Text style={styles.sub}>
           {vm.companyName} - {vm.facilityName} - {vm.year}
         </Text>
 
-        <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>Huella total</Text>
-          <Text style={styles.totalValue}>{t(vm.totalTonnes)}</Text>
+        <View style={styles.kpiRow}>
+          <View style={[styles.kpiBox, { flex: 1.4, borderColor: BRAND_NAVY }]}>
+            <Text style={styles.kpiLabel}>Huella total</Text>
+            <Text style={[styles.kpiValue, { fontSize: 20, color: BRAND_NAVY }]}>
+              {t(total)}
+            </Text>
+          </View>
+          {vm.byScope.map((s) => (
+            <View
+              key={s.scope}
+              style={[styles.kpiBox, { borderColor: SCOPE_COLOR[s.scope] }]}
+            >
+              <Text style={styles.kpiLabel}>{SCOPE_LABEL[s.scope]}</Text>
+              <Text style={[styles.kpiValue, { color: SCOPE_COLOR[s.scope] }]}>
+                {t(s.tonnes)}
+              </Text>
+              <Text style={styles.kpiPct}>
+                {tonnesFmt.format(pctOf(s.tonnes))}% del total
+              </Text>
+            </View>
+          ))}
         </View>
 
-        <View style={{ marginTop: 8 }}>
+        <View style={styles.barTrack}>
+          {vm.byScope.map((s) => (
+            <View
+              key={s.scope}
+              style={{
+                width: `${pctOf(s.tonnes)}%`,
+                backgroundColor: SCOPE_COLOR[s.scope],
+              }}
+            />
+          ))}
+        </View>
+        <View style={styles.legendRow}>
+          {vm.byScope.map((s) => (
+            <View key={s.scope} style={styles.legendItem}>
+              <View
+                style={[styles.legendSwatch, { backgroundColor: SCOPE_COLOR[s.scope] }]}
+              />
+              <Text style={styles.legendText}>
+                {SCOPE_LABEL[s.scope]} - {tonnesFmt.format(pctOf(s.tonnes))}%
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ marginTop: 14 }}>
           <KeyVal k="Empresa" v={vm.companyName} />
           <KeyVal k="Sede" v={vm.facilityName} />
           <KeyVal k="Año" v={String(vm.year)} />
           <KeyVal k="Conjunto GWP" v={vm.gwpSet} />
           <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Emisiones por alcance</Text>
-          {vm.byScope.map((s) => (
-            <View key={s.scope} style={styles.row}>
-              <Text style={styles.cellName}>{SCOPE_LABEL[s.scope]}</Text>
-              <Text style={styles.cellNum}>{t(s.tonnes)}</Text>
-            </View>
-          ))}
         </View>
 
         {categories.length > 0 ? (
@@ -135,6 +229,32 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
                 <Text style={styles.cellName}>{c.category}</Text>
                 <Text style={styles.cellScope}>{SCOPE_LABEL[c.scope]}</Text>
                 <Text style={styles.cellNum}>{t(c.tonnes)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {elements.length > 0 ? (
+          <View style={styles.section} wrap>
+            <Text style={styles.sectionTitle}>Resumen por elemento</Text>
+            <View style={styles.headRow}>
+              <Text style={[styles.resElement, styles.th]}>Elemento</Text>
+              <Text style={[styles.resCategory, styles.th]}>Categoría</Text>
+              <Text style={[styles.resScope, styles.th]}>Alcance</Text>
+              <Text style={[styles.resQty, styles.th]}>Cantidad</Text>
+              <Text style={[styles.resFactor, styles.th]}>Factor</Text>
+              <Text style={[styles.resTonnes, styles.th]}>t CO2e</Text>
+            </View>
+            {elements.map((r) => (
+              <View key={`${r.scope}-${r.category}-${r.subcategory}-${r.element}`} style={styles.row}>
+                <Text style={styles.resElement}>{r.element}</Text>
+                <Text style={styles.resCategory}>{r.category}</Text>
+                <Text style={styles.resScope}>{SCOPE_LABEL[r.scope]}</Text>
+                <Text style={styles.resQty}>
+                  {qtyFmt.format(r.quantity)} {r.unit}
+                </Text>
+                <Text style={styles.resFactor}>{factorCell(r.factorValue, r.factorUnit)}</Text>
+                <Text style={styles.resTonnes}>{tonnesFmt.format(r.tonnes)}</Text>
               </View>
             ))}
           </View>

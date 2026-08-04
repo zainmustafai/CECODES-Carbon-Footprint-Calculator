@@ -35,11 +35,17 @@ const MONTHS = [
 const TONNES_FMT = "#,##0.000";
 const QTY_FMT = "#,##0.######";
 
+// The report's fixed brand palette, matching build-pdf.tsx and the app's brand tokens
+// (globals.css) exactly. A plain literal here too: exceljs has no concept of a CSS variable,
+// and a spreadsheet export is a fixed artifact independent of the app's light/dark theme.
+const BRAND_NAVY = "FF002060";
+const BRAND_GREEN = "FF1D9764";
+
 function header(sheet: ExcelJS.Worksheet, titles: string[]) {
   const row = sheet.addRow(titles);
-  row.font = { bold: true };
+  row.font = { bold: true, color: { argb: "FFFFFFFF" } };
   row.eachCell((cell) => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_NAVY } };
   });
 }
 
@@ -59,7 +65,11 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   const summary = wb.addWorksheet("Resumen");
   summary.columns = [{ width: 38 }, { width: 24 }, { width: 16 }];
 
-  summary.addRow(["Huella de carbono corporativa"]).font = { bold: true, size: 14 };
+  summary.addRow(["Huella de carbono corporativa"]).font = {
+    bold: true,
+    size: 14,
+    color: { argb: BRAND_NAVY },
+  };
   summary.addRow([]);
   summary.addRow(["Empresa", vm.companyName]);
   summary.addRow(["Sede", vm.facilityName]);
@@ -79,7 +89,7 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
     r.getCell(2).numFmt = TONNES_FMT;
   }
   const totalRow = summary.addRow(["TOTAL", vm.totalTonnes]);
-  totalRow.font = { bold: true };
+  totalRow.font = { bold: true, color: { argb: BRAND_GREEN } };
   totalRow.getCell(2).numFmt = TONNES_FMT;
   summary.addRow([]);
 
@@ -196,7 +206,7 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   }
 
   const calcTotal = calc.addRow(["", "", "", "", "", "", "", "TOTAL", vm.totalTonnes]);
-  calcTotal.font = { bold: true };
+  calcTotal.font = { bold: true, color: { argb: BRAND_GREEN } };
   calcTotal.getCell(9).numFmt = TONNES_FMT;
 
   // ------------------------------------------------- Tecnologías más limpias
