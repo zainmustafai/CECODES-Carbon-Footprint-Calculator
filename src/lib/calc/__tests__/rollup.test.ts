@@ -103,6 +103,89 @@ describe("rollupYear: aggregation", () => {
   });
 });
 
+// The dashboard's "emissions by gas" card reads co2Tonnes/ch4Tonnes/n2oTonnes/otherGasesTonnes
+// directly off CategoryTotal. These must reconcile to `tonnes` for every category (by
+// construction, per rollup.ts's own comment) and therefore to totalTonnes when summed - that
+// reconciliation is the actual correctness bar this feature has to clear, not just "it renders".
+describe("rollupYear: the gas breakdown reconciles with the totals it sits beside", () => {
+  it("a pure-CO2 category (Scope 2, grid electricity) puts everything in co2Tonnes", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad", month: 1, value: "1000", factor: null },
+      ],
+      gridFactor: "0.217",
+      gwpSet: "AR6",
+    });
+    const category = r.byCategory[0];
+    expect(category.co2Tonnes).toBeCloseTo(category.tonnes, 9);
+    expect(category.ch4Tonnes).toBe(0);
+    expect(category.n2oTonnes).toBe(0);
+    expect(category.otherGasesTonnes).toBe(0);
+  });
+
+  it("a consolidated (pre-blended) category puts everything in otherGasesTonnes", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", factor: consolidated("1960") },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+    const category = r.byCategory[0];
+    expect(category.otherGasesTonnes).toBeCloseTo(category.tonnes, 9);
+    expect(category.co2Tonnes).toBe(0);
+    expect(category.ch4Tonnes).toBe(0);
+    expect(category.n2oTonnes).toBe(0);
+    expect(category.otherGasesEntries).toBe(1);
+    expect(category.gasResolvedEntries).toBe(0);
+  });
+
+  it("for every category, the four gas fields sum to tonnes exactly", () => {
+    const entries: RollupEntry[] = [
+      { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Diesel", month: null, value: "14957.10", factor: perGas("10.149", "0.00001", "0.000006") },
+      { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", factor: consolidated("1960") },
+      { scope: "SCOPE_3", category: "Residuos", subcategory: null, element: "Residuos", month: null, value: "10", factor: consolidated("500") },
+      { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad", month: 1, value: "1000", factor: null },
+    ];
+    const r = rollupYear({ entries, gridFactor: "0.217", gwpSet: "AR6" });
+
+    for (const category of r.byCategory) {
+      const sum =
+        category.co2Tonnes + category.ch4Tonnes + category.n2oTonnes + category.otherGasesTonnes;
+      expect(sum).toBeCloseTo(category.tonnes, 9);
+    }
+
+    // And summing every category's gas fields reconciles to the grand total, the number the
+    // dashboard's KPI card already shows.
+    const totalCo2 = r.byCategory.reduce((s, c) => s + c.co2Tonnes, 0);
+    const totalOther = r.byCategory.reduce((s, c) => s + c.otherGasesTonnes, 0);
+    const totalCh4 = r.byCategory.reduce((s, c) => s + c.ch4Tonnes, 0);
+    const totalN2o = r.byCategory.reduce((s, c) => s + c.n2oTonnes, 0);
+    expect(totalCo2 + totalCh4 + totalN2o + totalOther).toBeCloseTo(r.totalTonnes, 9);
+  });
+
+  it("mixed gas-resolved and pre-blended entries in the SAME category still reconcile", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "Fuga de proceso", month: null, value: "100", factor: perGas("1", "0.2", "0.05") },
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", factor: consolidated("1960") },
+      ],
+      gridFactor: null,
+      gwpSet: "AR6",
+    });
+    const category = r.byCategory[0];
+    expect(category.gasResolvedEntries).toBe(1);
+    expect(category.otherGasesEntries).toBe(1);
+    expect(category.co2Tonnes + category.ch4Tonnes + category.n2oTonnes + category.otherGasesTonnes).toBeCloseTo(
+      category.tonnes,
+      9,
+    );
+    // Both the gas-resolved row's CO2 and the pre-blended row's total must have landed.
+    expect(category.co2Tonnes).toBeGreaterThan(0);
+    expect(category.otherGasesTonnes).toBeCloseTo(19.6, 6);
+  });
+});
+
 // Requirements 7.4: element -> subcategory -> category -> scope -> company. The roll-up used to
 // stop at category, so any drill-down or export had to re-group the raw entries itself, i.e. build
 // a second engine. These levels exist so there is only ever one.

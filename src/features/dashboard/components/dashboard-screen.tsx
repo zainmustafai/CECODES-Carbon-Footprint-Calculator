@@ -9,6 +9,7 @@ import { DashboardFilters } from "./dashboard-filters";
 import { KpiCards } from "./kpi-cards";
 import { ScopeDonut } from "./scope-donut";
 import { CategoryBars } from "./category-bars";
+import { GasBars } from "./gas-bars";
 import { MonthlyTrend } from "./monthly-trend";
 import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
@@ -126,6 +127,8 @@ export async function DashboardScreen({
         <ScopeDonut slices={current.byScope} total={current.yearTotal} />
         <CategoryBars slices={current.byCategory} />
       </div>
+
+      <GasBars breakdown={current.byGas} />
 
       <MonthlyTrend points={current.monthly} year={current.year} />
 

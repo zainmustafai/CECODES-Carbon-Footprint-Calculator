@@ -11,6 +11,24 @@ export type ScopeSlice = { scope: Scope; tonnes: number; pct: number };
 
 export type CategorySlice = { scope: Scope; category: string; tonnes: number; pct: number };
 
+export type GasBucket = "CO2" | "CH4" | "N2O" | "OTHER";
+
+export type GasSlice = { gas: GasBucket; tonnes: number; pct: number };
+
+// Emissions split by gas instead of by scope/category, for the sources whose factor actually
+// retains a per-gas split. OTHER is a real, honestly-disclosed bucket, not an error: refrigerants,
+// SF6/PFC/NF3, and spend/distance-based Scope 3 factors arrive already expressed as CO2e, with no
+// underlying gas mass retained to split. See rollup.ts's CategoryTotal comment - the four slices
+// always sum to the SAME total this screen's other cards already show, for whatever scope/category
+// filter is currently active.
+export type GasBreakdown = {
+  /** Always CO2, CH4, N2O, OTHER in that fixed order (matches the GWP sheet's own row order). */
+  slices: GasSlice[];
+  otherPct: number;
+  otherEntries: number;
+  gasResolvedEntries: number;
+};
+
 // The company's single reduction goal (set on the Empresa screen) vs. its actual progress.
 // Always company-wide - every facility, every Alcance combined - regardless of any facility
 // filter active elsewhere on this dashboard, because the goal itself is company-wide by
@@ -78,6 +96,13 @@ export type DashboardCurrent = {
 
   byScope: ScopeSlice[]; // always the full three-scope split
   byCategory: CategorySlice[]; // reflects the scope refinement, largest first
+  /**
+   * Reflects the SAME scope/category refinement as `total`/`byCategory` above - unlike the scope
+   * donut and monthly trend, gas is orthogonal to both scope and category (a refrigerant leak
+   * contributes to OTHER whether you're looking at all of Alcance 1 or one of its categories), so
+   * a filtered view is more informative here, not degenerate.
+   */
+  byGas: GasBreakdown;
   monthly: MonthlyPoint[]; // Scope 2 only, twelve points
   biogenicTonnes: number;
   /**

@@ -22,6 +22,46 @@ export interface FactorInput {
 }
 
 /**
+ * CO2e (in kilograms) for a single activity value, split by gas. The dashboard's "emissions by
+ * gas" view reads this instead of re-deriving it, so the split can never drift from the
+ * headline total: computeCo2eKg (below) is defined AS the sum of these four fields, not as an
+ * independently computed number that happens to usually agree with it.
+ */
+export interface GasBreakdownKg {
+  co2Kg: number;
+  ch4Kg: number;
+  n2oKg: number;
+  /** Consolidated CO2e kg for factors already expressed as CO2e (refrigerants, SF6/NF3,
+   *  spend/distance-based). The individual gas mass was never retained for these. */
+  otherKg: number;
+  /** True exactly when factor.co2eFactor != null - the same condition computeCo2eKg branches on. */
+  isPreBlended: boolean;
+}
+
+export function computeCo2eBreakdownKg(
+  activity: number,
+  factor: FactorInput,
+  gwpSet: GwpSet,
+  ch4Rule: Ch4Rule = CH4_GWP_RULE,
+): GasBreakdownKg {
+  // Items stored already as CO2e (refrigerants, SF6/NF3, spend/distance-based).
+  if (factor.co2eFactor != null) {
+    return { co2Kg: 0, ch4Kg: 0, n2oKg: 0, otherKg: activity * factor.co2eFactor, isPreBlended: true };
+  }
+
+  const gwp = GWP[gwpSet];
+  const ch4Gwp = usesNonFossilCh4(factor, ch4Rule) ? gwp.ch4NonFossil : gwp.ch4Fossil;
+
+  return {
+    co2Kg: activity * (factor.co2Factor ?? 0) * gwp.co2,
+    ch4Kg: activity * (factor.ch4Factor ?? 0) * ch4Gwp,
+    n2oKg: activity * (factor.n2oFactor ?? 0) * gwp.n2o,
+    otherKg: 0,
+    isPreBlended: false,
+  };
+}
+
+/**
  * CO2e (in kilograms) for a single activity value.
  * Convert to tonnes for anything user-facing (see `kgToTonnes` in lib/gwp.ts).
  *
@@ -34,17 +74,6 @@ export function computeCo2eKg(
   gwpSet: GwpSet,
   ch4Rule: Ch4Rule = CH4_GWP_RULE,
 ): number {
-  // Items stored already as CO2e (refrigerants, SF6/NF3, spend/distance-based).
-  if (factor.co2eFactor != null) {
-    return activity * factor.co2eFactor;
-  }
-
-  const gwp = GWP[gwpSet];
-  const ch4Gwp = usesNonFossilCh4(factor, ch4Rule) ? gwp.ch4NonFossil : gwp.ch4Fossil;
-
-  const co2 = activity * (factor.co2Factor ?? 0) * gwp.co2;
-  const ch4 = activity * (factor.ch4Factor ?? 0) * ch4Gwp;
-  const n2o = activity * (factor.n2oFactor ?? 0) * gwp.n2o;
-
-  return co2 + ch4 + n2o;
+  const b = computeCo2eBreakdownKg(activity, factor, gwpSet, ch4Rule);
+  return b.co2Kg + b.ch4Kg + b.n2oKg + b.otherKg;
 }

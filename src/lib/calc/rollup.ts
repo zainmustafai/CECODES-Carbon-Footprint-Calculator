@@ -1,5 +1,10 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
-import { computeCo2eKg, type FactorInput } from "@/lib/calc/engine";
+import {
+  computeCo2eBreakdownKg,
+  computeCo2eKg,
+  type FactorInput,
+  type GasBreakdownKg,
+} from "@/lib/calc/engine";
 import { isFuelCategory } from "@/lib/calc/ch4-rule";
 import { kgToTonnes } from "@/lib/gwp";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
@@ -44,7 +49,27 @@ export type ScopeTotals = Record<Scope, number>;
  */
 export const REMOVALS_CATEGORY = "Remociones";
 
-export type CategoryTotal = { scope: Scope; category: string; tonnes: number };
+export type CategoryTotal = {
+  scope: Scope;
+  category: string;
+  tonnes: number;
+  /**
+   * The gas breakdown of `tonnes`, for the dashboard's "emissions by gas" view. `tonnes` is
+   * DEFINED as co2Tonnes + ch4Tonnes + n2oTonnes + otherGasesTonnes (see the accumulation loop
+   * below), so the four fields reconcile to it by construction, for every entry and therefore
+   * every aggregate built by summing entries.
+   */
+  co2Tonnes: number;
+  ch4Tonnes: number;
+  n2oTonnes: number;
+  /** Entries whose factor arrived already expressed as CO2e (refrigerants, SF6/PFC/NF3, or
+   *  spend/distance-based Scope 3): the individual gas mass was never retained for these. */
+  otherGasesTonnes: number;
+  /** Priced entries with a real per-gas split. */
+  gasResolvedEntries: number;
+  /** Priced entries counted only in otherGasesTonnes, with no gas-level detail available. */
+  otherGasesEntries: number;
+};
 
 export type SubcategoryTotal = {
   scope: Scope;
@@ -223,10 +248,11 @@ export function rollupYear({
       continue;
     }
 
-    let kg = 0;
+    let gas: GasBreakdownKg;
     if (entry.scope === "SCOPE_2") {
       // Scope 2 does not carry a factor on the row. It is the national grid factor for the
-      // year, a pure CO2 value in kg CO2/kWh (GWP of CO2 is 1).
+      // year, a pure CO2 value in kg CO2/kWh (GWP of CO2 is 1) - 100% CO2 for gas-bucket
+      // purposes, never CH4/N2O/other.
       if (grid === null) {
         // A year with no grid factor cannot be priced. This used to fall through and add a
         // real 0 into byScope, byCategory and the monthly series, guarded only by the flag
@@ -238,9 +264,9 @@ export function rollupYear({
         unpricedCount += 1;
         continue;
       }
-      kg = activity * grid;
+      gas = { co2Kg: activity * grid, ch4Kg: 0, n2oKg: 0, otherKg: 0, isPreBlended: false };
     } else if (entry.factor && isPriceable(entry.factor)) {
-      kg = computeCo2eKg(activity, toFactorInput(entry.factor, entry.category), gwpSet);
+      gas = computeCo2eBreakdownKg(activity, toFactorInput(entry.factor, entry.category), gwpSet);
     } else {
       // Either the factor row was removed (onDelete SetNull), or it exists but carries no
       // value the engine can read: the spend-based COP/USD columns are a real example, since
@@ -250,13 +276,39 @@ export function rollupYear({
       continue;
     }
 
-    const tonnes = kgToTonnes(kg);
+    const co2Tonnes = kgToTonnes(gas.co2Kg);
+    const ch4Tonnes = kgToTonnes(gas.ch4Kg);
+    const n2oTonnes = kgToTonnes(gas.n2oKg);
+    const otherGasesTonnes = kgToTonnes(gas.otherKg);
+    // `tonnes` is DEFINED as this sum, not computed separately from the same kg value - the
+    // one thing that makes "the four gas buckets always reconcile to the total" true by
+    // construction rather than by coincidence.
+    const tonnes = co2Tonnes + ch4Tonnes + n2oTonnes + otherGasesTonnes;
     byScope[entry.scope] += tonnes;
 
     const key = `${entry.scope}::${entry.category}`;
     const existing = categories.get(key);
-    if (existing) existing.tonnes += tonnes;
-    else categories.set(key, { scope: entry.scope, category: entry.category, tonnes });
+    if (existing) {
+      existing.tonnes += tonnes;
+      existing.co2Tonnes += co2Tonnes;
+      existing.ch4Tonnes += ch4Tonnes;
+      existing.n2oTonnes += n2oTonnes;
+      existing.otherGasesTonnes += otherGasesTonnes;
+      if (gas.isPreBlended) existing.otherGasesEntries += 1;
+      else existing.gasResolvedEntries += 1;
+    } else {
+      categories.set(key, {
+        scope: entry.scope,
+        category: entry.category,
+        tonnes,
+        co2Tonnes,
+        ch4Tonnes,
+        n2oTonnes,
+        otherGasesTonnes,
+        gasResolvedEntries: gas.isPreBlended ? 0 : 1,
+        otherGasesEntries: gas.isPreBlended ? 1 : 0,
+      });
+    }
 
     // The finer levels are the same tonnes, keyed more precisely. Sub-totals therefore add up to
     // the category total by construction, which is what makes a drill-down trustworthy.
@@ -290,7 +342,8 @@ export function rollupYear({
       entry.month >= 1 &&
       entry.month <= 12
     ) {
-      monthKg[entry.month - 1] += kg;
+      // Scope 2 is always pure CO2 (see the gas assignment above), so gas.co2Kg is the whole kg.
+      monthKg[entry.month - 1] += gas.co2Kg;
       if (reported) monthReported[entry.month - 1] = true;
     }
 

@@ -9,6 +9,7 @@ import type {
   DashboardCurrent,
   DashboardFilters,
   DashboardVM,
+  GasBreakdown,
   ScopeSlice,
   SedeTotal,
   YearTotal,
@@ -200,6 +201,34 @@ export async function loadDashboard(
     total = rollup.byScope[scope];
   }
 
+  // Same filter as `total` above (scope AND category), so the gas breakdown always ties back to
+  // the exact number the KPI card already shows - the reconciliation is undeniable in the code
+  // itself, not just true in theory.
+  const gasSource = category ? scopedCategories.filter((c) => c.category === category) : scopedCategories;
+  const gasTotals = gasSource.reduce(
+    (acc, c) => ({
+      co2: acc.co2 + c.co2Tonnes,
+      ch4: acc.ch4 + c.ch4Tonnes,
+      n2o: acc.n2o + c.n2oTonnes,
+      other: acc.other + c.otherGasesTonnes,
+      gasResolvedEntries: acc.gasResolvedEntries + c.gasResolvedEntries,
+      otherEntries: acc.otherEntries + c.otherGasesEntries,
+    }),
+    { co2: 0, ch4: 0, n2o: 0, other: 0, gasResolvedEntries: 0, otherEntries: 0 },
+  );
+  const gasPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
+  const byGas: GasBreakdown = {
+    slices: [
+      { gas: "CO2", tonnes: gasTotals.co2, pct: gasPct(gasTotals.co2) },
+      { gas: "CH4", tonnes: gasTotals.ch4, pct: gasPct(gasTotals.ch4) },
+      { gas: "N2O", tonnes: gasTotals.n2o, pct: gasPct(gasTotals.n2o) },
+      { gas: "OTHER", tonnes: gasTotals.other, pct: gasPct(gasTotals.other) },
+    ],
+    otherPct: gasPct(gasTotals.other),
+    otherEntries: gasTotals.otherEntries,
+    gasResolvedEntries: gasTotals.gasResolvedEntries,
+  };
+
   const lastUpdated = entries.reduce<string | null>((latest, e) => {
     const iso = e.updatedAt.toISOString();
     return latest === null || iso > latest ? iso : latest;
@@ -216,6 +245,7 @@ export async function loadDashboard(
     totalCategoryLabel: category,
     byScope,
     byCategory,
+    byGas,
     monthly: rollup.scope2Monthly,
     biogenicTonnes: rollup.biogenicTonnes,
     removalsTonnes: rollup.removals.tonnes,

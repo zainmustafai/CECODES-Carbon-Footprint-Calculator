@@ -244,6 +244,12 @@
       "SCOPE_2": "Electricidad",
       "SCOPE_3": "Indirectas"
     },
+    "gasNames": {
+      "CO2": "CO2",
+      "CH4": "CH4",
+      "N2O": "N2O",
+      "OTHER": "Otros gases (ya en CO2e)"
+    },
     "filters": {
       "label": "Filtrar",
       "facility": "Planta / Sede",
@@ -278,6 +284,11 @@
     "byCategory": {
       "title": "Emisiones por categoría",
       "empty": "Sin categorías con datos para este filtro."
+    },
+    "byGas": {
+      "title": "Emisiones por gas",
+      "empty": "Sin datos de gases para este filtro.",
+      "otherNote": "{tonnes} tCO2e ({pct}%) no se pueden desglosar por gas: {count, plural, one {# fuente} other {# fuentes}} cuyo factor de emisión ya viene expresado en CO2e (refrigerantes, SF6/PFC, o Alcance 3 por gasto o distancia)."
     },
     "monthly": {
       "title": "Tendencia mensual",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCo2eKg } from "@/lib/calc/engine";
+import { computeCo2eBreakdownKg, computeCo2eKg } from "@/lib/calc/engine";
 import { GWP } from "@/lib/gwp";
 
 // The engine is the one function every number in this product passes through, and until now it
@@ -141,5 +141,57 @@ describe("computeCo2eKg: numeric edges", () => {
   it("holds precision on the kind of value the Excel actually contains", () => {
     // 14957.10 gal of diesel at 10.149 kg CO2/gal.
     expect(computeCo2eKg(14957.1, { co2Factor: 10.149 }, "AR6")).toBeCloseTo(151799.6079, 4);
+  });
+});
+
+// The dashboard's "emissions by gas" view reads computeCo2eBreakdownKg directly, so it must
+// reconcile EXACTLY with computeCo2eKg (the number every other surface already shows) for every
+// factor shape the library actually has - not just usually agree with it.
+describe("computeCo2eBreakdownKg: reconciles with computeCo2eKg", () => {
+  const cases: Array<[string, Parameters<typeof computeCo2eKg>[1]]> = [
+    ["pure CO2", { co2Factor: 10.149 }],
+    ["CO2 + CH4 + N2O, non-biogenic", { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1 }],
+    ["CO2 + CH4 + N2O, biogenic", { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1, biogenic: true }],
+    ["consolidated CO2e (refrigerant-shaped)", { co2eFactor: 1960 }],
+    ["consolidated CO2e of exactly 0 (a real value, not missing)", { co2eFactor: 0, co2Factor: 5 }],
+    // The importer's real-world case: co2eFactor set AND per-gas columns also populated (an
+    // HFC/PFC/SF6/NF3 block is independent of the CH4/N2O grams/kg columns). computeCo2eKg's
+    // co2eFactor branch must win, and so must the breakdown's.
+    [
+      "consolidated CO2e with per-gas columns ALSO present",
+      { co2eFactor: 500, co2Factor: 999, ch4Factor: 999, n2oFactor: 999 },
+    ],
+    ["every gas column empty (unpriced)", {}],
+  ];
+
+  for (const [label, factor] of cases) {
+    it(`matches for: ${label}`, () => {
+      const total = computeCo2eKg(100, factor, "AR6");
+      const b = computeCo2eBreakdownKg(100, factor, "AR6");
+      expect(b.co2Kg + b.ch4Kg + b.n2oKg + b.otherKg).toBeCloseTo(total, 9);
+    });
+  }
+
+  it("isPreBlended is true exactly when co2eFactor is non-null, matching computeCo2eKg's branch", () => {
+    expect(computeCo2eBreakdownKg(10, { co2eFactor: 500 }, "AR6").isPreBlended).toBe(true);
+    expect(computeCo2eBreakdownKg(10, { co2eFactor: 0 }, "AR6").isPreBlended).toBe(true);
+    expect(computeCo2eBreakdownKg(10, { co2Factor: 5 }, "AR6").isPreBlended).toBe(false);
+    expect(computeCo2eBreakdownKg(10, {}, "AR6").isPreBlended).toBe(false);
+  });
+
+  it("a pre-blended factor puts everything in otherKg, none in co2/ch4/n2o", () => {
+    const b = computeCo2eBreakdownKg(10, { co2eFactor: 500, co2Factor: 999 }, "AR6");
+    expect(b.co2Kg).toBe(0);
+    expect(b.ch4Kg).toBe(0);
+    expect(b.n2oKg).toBe(0);
+    expect(b.otherKg).toBe(5000);
+  });
+
+  it("a gas-resolved factor puts nothing in otherKg", () => {
+    const b = computeCo2eBreakdownKg(10, { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1 }, "AR6");
+    expect(b.otherKg).toBe(0);
+    expect(b.co2Kg).toBeCloseTo(20, 9);
+    expect(b.ch4Kg).toBeCloseTo(10 * 0.5 * GWP.AR6.ch4Fossil, 9);
+    expect(b.n2oKg).toBeCloseTo(10 * 0.1 * GWP.AR6.n2o, 9);
   });
 });

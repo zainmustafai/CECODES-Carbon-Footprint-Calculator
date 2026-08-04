@@ -244,6 +244,12 @@
       "SCOPE_2": "Electricity",
       "SCOPE_3": "Indirect"
     },
+    "gasNames": {
+      "CO2": "CO2",
+      "CH4": "CH4",
+      "N2O": "N2O",
+      "OTHER": "Other gases (already CO2e)"
+    },
     "filters": {
       "label": "Filter",
       "facility": "Planta / Sede",
@@ -278,6 +284,11 @@
     "byCategory": {
       "title": "Emissions by category",
       "empty": "No categories with data for this filter."
+    },
+    "byGas": {
+      "title": "Emissions by gas",
+      "empty": "No gas data for this filter.",
+      "otherNote": "{tonnes} tCO2e ({pct}%) cannot be split by gas: {count, plural, one {# source} other {# sources}} whose emission factor already arrives as CO2e (refrigerants, SF6/PFC, or spend/distance-based Scope 3)."
     },
     "monthly": {
       "title": "Monthly trend",
