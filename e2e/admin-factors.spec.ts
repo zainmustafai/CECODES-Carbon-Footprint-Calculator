@@ -43,7 +43,13 @@ test.describe("admin factor library", () => {
 
     await page.getByRole("combobox", { name: /alcance/i }).click();
     await page.getByRole("option", { name: "Alcance 1" }).click();
-    await page.getByLabel(/^categoría$/i).fill("E2E Categoria");
+
+    // Categoría is a combobox now (real dropdown affordance), not a plain text box: type a
+    // brand-new value and pick the "use what I typed" row, since this category doesn't exist yet.
+    await page.getByRole("button", { name: /^categoría$/i }).click();
+    await page.getByPlaceholder(/^categoría$/i).fill("E2E Categoria");
+    await page.getByRole("option", { name: /usar/i }).click();
+
     await page.getByLabel(/^elemento$/i).fill(FACTOR_ELEMENT);
     await page.getByLabel(/unidad de consumo/i).fill("kg");
     await page.getByLabel(/factor co2e consolidado/i).fill("100");

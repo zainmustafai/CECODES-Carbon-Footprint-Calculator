@@ -555,8 +555,8 @@
         "title": "Estado del portafolio",
         "empty": "Sin empresas activas",
         "activeCompanies": "activas",
-        "reporting": "Reportando",
-        "reportingHint": "Con datos ingresados",
+        "reporting": "Reportando (histórico)",
+        "reportingHint": "Ha ingresado datos en algún año",
         "started": "Iniciadas",
         "startedHint": "Con año creado, sin datos",
         "noData": "Sin actividad",
@@ -871,6 +871,10 @@
         "active": "Activo",
         "activeHelp": "Un factor inactivo desaparece del selector de fuentes. Los registros existentes se conservan.",
         "version": "Versión"
+      },
+      "combobox": {
+        "useTyped": "Usar “{value}”",
+        "empty": "No hay valores registrados todavía. Escribe para crear uno nuevo."
       },
       "history": {
         "title": "Historial de cambios",

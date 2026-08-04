@@ -555,8 +555,8 @@
         "title": "Portfolio status",
         "empty": "No active companies",
         "activeCompanies": "active",
-        "reporting": "Reporting",
-        "reportingHint": "Data entered",
+        "reporting": "Reporting (all-time)",
+        "reportingHint": "Has entered data in any year",
         "started": "Started",
         "startedHint": "Year created, no data",
         "noData": "No activity",
@@ -871,6 +871,10 @@
         "active": "Active",
         "activeHelp": "An inactive factor disappears from the source picker. Existing records are kept.",
         "version": "Version"
+      },
+      "combobox": {
+        "useTyped": "Use “{value}”",
+        "empty": "No values registered yet. Type to create a new one."
       },
       "history": {
         "title": "Change history",

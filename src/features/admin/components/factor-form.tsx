@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextField } from "@/components/form/text-field";
 import { DecimalField } from "@/components/form/decimal-field";
 import { SelectField } from "@/components/form/select-field";
+import { ComboboxField } from "@/components/form/combobox-field";
 import { useFactorForm } from "../hooks/use-factor-form";
 import type { FactorFormValues } from "../schemas/factor-schemas";
 
@@ -109,17 +110,39 @@ export function FactorForm({
             )}
           />
           <TextField label={tf("unit")} {...form.register("unit")} error={errors.unit?.message} />
-          <TextField
-            label={tf("category")}
-            list="factor-categories"
-            {...form.register("category")}
-            error={errors.category?.message}
+          <Controller
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <ComboboxField
+                id="category"
+                label={tf("category")}
+                options={categories}
+                value={field.value}
+                onValueChange={field.onChange}
+                placeholder={tf("category")}
+                error={errors.category?.message}
+                emptyText={t("combobox.empty")}
+                createLabel={(value) => t("combobox.useTyped", { value })}
+              />
+            )}
           />
-          <TextField
-            label={tf("subcategory")}
-            list="factor-subcategories"
-            {...form.register("subcategory")}
-            error={errors.subcategory?.message}
+          <Controller
+            control={form.control}
+            name="subcategory"
+            render={({ field }) => (
+              <ComboboxField
+                id="subcategory"
+                label={tf("subcategory")}
+                options={subcategories}
+                value={field.value ?? ""}
+                onValueChange={field.onChange}
+                placeholder={tf("subcategory")}
+                error={errors.subcategory?.message}
+                emptyText={t("combobox.empty")}
+                createLabel={(value) => t("combobox.useTyped", { value })}
+              />
+            )}
           />
           <div className="md:col-span-2">
             <TextField
@@ -270,17 +293,6 @@ export function FactorForm({
           </Link>
         </Button>
       </div>
-
-      <datalist id="factor-categories">
-        {categories.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
-      <datalist id="factor-subcategories">
-        {subcategories.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
     </form>
   );
 }
