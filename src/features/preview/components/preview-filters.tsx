@@ -17,18 +17,26 @@ import type { PreviewFacility } from "../lib/types";
 // The facility and year picker for the preview. Both choices live in the URL so the server
 // recomputes and a shared link reproduces the exact view, matching the data-entry and
 // dashboard bars. A pending spinner keeps the wait honest.
+//
+// allFacilitiesOption is optional and used only by the Reports screen, which can export a
+// company-wide report. When omitted (the Preview/Resumen screen's call site), this component
+// renders exactly as before: Preview has no multi-facility generalization, so "all" is
+// meaningless there. This component stays agnostic of what the sentinel value means; only the
+// caller does.
 export function PreviewFilters({
   basePath,
   facilities,
   years,
   facilityId,
   year,
+  allFacilitiesOption,
 }: {
   basePath: string;
   facilities: PreviewFacility[];
   years: number[];
   facilityId: string | null;
   year: number | null;
+  allFacilitiesOption?: { value: string; label: string };
 }) {
   const t = useTranslations("preview.filters");
   const router = useRouter();
@@ -60,6 +68,11 @@ export function PreviewFilters({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {allFacilitiesOption ? (
+              <SelectItem value={allFacilitiesOption.value}>
+                {allFacilitiesOption.label}
+              </SelectItem>
+            ) : null}
             {facilities.map((f) => (
               <SelectItem key={f.id} value={f.id}>
                 {f.name}

@@ -12,6 +12,7 @@ const base: ReportVM = {
   year: 2024,
   gwpSet: "AR6",
   gridFactor: "0.217",
+  bySede: [],
   activity: [
     {
       scope: "SCOPE_1",
@@ -105,6 +106,28 @@ describe("buildWorkbook", () => {
     const rows = await sheetRows(base, "Calculo");
     const total = rows.find((r) => r[7] === "TOTAL")!;
     expect(total[8]).toBeCloseTo(base.totalTonnes, 6);
+  });
+
+  it("shows 'Totales por sede' only in company-wide mode (bySede populated)", async () => {
+    const singleFacility = await sheetRows(base, "Resumen");
+    expect(singleFacility.some((r) => r[0] === "Totales por sede")).toBe(false);
+
+    const companyWide = await sheetRows(
+      {
+        ...base,
+        facilityName: null,
+        bySede: [
+          { facilityId: "f1", facilityName: "Planta Yumbo", tonnes: 10.149, incomplete: false },
+          { facilityId: "f2", facilityName: "Planta Bogota", tonnes: 5, incomplete: true },
+        ],
+      },
+      "Resumen",
+    );
+    const sedeRow = companyWide.find((r) => r[0] === "Sede");
+    expect(sedeRow?.[1]).toBe("Todas las sedes");
+    expect(companyWide.some((r) => r[0] === "Totales por sede")).toBe(true);
+    const bogota = companyWide.find((r) => r[0] === "Planta Bogota (incompleto)");
+    expect(bogota?.[1]).toBeCloseTo(5, 6);
   });
 
   it("SHOUTS when sources were excluded, because the totals are then incomplete", async () => {

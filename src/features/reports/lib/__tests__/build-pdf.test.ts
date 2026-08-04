@@ -12,6 +12,7 @@ const base: ReportVM = {
   year: 2024,
   gwpSet: "AR6",
   gridFactor: "0.217",
+  bySede: [],
   activity: [],
   results: [
     {

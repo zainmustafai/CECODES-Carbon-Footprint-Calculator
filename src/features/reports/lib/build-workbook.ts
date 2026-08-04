@@ -72,7 +72,7 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   };
   summary.addRow([]);
   summary.addRow(["Empresa", vm.companyName]);
-  summary.addRow(["Sede", vm.facilityName]);
+  summary.addRow(["Sede", vm.facilityName ?? "Todas las sedes"]);
   summary.addRow(["Año de reporte", vm.year]);
   summary.addRow(["Conjunto GWP", vm.gwpSet]);
   summary.addRow([
@@ -92,6 +92,19 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   totalRow.font = { bold: true, color: { argb: BRAND_GREEN } };
   totalRow.getCell(2).numFmt = TONNES_FMT;
   summary.addRow([]);
+
+  // Only populated in company-wide mode ("todas las sedes"); empty in single-facility reports.
+  if (vm.bySede.length > 0) {
+    header(summary, ["Totales por sede", "t CO2e", ""]);
+    for (const row of vm.bySede) {
+      const r = summary.addRow([
+        row.incomplete ? `${row.facilityName} (incompleto)` : row.facilityName,
+        row.tonnes,
+      ]);
+      r.getCell(2).numFmt = TONNES_FMT;
+    }
+    summary.addRow([]);
+  }
 
   header(summary, ["Totales por categoría", "t CO2e", "Alcance"]);
   for (const row of vm.byCategory) {

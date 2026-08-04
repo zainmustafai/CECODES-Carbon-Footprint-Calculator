@@ -28,8 +28,8 @@ const getUser = vi.fn();
 
 const prismaMock = {
   company: { findUnique: vi.fn() },
-  facility: { findFirst: vi.fn() },
-  reportingYear: { findFirst: vi.fn() },
+  facility: { findFirst: vi.fn(), findMany: vi.fn() },
+  reportingYear: { findFirst: vi.fn(), findMany: vi.fn() },
   activityEntry: { findMany: vi.fn() },
   gridElectricityFactor: { findUnique: vi.fn() },
   cleanTechEntry: { findMany: vi.fn() },
@@ -55,6 +55,8 @@ beforeEach(() => {
 
   prismaMock.company.findUnique.mockResolvedValue({ id: COMPANY_A, name: "Empresa A", active: true });
   prismaMock.reportingYear.findFirst.mockResolvedValue({ id: "ry", year: 2024, gwpSet: "AR6" });
+  prismaMock.reportingYear.findMany.mockResolvedValue([]);
+  prismaMock.facility.findMany.mockResolvedValue([]);
   prismaMock.activityEntry.findMany.mockResolvedValue([]);
   prismaMock.gridElectricityFactor.findUnique.mockResolvedValue(null);
   prismaMock.cleanTechEntry.findMany.mockResolvedValue([]);
@@ -149,6 +151,51 @@ describe("GET /api/reports/export: the happy path", () => {
     prismaMock.reportingYear.findFirst.mockResolvedValue(null);
 
     const response = await GET(request({ facilityId: FACILITY_A, year: "1999" }));
+
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("GET /api/reports/export: company-wide (todas las sedes)", () => {
+  it("combines every facility's reporting year when facilityId is omitted", async () => {
+    prismaMock.facility.findMany.mockResolvedValue([
+      { id: FACILITY_A, name: "Planta A" },
+      { id: FACILITY_B, name: "Planta B" },
+    ]);
+    prismaMock.reportingYear.findMany.mockResolvedValue([
+      { id: "ry-a", facilityId: FACILITY_A, gwpSet: "AR6" },
+      { id: "ry-b", facilityId: FACILITY_B, gwpSet: "AR6" },
+    ]);
+
+    const response = await GET(request({ year: "2024" }));
+
+    expect(response.status).toBe(200);
+    // The single-facility path (findFirst) must not be touched in this mode.
+    expect(prismaMock.reportingYear.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.facility.findFirst).not.toHaveBeenCalled();
+    // Both facilities' reporting-year ids were queried in one IN clause.
+    expect(prismaMock.activityEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          reportingYearId: { in: ["ry-a", "ry-b"] },
+          companyId: COMPANY_A,
+        }),
+      }),
+    );
+  });
+
+  it("still refuses a company user who names another company, with no facilityId at all", async () => {
+    const response = await GET(request({ companyId: COMPANY_B, year: "2024" }));
+
+    expect(response.status).toBe(403);
+    expect(prismaMock.activityEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it("404s a year no facility has reported, rather than an empty workbook", async () => {
+    prismaMock.facility.findMany.mockResolvedValue([{ id: FACILITY_A, name: "Planta A" }]);
+    prismaMock.reportingYear.findMany.mockResolvedValue([]);
+
+    const response = await GET(request({ year: "1999" }));
 
     expect(response.status).toBe(404);
   });

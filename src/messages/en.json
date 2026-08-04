@@ -1177,8 +1177,13 @@
       "title": "Reports",
       "subtitle": "Download the carbon footprint report by facility and year.",
       "subtitleContext": "{facility} · year {year}",
+      "subtitleContextAll": "All facilities · year {year}",
       "exportTitle": "Download report",
       "exportHint": "The report uses the selected facility and year. Files are generated in Spanish.",
+      "exportHintAll": "The report combines every facility for the selected year. Files are generated in Spanish.",
+      "filters": {
+        "allSedes": "All"
+      },
       "formats": {
         "pdfTitle": "PDF",
         "pdfBody": "A readable summary to share: totals per alcance, removals, applied factors and the uncertainty table.",

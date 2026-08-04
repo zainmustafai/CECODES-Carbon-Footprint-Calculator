@@ -1177,8 +1177,13 @@
       "title": "Reportes",
       "subtitle": "Descarga el reporte de huella de carbono por sede y año.",
       "subtitleContext": "{facility} · año {year}",
+      "subtitleContextAll": "Todas las sedes · año {year}",
       "exportTitle": "Descargar reporte",
       "exportHint": "El reporte usa la sede y el año seleccionados. Los archivos se generan en español.",
+      "exportHintAll": "El reporte agrega todas las sedes para el año seleccionado. Los archivos se generan en español.",
+      "filters": {
+        "allSedes": "Todas"
+      },
       "formats": {
         "pdfTitle": "PDF",
         "pdfBody": "Resumen legible para compartir: totales por alcance, remociones, factores aplicados y la tabla de incertidumbre.",

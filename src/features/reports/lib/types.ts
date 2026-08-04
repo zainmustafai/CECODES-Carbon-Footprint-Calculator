@@ -46,12 +46,28 @@ export type ResultRow = {
 export type ScopeTotal = { scope: Scope; tonnes: number };
 export type CategoryRow = { scope: Scope; category: string; tonnes: number };
 
+/** One facility's total for the selected year, in a company-wide report. */
+export type SedeTotal = {
+  facilityId: string;
+  facilityName: string;
+  tonnes: number;
+  /** Same honesty flag as the dashboard's SedeTotal: an unpriceable source undercounts it. */
+  incomplete: boolean;
+};
+
 export type ReportVM = {
   companyName: string;
-  facilityName: string;
+  /** Null means "todas las sedes": a company-wide report, not one facility's. */
+  facilityName: string | null;
   year: number;
   gwpSet: GwpSet;
   gridFactor: string | null;
+
+  /**
+   * Per-facility subtotals for the selected year, largest first. Always empty in
+   * single-facility mode; populated only when facilityName is null.
+   */
+  bySede: SedeTotal[];
 
   activity: ActivityRow[];
   results: ResultRow[];

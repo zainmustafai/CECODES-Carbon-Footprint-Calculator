@@ -29,7 +29,9 @@ export function ExportButtons({
 }: {
   /** Only needed for the admin drill-down; a company user's session decides on the server. */
   companyId?: string;
-  facilityId: string;
+  /** Null means "todas las sedes": the export route omits facilityId, which it reads as a
+   *  company-wide report. */
+  facilityId: string | null;
   year: number;
 }) {
   const t = useTranslations("reports");
@@ -37,7 +39,8 @@ export function ExportButtons({
   const [active, setActive] = useState<Format | null>(null);
 
   function href(format: Format): string {
-    const query = new URLSearchParams({ facilityId, year: String(year), format });
+    const query = new URLSearchParams({ year: String(year), format });
+    if (facilityId) query.set("facilityId", facilityId);
     if (companyId) query.set("companyId", companyId);
     return `/api/reports/export?${query.toString()}`;
   }

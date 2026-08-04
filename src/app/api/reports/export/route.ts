@@ -22,7 +22,8 @@ const querySchema = z
   .object({
     // Optional: a company user's own id wins regardless of what they send. Only an admin needs it.
     companyId: z.uuid().optional(),
-    facilityId: z.uuid(),
+    // Optional: omitted means "todas las sedes" - a company-wide report across every facility.
+    facilityId: z.uuid().optional(),
     year: z.coerce.number().int().min(1990).max(2100),
     format: z.enum(["xlsx", "csv", "pdf"]).default("xlsx"),
   })
@@ -43,10 +44,10 @@ export async function GET(request: NextRequest) {
 
     // loadReport re-scopes the facility on scope.companyId, so a facility id belonging to another
     // company resolves to null rather than to somebody else's data.
-    const vm = await loadReport(scope.companyId, facilityId, year);
+    const vm = await loadReport(scope.companyId, facilityId ?? null, year);
     if (!vm) return NextResponse.json({ error: "notFound" }, { status: 404 });
 
-    const stamp = `${slug(vm.companyName)}-${slug(vm.facilityName)}-${vm.year}`;
+    const stamp = `${slug(vm.companyName)}-${slug(vm.facilityName ?? "todas-las-sedes")}-${vm.year}`;
 
     if (format === "csv") {
       return new NextResponse(buildCsv(vm), {

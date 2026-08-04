@@ -134,6 +134,8 @@ function KeyVal({ k, v }: { k: string; v: string }) {
 }
 
 function ReportDocument({ vm }: { vm: ReportVM }) {
+  const facilityLabel = vm.facilityName ?? "Todas las sedes";
+  const bySede = [...vm.bySede].sort((a, b) => b.tonnes - a.tonnes);
   const categories = [...vm.byCategory].sort((a, b) => b.tonnes - a.tonnes).slice(0, 14);
   // The complete element-by-element reference, unlike the top-14-truncated category rollup
   // above: this table's entire purpose is being the detailed audit trail.
@@ -158,7 +160,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         <Image src={logoBuffer} style={styles.logo} fixed />
         <Text style={styles.h1}>Huella de Carbono Corporativa</Text>
         <Text style={styles.sub}>
-          {vm.companyName} - {vm.facilityName} - {vm.year}
+          {vm.companyName} - {facilityLabel} - {vm.year}
         </Text>
 
         <View style={styles.kpiRow}>
@@ -210,11 +212,32 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         <View style={{ marginTop: 14 }}>
           <KeyVal k="Empresa" v={vm.companyName} />
-          <KeyVal k="Sede" v={vm.facilityName} />
+          <KeyVal k="Sede" v={facilityLabel} />
           <KeyVal k="Año" v={String(vm.year)} />
           <KeyVal k="Conjunto GWP" v={vm.gwpSet} />
           <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
         </View>
+
+        {bySede.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Emisiones por sede</Text>
+            <View style={styles.headRow}>
+              <Text style={[styles.cellName, styles.th]}>Sede</Text>
+              <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
+              <Text style={[styles.cellNum, styles.th]}>% del total</Text>
+            </View>
+            {bySede.map((s) => (
+              <View key={s.facilityId} style={styles.row}>
+                <Text style={styles.cellName}>
+                  {s.facilityName}
+                  {s.incomplete ? " (incompleto)" : ""}
+                </Text>
+                <Text style={styles.cellNum}>{t(s.tonnes)}</Text>
+                <Text style={styles.cellNum}>{tonnesFmt.format(pctOf(s.tonnes))}%</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {categories.length > 0 ? (
           <View style={styles.section}>
