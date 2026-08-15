@@ -255,8 +255,6 @@ export async function PreviewScreen({
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">{t("cleanTech.scope")}</th>
-                    <th className="py-2 pr-4 font-medium">{t("cleanTech.category")}</th>
-                    <th className="py-2 pr-4 font-medium">{t("cleanTech.subcategory")}</th>
                     <th className="py-2 pr-4 font-medium">{t("cleanTech.element")}</th>
                     <th className="py-2 pr-4 text-right font-medium">{t("cleanTech.quantity")}</th>
                     <th className="py-2 font-medium">{t("cleanTech.unit")}</th>
@@ -268,8 +266,6 @@ export async function PreviewScreen({
                       <td className="py-2 pr-4 whitespace-nowrap">
                         {row.scope ? tScopes(row.scope) : "-"}
                       </td>
-                      <td className="py-2 pr-4">{row.category ?? "-"}</td>
-                      <td className="py-2 pr-4">{row.subcategory ?? "-"}</td>
                       <td className="py-2 pr-4">{row.element}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {row.quantity ?? "-"}

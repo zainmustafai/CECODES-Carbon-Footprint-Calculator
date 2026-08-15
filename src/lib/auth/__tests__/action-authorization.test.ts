@@ -207,8 +207,6 @@ describe("a company user cannot reach another company's REPORTING YEARS", () => 
     const payload = {
       reportingYearId: YEAR_B,
       scope: null,
-      category: "",
-      subcategory: "",
       element: "Paneles solares",
       quantity: "",
       unit: "",

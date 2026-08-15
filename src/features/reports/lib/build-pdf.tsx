@@ -318,7 +318,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
               cálculo ni total de este reporte.
             </Text>
             <View style={[styles.headRow, { marginTop: 6 }]}>
-              <Text style={[styles.cellName, styles.th]}>Elemento</Text>
+              <Text style={[styles.cellName, styles.th]}>Práctica reportable</Text>
               <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
               <Text style={[styles.cellNum, styles.th]}>Dato / Unidad</Text>
             </View>

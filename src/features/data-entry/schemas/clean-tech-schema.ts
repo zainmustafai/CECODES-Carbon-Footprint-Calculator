@@ -30,8 +30,6 @@ export const addCleanTechInput = z
   .object({
     reportingYearId: z.uuid(),
     scope: z.enum(SCOPES).nullable(),
-    category: freeText,
-    subcategory: freeText,
     element: z.string().trim().min(1).max(300),
     quantity: quantityInput,
     unit: freeText,
@@ -50,8 +48,6 @@ export type AddCleanTechInput = z.infer<typeof addCleanTechInput>;
 export function cleanTechFormSchema(t: T) {
   return z.object({
     scope: z.enum([...SCOPES, ""] as const),
-    category: z.string().trim().max(300, t("tooLong")),
-    subcategory: z.string().trim().max(300, t("tooLong")),
     element: z.string().trim().min(1, t("elementRequired")).max(300, t("tooLong")),
     quantity: z
       .string()

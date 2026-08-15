@@ -16,8 +16,6 @@ import {
 export type CleanTechRowVM = {
   id: string;
   scope: "SCOPE_1" | "SCOPE_2" | "SCOPE_3" | null;
-  category: string | null;
-  subcategory: string | null;
   element: string;
   /** Decimal string, or null when the practice was reported without a number. */
   quantity: string | null;
@@ -30,10 +28,14 @@ export type CleanTechRowVM = {
 export function useCleanTechForm({
   reportingYearId,
   row,
+  /** The scope tab this section renders in. Seeds the scope field when adding a new row, so a
+   *  practice added from the Alcance 1 panel defaults to Alcance 1 rather than "sin alcance". */
+  defaultScope,
   onDone,
 }: {
   reportingYearId: string;
   row: CleanTechRowVM | null;
+  defaultScope?: "SCOPE_1" | "SCOPE_2" | "SCOPE_3";
   onDone?: () => void;
 }) {
   const tv = useTranslations("dataEntry.validation");
@@ -46,9 +48,7 @@ export function useCleanTechForm({
   const form = useForm<CleanTechFormValues>({
     resolver,
     defaultValues: {
-      scope: row?.scope ?? "",
-      category: row?.category ?? "",
-      subcategory: row?.subcategory ?? "",
+      scope: row?.scope ?? defaultScope ?? "",
       element: row?.element ?? "",
       quantity: row?.quantity ?? "",
       unit: row?.unit ?? "",
@@ -60,8 +60,6 @@ export function useCleanTechForm({
     const payload = {
       reportingYearId,
       scope: values.scope === "" ? null : values.scope,
-      category: values.category,
-      subcategory: values.subcategory,
       element: values.element,
       quantity: values.quantity,
       unit: values.unit,

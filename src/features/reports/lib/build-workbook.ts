@@ -230,9 +230,7 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
     const tech = wb.addWorksheet("Tecnologías más limpias");
     tech.columns = [
       { header: "Alcance", width: 12 },
-      { header: "Categoría", width: 34 },
-      { header: "Subcategoría", width: 30 },
-      { header: "Elemento", width: 42 },
+      { header: "Práctica reportable", width: 42 },
       { header: "Dato de actividad", width: 18 },
       { header: "Unidad Consumo", width: 16 },
     ];
@@ -242,13 +240,11 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
     for (const row of vm.cleanTech) {
       const r = tech.addRow([
         row.scope ? SCOPE_LABEL[row.scope] ?? row.scope : "",
-        row.category ?? "",
-        row.subcategory ?? "",
         row.element,
         num(row.quantity),
         row.unit ?? "",
       ]);
-      r.getCell(5).numFmt = QTY_FMT;
+      r.getCell(3).numFmt = QTY_FMT;
     }
     tech.addRow([]);
     tech.addRow([

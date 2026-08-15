@@ -537,9 +537,8 @@
       "save": "Save changes",
       "columns": {
         "scope": "Scope",
-        "category": "Category",
-        "subcategory": "Subcategory",
-        "element": "Element",
+        "element": "Reportable best practice",
+        "elementPlaceholder": "Please describe your good practice here",
         "quantity": "Activity data",
         "unit": "Consumption unit",
         "actions": "Actions"
@@ -1163,9 +1162,7 @@
       "title": "Cleaner technologies and good practices",
       "subtitle": "Reported freely by the company.",
       "scope": "Scope",
-      "category": "Category",
-      "subcategory": "Subcategory",
-      "element": "Element",
+      "element": "Reportable best practice",
       "quantity": "Activity data",
       "unit": "Consumption unit",
       "footnote": "Informational section: it never affects any calculation or total."

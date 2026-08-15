@@ -42,8 +42,6 @@ type EntryRow = {
 
 type CleanTechRow = {
   scope: RollupEntry["scope"] | null;
-  category: string | null;
-  subcategory: string | null;
   element: string;
   quantity: Decimalish | null;
   unit: string | null;
@@ -184,8 +182,6 @@ function buildReportFromEntries({
     removals: { rows: removalRows, tonnes: rollup.removals.tonnes },
     cleanTech: cleanTechRows.map((row) => ({
       scope: row.scope,
-      category: row.category,
-      subcategory: row.subcategory,
       element: row.element,
       quantity: row.quantity === null ? null : row.quantity.toString(),
       unit: row.unit,
@@ -261,8 +257,6 @@ async function loadSingleFacilityReport(
       orderBy: { createdAt: "asc" },
       select: {
         scope: true,
-        category: true,
-        subcategory: true,
         element: true,
         quantity: true,
         unit: true,
@@ -328,8 +322,6 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
       orderBy: { createdAt: "asc" },
       select: {
         scope: true,
-        category: true,
-        subcategory: true,
         element: true,
         quantity: true,
         unit: true,

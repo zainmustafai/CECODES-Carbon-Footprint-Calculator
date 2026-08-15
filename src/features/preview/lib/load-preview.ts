@@ -121,8 +121,6 @@ export async function loadPreview(
       select: {
         id: true,
         scope: true,
-        category: true,
-        subcategory: true,
         element: true,
         quantity: true,
         unit: true,
@@ -134,8 +132,6 @@ export async function loadPreview(
   const cleanTech = cleanTechRows.map((row) => ({
     id: row.id,
     scope: row.scope,
-    category: row.category,
-    subcategory: row.subcategory,
     element: row.element,
     quantity: row.quantity === null ? null : row.quantity.toString(),
     unit: row.unit,

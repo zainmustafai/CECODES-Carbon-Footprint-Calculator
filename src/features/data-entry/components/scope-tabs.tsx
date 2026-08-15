@@ -11,7 +11,9 @@ import { findCategory } from "../lib/group-factors";
 import { domId } from "../lib/dom-id";
 import type { GroupedFactors, ScopeVM } from "../lib/types";
 import { CategorySection } from "./category-section";
+import { CleanTechSection } from "./clean-tech-section";
 import { ScopeToolbar } from "./scope-toolbar";
+import type { CleanTechRowVM } from "../hooks/use-clean-tech-form";
 
 type ScopeTabsProps = {
   scopes: ScopeVM[];
@@ -21,6 +23,8 @@ type ScopeTabsProps = {
   gridFactor: PreviewGridFactor | null;
   gwpSet: GwpSet;
   year: number;
+  reportingYearId: string;
+  cleanTech: CleanTechRowVM[];
 };
 
 const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
@@ -32,6 +36,8 @@ export function ScopeTabs({
   gridFactor,
   gwpSet,
   year,
+  reportingYearId,
+  cleanTech,
 }: ScopeTabsProps) {
   const t = useTranslations("dataEntry");
   const searchParams = useSearchParams();
@@ -131,6 +137,15 @@ export function ScopeTabs({
                 />
               ))
             )}
+
+            {/* Free-form reporting, outside the calculation entirely (CECODES 2026-07-24).
+                One instance per scope tab, filtered to it, per the client's dynamic-filter
+                request (2026-08-15). */}
+            <CleanTechSection
+              reportingYearId={reportingYearId}
+              rows={cleanTech}
+              scope={scope.scope}
+            />
           </TabsContent>
         );
       })}

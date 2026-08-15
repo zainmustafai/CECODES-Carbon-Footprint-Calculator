@@ -56,7 +56,7 @@ test.describe("tecnologías más limpias", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await dialog.getByLabel(/^elemento$/i).fill(ELEMENT);
+    await dialog.getByLabel(/práctica reportable/i).fill(ELEMENT);
     await dialog.getByLabel(/dato de actividad/i).fill("120,5");
     await dialog.getByLabel(/unidad consumo/i).fill("kWh instalados");
     await dialog.getByRole("button", { name: /agregar registro/i }).click();

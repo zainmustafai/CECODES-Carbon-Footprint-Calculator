@@ -35,8 +35,6 @@ export type PreviewScopeGroup = {
 export type PreviewCleanTechRow = {
   id: string;
   scope: Scope | null;
-  category: string | null;
-  subcategory: string | null;
   element: string;
   quantity: string | null;
   unit: string | null;

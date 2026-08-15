@@ -22,8 +22,6 @@ import {
 export async function addCleanTechAction(input: {
   reportingYearId: string;
   scope: "SCOPE_1" | "SCOPE_2" | "SCOPE_3" | null;
-  category: string;
-  subcategory: string;
   element: string;
   quantity: string;
   unit: string;
@@ -40,8 +38,6 @@ export async function addCleanTechAction(input: {
         reportingYearId: data.reportingYearId,
         companyId: scope.companyId,
         scope: data.scope,
-        category: data.category,
-        subcategory: data.subcategory,
         element: data.element,
         quantity: data.quantity,
         unit: data.unit,
@@ -62,8 +58,6 @@ export async function updateCleanTechAction(input: {
   id: string;
   reportingYearId: string;
   scope: "SCOPE_1" | "SCOPE_2" | "SCOPE_3" | null;
-  category: string;
-  subcategory: string;
   element: string;
   quantity: string;
   unit: string;
@@ -83,8 +77,6 @@ export async function updateCleanTechAction(input: {
       },
       data: {
         scope: data.scope,
-        category: data.category,
-        subcategory: data.subcategory,
         element: data.element,
         quantity: data.quantity,
         unit: data.unit,

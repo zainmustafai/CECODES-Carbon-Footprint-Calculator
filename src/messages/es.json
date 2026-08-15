@@ -537,9 +537,8 @@
       "save": "Guardar cambios",
       "columns": {
         "scope": "Alcance",
-        "category": "Categoría",
-        "subcategory": "Subcategoría",
-        "element": "Elemento",
+        "element": "Práctica reportable",
+        "elementPlaceholder": "Por favor, describe tus buenas prácticas aquí",
         "quantity": "Dato de actividad",
         "unit": "Unidad Consumo",
         "actions": "Acciones"
@@ -1163,9 +1162,7 @@
       "title": "Datos sobre tecnologías más limpias y buenas prácticas",
       "subtitle": "Reportado de manera libre por la empresa.",
       "scope": "Alcance",
-      "category": "Categoría",
-      "subcategory": "Subcategoría",
-      "element": "Elemento",
+      "element": "Práctica reportable",
       "quantity": "Dato de actividad",
       "unit": "Unidad Consumo",
       "footnote": "Sección informativa: no afecta ningún cálculo ni total."

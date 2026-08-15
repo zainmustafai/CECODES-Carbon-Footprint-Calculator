@@ -52,9 +52,13 @@ const NO_SCOPE = "NONE";
 export function CleanTechSection({
   reportingYearId,
   rows,
+  scope,
 }: {
   reportingYearId: string;
   rows: CleanTechRowVM[];
+  /** The scope tab this instance renders in. Filters `rows` to this scope (plus rows with no
+   *  scope yet, a transitional state until edited) and seeds new rows with it. */
+  scope: "SCOPE_1" | "SCOPE_2" | "SCOPE_3";
 }) {
   const t = useTranslations("dataEntry.cleanTech");
   const te = useTranslations("dataEntry.errors");
@@ -68,6 +72,8 @@ export function CleanTechSection({
       success: t("removed"),
       errorMessage: (key) => te(key),
     });
+
+  const scopedRows = rows.filter((row) => row.scope === scope || row.scope === null);
 
   return (
     <Card>
@@ -85,7 +91,7 @@ export function CleanTechSection({
         </Button>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
+        {scopedRows.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
             {t("empty")}
           </p>
@@ -95,8 +101,6 @@ export function CleanTechSection({
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("columns.scope")}</TableHead>
-                  <TableHead>{t("columns.category")}</TableHead>
-                  <TableHead>{t("columns.subcategory")}</TableHead>
                   <TableHead>{t("columns.element")}</TableHead>
                   <TableHead className="text-right">{t("columns.quantity")}</TableHead>
                   <TableHead>{t("columns.unit")}</TableHead>
@@ -104,13 +108,11 @@ export function CleanTechSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {scopedRows.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="whitespace-nowrap">
                       {row.scope ? SCOPE_LABEL[row.scope] : "-"}
                     </TableCell>
-                    <TableCell>{row.category ?? "-"}</TableCell>
-                    <TableCell>{row.subcategory ?? "-"}</TableCell>
                     <TableCell className="max-w-64 truncate" title={row.element}>
                       {row.element}
                     </TableCell>
@@ -152,6 +154,7 @@ export function CleanTechSection({
         <CleanTechDialog
           reportingYearId={reportingYearId}
           row={editing === "new" ? null : editing}
+          defaultScope={scope}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -164,16 +167,19 @@ export function CleanTechSection({
 function CleanTechDialog({
   reportingYearId,
   row,
+  defaultScope,
   onClose,
 }: {
   reportingYearId: string;
   row: CleanTechRowVM | null;
+  defaultScope: "SCOPE_1" | "SCOPE_2" | "SCOPE_3";
   onClose: () => void;
 }) {
   const t = useTranslations("dataEntry.cleanTech");
   const { form, onSubmit, isSubmitting, serverError } = useCleanTechForm({
     reportingYearId,
     row,
+    defaultScope,
     onDone: onClose,
   });
 
@@ -207,19 +213,10 @@ function CleanTechDialog({
                 />
               )}
             />
-            <TextField
-              label={t("columns.category")}
-              {...form.register("category")}
-              error={form.formState.errors.category?.message}
-            />
-            <TextField
-              label={t("columns.subcategory")}
-              {...form.register("subcategory")}
-              error={form.formState.errors.subcategory?.message}
-            />
             <div className="sm:col-span-2">
               <TextField
                 label={t("columns.element")}
+                placeholder={t("columns.elementPlaceholder")}
                 {...form.register("element")}
                 error={form.formState.errors.element?.message}
               />

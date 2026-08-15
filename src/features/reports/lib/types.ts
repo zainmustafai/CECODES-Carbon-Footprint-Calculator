@@ -88,8 +88,6 @@ export type ReportVM = {
    */
   cleanTech: {
     scope: Scope | null;
-    category: string | null;
-    subcategory: string | null;
     element: string;
     quantity: string | null;
     unit: string | null;

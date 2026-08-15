@@ -7,7 +7,6 @@ import { getActiveFactorsForPicker } from "@/features/admin/lib/factor-library-c
 import { groupFactors } from "../lib/group-factors";
 import { shapeEntries, type EntryRow } from "../lib/shape-entries";
 import type { FacilityVM, YearVM } from "../lib/types";
-import { CleanTechSection } from "./clean-tech-section";
 import { ContextBar } from "./context-bar";
 import { CreateYearDialog } from "./create-year-dialog";
 import { DataEntryProvider } from "./data-entry-provider";
@@ -149,8 +148,6 @@ export async function DataEntryScreen({
       select: {
         id: true,
         scope: true,
-        category: true,
-        subcategory: true,
         element: true,
         quantity: true,
         unit: true,
@@ -216,16 +213,10 @@ export async function DataEntryScreen({
           gridFactor={gridFactorVM}
           gwpSet={selectedYear.gwpSet}
           year={selectedYear.year}
-        />
-        {/* Free-form reporting, outside the calculation entirely (CECODES 2026-07-24).
-            Decimals cross to the client as strings, like everything else. */}
-        <CleanTechSection
           reportingYearId={selectedYear.id}
-          rows={cleanTech.map((row) => ({
+          cleanTech={cleanTech.map((row) => ({
             id: row.id,
             scope: row.scope,
-            category: row.category,
-            subcategory: row.subcategory,
             element: row.element,
             quantity: row.quantity === null ? null : row.quantity.toString(),
             unit: row.unit,
