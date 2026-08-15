@@ -1,7 +1,15 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -40,7 +48,8 @@ export function ScopeDetailBars({
   const tUnit = useTranslations("dashboard");
   const format = useFormatter();
 
-  const n = (value: number) => format.number(value, { maximumFractionDigits: 1 });
+  const n = (value: number) =>
+    format.number(value, { maximumFractionDigits: 1 });
   const scopeLabel = scopes.map((s) => tScopes(s)).join(", ");
 
   const categoryData: DetailBar[] = byCategory.map((c) => ({
@@ -58,12 +67,14 @@ export function ScopeDetailBars({
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-1 pt-6">
-          <p className="text-sm text-muted-foreground">{t("total")}</p>
-          <p className="font-mono text-4xl font-semibold tabular-nums">
+          <p className="text-muted-foreground text-sm">{t("total")}</p>
+          <p className="font-mono font-semibold tabular-nums text-4xl">
             {n(total)}
-            <span className="ml-1.5 text-base font-normal text-muted-foreground">tCO2e</span>
+            <span className="ml-1.5 font-normal text-muted-foreground text-base">
+              tCO2e
+            </span>
           </p>
-          <p className="text-xs text-muted-foreground">{scopeLabel}</p>
+          <p className="text-muted-foreground text-xs">{scopeLabel}</p>
         </CardContent>
       </Card>
 
@@ -104,25 +115,28 @@ function DetailBarCard({
   data: DetailBar[];
   n: (value: number) => string;
 }) {
-  const truncate = (value: string) => (value.length > 12 ? `${value.slice(0, 11)}…` : value);
+  const truncate = (value: string) =>
+    value.length > 12 ? `${value.slice(0, 11)}…` : value;
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex-row justify-between items-center space-y-0">
         <CardTitle className="text-base">{title}</CardTitle>
-        <span className="text-xs text-muted-foreground">{unit}</span>
+        <span className="text-muted-foreground text-xs">{unit}</span>
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
-          <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-sm text-muted-foreground">{empty}</p>
+        {data.length === 0 ?
+          <div className="flex justify-center items-center border border-dashed rounded-lg min-h-40">
+            <p className="text-muted-foreground text-sm">{empty}</p>
           </div>
-        ) : (
-          <ChartContainer
+        : <ChartContainer
             config={{ tonnes: { label: unit, color: "var(--chart-1)" } }}
-            className="aspect-16/9 w-full"
+            className="w-full aspect-video"
           >
-            <BarChart data={data} margin={{ top: 20, left: 4, right: 8, bottom: 24 }}>
+            <BarChart
+              data={data}
+              margin={{ top: 20, left: 4, right: 8, bottom: 24 }}
+            >
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="name"
@@ -145,14 +159,24 @@ function DetailBarCard({
                 content={
                   <ChartTooltipContent
                     formatter={(value) => (
-                      <span className="font-mono tabular-nums">{n(Number(value))} t CO2e</span>
+                      <span className="font-mono tabular-nums">
+                        {n(Number(value))} t CO2e
+                      </span>
                     )}
                   />
                 }
               />
-              <Bar dataKey="tonnes" radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+              <Bar
+                dataKey="tonnes"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={48}
+                isAnimationActive={false}
+              >
                 {data.map((d, index) => (
-                  <Cell key={`${index}-${d.name}`} fill={SCOPE_COLOR[d.scope]} />
+                  <Cell
+                    key={`${index}-${d.name}`}
+                    fill={SCOPE_COLOR[d.scope]}
+                  />
                 ))}
                 <LabelList
                   dataKey="tonnes"
@@ -163,7 +187,7 @@ function DetailBarCard({
               </Bar>
             </BarChart>
           </ChartContainer>
-        )}
+        }
       </CardContent>
     </Card>
   );
