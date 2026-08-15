@@ -11,19 +11,32 @@ export type ScopeSlice = { scope: Scope; tonnes: number; pct: number };
 
 export type CategorySlice = { scope: Scope; category: string; tonnes: number; pct: number };
 
-export type GasBucket = "CO2" | "CH4" | "N2O" | "OTHER";
+export type GasBucket = "CO2" | "CH4" | "N2O";
 
 export type GasSlice = { gas: GasBucket; tonnes: number; pct: number };
 
+// One named "other" gas row (client feedback 2026-08-15: "please include all of the gases
+// separately... specify those 'other' such SF6, NF3, etc."). gasType is either a value the
+// importer captured from the factor library (see map-row.ts: "HFC", "PFC", "SF6", "NF3") -
+// rendered raw, like every other factor-library name in this app - or rollup.ts's
+// OTHER_GAS_FALLBACK sentinel for a pre-blended factor with no captured gas identity, flagged by
+// isFallback so the (client-side) UI can show a translated label instead of the raw sentinel
+// without needing to import the calc engine just to compare against its constant.
+export type OtherGasSlice = { gasType: string; tonnes: number; pct: number; isFallback: boolean };
+
 // Emissions split by gas instead of by scope/category, for the sources whose factor actually
-// retains a per-gas split. OTHER is a real, honestly-disclosed bucket, not an error: refrigerants,
-// SF6/PFC/NF3, and spend/distance-based Scope 3 factors arrive already expressed as CO2e, with no
-// underlying gas mass retained to split. See rollup.ts's CategoryTotal comment - the four slices
-// always sum to the SAME total this screen's other cards already show, for whatever scope/category
-// filter is currently active.
+// retains a per-gas split. otherGases is a real, honestly-disclosed breakdown, not an error:
+// refrigerants, SF6/PFC/HFC/NF3, and spend/distance-based Scope 3 factors arrive already
+// expressed as CO2e, with no underlying CO2/CH4/N2O mass retained to split - only WHICH gas they
+// are (when captured) survives. See rollup.ts's CategoryTotal comment - slices plus otherGases
+// always sum to the SAME total this screen's other cards already show, for whatever
+// scope/category filter is currently active.
 export type GasBreakdown = {
-  /** Always CO2, CH4, N2O, OTHER in that fixed order (matches the GWP sheet's own row order). */
+  /** Always CO2, CH4, N2O in that fixed order (matches the GWP sheet's own row order). */
   slices: GasSlice[];
+  /** One row per gasType found among the filtered categories' otherGasesByType, largest first,
+   *  with the fallback bucket (if present) always last. Sums to otherPct's underlying tonnes. */
+  otherGases: OtherGasSlice[];
   otherPct: number;
   otherEntries: number;
   gasResolvedEntries: number;

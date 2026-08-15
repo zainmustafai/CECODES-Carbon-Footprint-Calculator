@@ -19,6 +19,7 @@ export const FACTOR_FIELDS = [
   "co2eFactor",
   "co2eFactorCop",
   "co2eFactorUsd",
+  "gasType",
   "factorUnit",
   "source",
   "gwpSet",

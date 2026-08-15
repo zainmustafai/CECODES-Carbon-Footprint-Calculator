@@ -29,6 +29,11 @@ export type MappedFactor = {
   ch4Factor: string | null;
   n2oFactor: string | null;
   co2eFactor: string | null;
+  /** Which column the consolidated co2eFactor came from - "HFC", "PFC", "SF6" or "NF3" - or null
+   *  when co2eFactor came from column 9 instead (a pre-blended value with no gas-identifying
+   *  column, e.g. a spend/distance-based Scope 3 line) or when the row has no co2eFactor at all.
+   *  See COL and the consolidated-block reading below. */
+  gasType: string | null;
   factorUnit: string | null;
   source: string | null;
   biogenic: boolean;
@@ -333,25 +338,32 @@ export function mapRow(cells: RawRowCells): MapResult {
   const co2eByUnit = col9 !== null && isCo2eUnit(cellText(cells[COL.co2Unit]));
 
   // A single consolidated CO2e from the HFC / PFC / SF6 / NF3 blocks (mutually exclusive in
-  // practice; the first present wins), with its own unit column.
+  // practice; the first present wins), with its own unit column. Which block it came from is
+  // captured as gasType alongside it (client feedback 2026-08-15) rather than discarded: it is
+  // the only gas identity the sheet offers for a pre-blended value.
   const hfc = decimalString(cells[COL.hfc]);
   const pfc = decimalString(cells[COL.pfc]);
   const sf6 = decimalString(cells[COL.sf6]);
   const nf3 = decimalString(cells[COL.nf3]);
   let consolidated: string | null = null;
   let consolidatedUnitCol: number | null = null;
+  let consolidatedGasType: string | null = null;
   if (hfc !== null) {
     consolidated = hfc;
     consolidatedUnitCol = COL.hfcUnit;
+    consolidatedGasType = "HFC";
   } else if (pfc !== null) {
     consolidated = pfc;
     consolidatedUnitCol = COL.pfcUnit;
+    consolidatedGasType = "PFC";
   } else if (sf6 !== null) {
     consolidated = sf6;
     consolidatedUnitCol = COL.sf6Unit;
+    consolidatedGasType = "SF6";
   } else if (nf3 !== null) {
     consolidated = nf3;
     consolidatedUnitCol = COL.nf3Unit;
+    consolidatedGasType = "NF3";
   }
 
   // A row cannot carry both a column-9 CO2/CO2e value and a consolidated CO2e block: which one
@@ -363,6 +375,10 @@ export function mapRow(cells: RawRowCells): MapResult {
   let co2Factor: string | null = null;
   let co2eFactor: string | null = null;
   let factorUnit: string | null = null;
+  // Column 9's CO2e reading (spend/distance-based Scope 3, etc.) carries no gas-identifying
+  // column, unlike the HFC/PFC/SF6/NF3 blocks below: it stays null, and the rollup falls it back
+  // to the documented "unidentified" bucket rather than guessing.
+  let gasType: string | null = null;
 
   if (col9 !== null) {
     // Quantized to the column's scale so a re-import compares equal instead of "changing".
@@ -372,6 +388,7 @@ export function mapRow(cells: RawRowCells): MapResult {
   } else if (consolidated !== null && consolidatedUnitCol !== null) {
     co2eFactor = quantizeFactor(consolidated);
     factorUnit = normalizeUnit(cells[consolidatedUnitCol]) || null;
+    gasType = consolidatedGasType;
   }
 
   // When only per-gas values exist, fall back to their unit column so factorUnit is not blank.
@@ -402,6 +419,7 @@ export function mapRow(cells: RawRowCells): MapResult {
       ch4Factor,
       n2oFactor,
       co2eFactor,
+      gasType,
       factorUnit,
       source: collectSource(cells),
       biogenic,

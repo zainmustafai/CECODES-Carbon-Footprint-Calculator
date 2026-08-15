@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { resolveGwpSet } from "@/lib/gwp";
-import { rollupYear, type YearRollup } from "@/lib/calc/rollup";
+import { rollupYear, OTHER_GAS_FALLBACK, type YearRollup } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type {
@@ -10,6 +10,7 @@ import type {
   DashboardFilters,
   DashboardVM,
   GasBreakdown,
+  OtherGasSlice,
   ScopeSlice,
   SedeTotal,
   YearTotal,
@@ -117,6 +118,7 @@ export async function loadDashboard(
             co2eFactor: true,
             biogenic: true,
             entryMode: true,
+            gasType: true,
           },
         },
       },
@@ -238,13 +240,40 @@ export async function loadDashboard(
     { co2: 0, ch4: 0, n2o: 0, other: 0, gasResolvedEntries: 0, otherEntries: 0 },
   );
   const gasPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
+
+  // Client feedback 2026-08-15: name each pre-blended gas (SF6, PFC, HFC, NF3, ...) instead of
+  // one lump OTHER bucket. Summed across the SAME scope/category-filtered categories as
+  // gasTotals.other above, so otherGases always sums back to it exactly - rollup.ts defines
+  // otherGasesByType to sum to otherGasesTonnes per category, so the sum over categories holds
+  // the same way byScope/byCategory already reconcile to totalTonnes.
+  const otherByType = new Map<string, number>();
+  for (const c of gasSource) {
+    for (const [gasType, tonnes] of Object.entries(c.otherGasesByType)) {
+      otherByType.set(gasType, (otherByType.get(gasType) ?? 0) + tonnes);
+    }
+  }
+  const otherGases: OtherGasSlice[] = [...otherByType.entries()]
+    .map(([gasType, tonnes]) => ({
+      gasType,
+      tonnes,
+      pct: gasPct(tonnes),
+      isFallback: gasType === OTHER_GAS_FALLBACK,
+    }))
+    // Largest first, but the fallback bucket always sorts last: it is "everything else", not a
+    // named gas competing for rank with SF6/PFC/HFC/NF3.
+    .sort((a, b) => {
+      if (a.isFallback) return 1;
+      if (b.isFallback) return -1;
+      return b.tonnes - a.tonnes;
+    });
+
   const byGas: GasBreakdown = {
     slices: [
       { gas: "CO2", tonnes: gasTotals.co2, pct: gasPct(gasTotals.co2) },
       { gas: "CH4", tonnes: gasTotals.ch4, pct: gasPct(gasTotals.ch4) },
       { gas: "N2O", tonnes: gasTotals.n2o, pct: gasPct(gasTotals.n2o) },
-      { gas: "OTHER", tonnes: gasTotals.other, pct: gasPct(gasTotals.other) },
     ],
+    otherGases,
     otherPct: gasPct(gasTotals.other),
     otherEntries: gasTotals.otherEntries,
     gasResolvedEntries: gasTotals.gasResolvedEntries,

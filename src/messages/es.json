@@ -890,6 +890,7 @@
         "co2eFactor": "Factor CO2e consolidado",
         "co2eFactorCop": "Factor CO2e por COP",
         "co2eFactorUsd": "Factor CO2e por USD",
+        "gasType": "Gas (del factor CO2e consolidado)",
         "factorUnit": "Unidad del factor",
         "source": "Fuente bibliográfica",
         "gwpSet": "Conjunto GWP",

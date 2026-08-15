@@ -146,6 +146,7 @@ describe("mapRow", () => {
     expect(f.unit).toBe("Ton");
     expect(f.co2Factor).toBe("2534.813");
     expect(f.co2eFactor).toBeNull();
+    expect(f.gasType).toBeNull();
     expect(f.ch4Factor).toBe("0.0287602");
     expect(f.n2oFactor).toBe("0.0431404");
     expect(f.factorUnit).toBe("kg CO2/ton");
@@ -180,6 +181,8 @@ describe("mapRow", () => {
     if (!result.ok) return;
     expect(result.factor.co2eFactor).toBe("11492.8");
     expect(result.factor.co2Factor).toBeNull();
+    // Column 9 carries no gas-identifying column, unlike the HFC/PFC/SF6/NF3 blocks below.
+    expect(result.factor.gasType).toBeNull();
   });
 
   it("maps an HFC block into co2eFactor with its own unit", () => {
@@ -200,6 +203,35 @@ describe("mapRow", () => {
     expect(result.factor.co2eFactor).toBe("1960");
     expect(result.factor.factorUnit).toBe("kgCO2eq/kg");
     expect(result.factor.source).toBe("AR6");
+    // Which column the value came from, captured instead of discarded (client feedback
+    // 2026-08-15): this row's value is in the HFC block, columns 26-30.
+    expect(result.factor.gasType).toBe("HFC");
+  });
+
+  it("captures PFC/SF6/NF3 as gasType too, from their own blocks", () => {
+    const pfcRow: RawRowCells = {
+      1: "Alcance 1", 2: "Emisiones Fugitivas", 3: "-", 4: "Uso de PFC", 5: "kg", 8: "-",
+      31: 7390, 32: "kgCO2eq/kg",
+    };
+    const pfc = mapRow(pfcRow);
+    expect(pfc.ok).toBe(true);
+    if (pfc.ok) expect(pfc.factor.gasType).toBe("PFC");
+
+    const sf6Row: RawRowCells = {
+      1: "Alcance 1", 2: "Emisiones Fugitivas", 3: "-", 4: "Uso de SF6", 5: "kg", 8: "-",
+      36: 25200, 37: "kgCO2eq/kg",
+    };
+    const sf6 = mapRow(sf6Row);
+    expect(sf6.ok).toBe(true);
+    if (sf6.ok) expect(sf6.factor.gasType).toBe("SF6");
+
+    const nf3Row: RawRowCells = {
+      1: "Alcance 1", 2: "Emisiones Fugitivas", 3: "-", 4: "Uso de NF3", 5: "kg", 8: "-",
+      41: 17200, 42: "kgCO2eq/kg",
+    };
+    const nf3 = mapRow(nf3Row);
+    expect(nf3.ok).toBe(true);
+    if (nf3.ok) expect(nf3.factor.gasType).toBe("NF3");
   });
 
   it("rejects a row with no factor in any column, grams or kilograms", () => {

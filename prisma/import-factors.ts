@@ -121,6 +121,7 @@ function snapshotFromFactor(f: {
   ch4Factor: string | null;
   n2oFactor: string | null;
   co2eFactor: string | null;
+  gasType: string | null;
   factorUnit: string | null;
   source: string | null;
   biogenic: boolean;
@@ -136,6 +137,7 @@ function snapshotFromFactor(f: {
     ch4Factor: f.ch4Factor,
     n2oFactor: f.n2oFactor,
     co2eFactor: f.co2eFactor,
+    gasType: f.gasType,
     factorUnit: f.factorUnit,
     source: f.source,
     biogenic: f.biogenic,
@@ -304,6 +306,7 @@ async function main() {
       ch4Factor: f.ch4Factor,
       n2oFactor: f.n2oFactor,
       co2eFactor: f.co2eFactor,
+      gasType: f.gasType,
       factorUnit: f.factorUnit,
       source: f.source,
       biogenic: f.biogenic,

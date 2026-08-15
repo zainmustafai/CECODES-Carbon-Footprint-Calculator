@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { rollupYear, type RollupEntry, type RollupFactor } from "@/lib/calc/rollup";
+import { OTHER_GAS_FALLBACK, rollupYear, type RollupEntry, type RollupFactor } from "@/lib/calc/rollup";
 
-const consolidated = (co2e: string, biogenic = false): RollupFactor => ({
+const consolidated = (
+  co2e: string,
+  biogenic = false,
+  gasType: string | null = null,
+): RollupFactor => ({
   co2Factor: null,
   ch4Factor: null,
   n2oFactor: null,
   co2eFactor: co2e,
   biogenic,
   entryMode: "QUANTITY",
+  gasType,
 });
 
 const perGas = (
@@ -146,6 +151,8 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
     expect(category.n2oTonnes).toBe(0);
     expect(category.otherGasesEntries).toBe(1);
     expect(category.gasResolvedEntries).toBe(0);
+    // No gasType was captured for this factor, so it falls into the documented fallback bucket.
+    expect(category.otherGasesByType).toEqual({ [OTHER_GAS_FALLBACK]: category.otherGasesTonnes });
   });
 
   it("for every category, the four gas fields sum to tonnes exactly", () => {
@@ -191,6 +198,72 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
     // Both the gas-resolved row's CO2 and the pre-blended row's total must have landed.
     expect(category.co2Tonnes).toBeGreaterThan(0);
     expect(category.otherGasesTonnes).toBeCloseTo(19.6, 6);
+  });
+});
+
+// Client feedback 2026-08-15: "For the 'emisiones por gases' chart, please include all of the
+// gases separately when reported... specify those 'other' such SF6, NF3, etc." map-row.ts
+// captures which sheet column a pre-blended factor's value came from as RollupFactor.gasType;
+// these tests pin how rollupYear buckets it, and that the bucketing never breaks the
+// otherGasesTonnes reconciliation the previous describe block already established.
+describe("rollupYear: the named gas-type breakdown (otherGasesByType)", () => {
+  it("buckets a pre-blended entry with a captured gasType by that name, not the fallback", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "SF6 puro", month: null, value: "1", secondaryValue: null, factor: consolidated("22800", false, "SF6") },
+      ],
+      gridFactor: null, pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+    const category = r.byCategory[0];
+    expect(category.otherGasesByType).toEqual({ SF6: category.otherGasesTonnes });
+    expect(category.otherGasesByType[OTHER_GAS_FALLBACK]).toBeUndefined();
+  });
+
+  it("falls back to the documented bucket for a pre-blended entry with no captured gasType", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22 (importado antes del backfill)", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") },
+      ],
+      gridFactor: null, pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+    const category = r.byCategory[0];
+    expect(Object.keys(category.otherGasesByType)).toEqual([OTHER_GAS_FALLBACK]);
+    expect(category.otherGasesByType[OTHER_GAS_FALLBACK]).toBeCloseTo(category.otherGasesTonnes, 9);
+  });
+
+  it("sums otherGasesByType back to otherGasesTonnes exactly when several gas types share a category", () => {
+    const entries: RollupEntry[] = [
+      { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "HFC-134a", month: null, value: "10", secondaryValue: null, factor: consolidated("1300", false, "HFC") },
+      { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "SF6 puro", month: null, value: "1", secondaryValue: null, factor: consolidated("22800", false, "SF6") },
+      { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "HFC-32", month: null, value: "5", secondaryValue: null, factor: consolidated("677", false, "HFC") }, // same gasType, merges with the HFC-134a row
+      { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22 legacy", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") }, // no gasType
+    ];
+    const r = rollupYear({ entries, gridFactor: null, pricePerGallon: null, gwpSet: "AR6" });
+    const category = r.byCategory[0];
+
+    const sum = Object.values(category.otherGasesByType).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(category.otherGasesTonnes, 9);
+    expect(Object.keys(category.otherGasesByType).sort()).toEqual(["HFC", OTHER_GAS_FALLBACK, "SF6"].sort());
+    // The two HFC rows (10 * 1.3 + 5 * 0.677 = 16.385 t) merged into one bucket.
+    expect(category.otherGasesByType.HFC).toBeCloseTo(16.385, 6);
+  });
+
+  it("still reconciles co2/ch4/n2o/other to tonnes when a gasType is present (the invariant from the describe block above)", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Diesel", month: null, value: "14957.10", secondaryValue: null, factor: perGas("10.149", "0.00001", "0.000006") },
+        { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "SF6 puro", month: null, value: "1", secondaryValue: null, factor: consolidated("22800", false, "SF6") },
+      ],
+      gridFactor: null, pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+    for (const category of r.byCategory) {
+      const sum =
+        category.co2Tonnes + category.ch4Tonnes + category.n2oTonnes + category.otherGasesTonnes;
+      expect(sum).toBeCloseTo(category.tonnes, 9);
+    }
   });
 });
 

@@ -890,6 +890,7 @@
         "co2eFactor": "Consolidated CO2e factor",
         "co2eFactorCop": "CO2e factor per COP",
         "co2eFactorUsd": "CO2e factor per USD",
+        "gasType": "Gas (for the pre-blended CO2e factor)",
         "factorUnit": "Factor unit",
         "source": "Bibliographic source",
         "gwpSet": "GWP set",
