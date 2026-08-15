@@ -262,7 +262,7 @@
       "clear": "Clear"
     },
     "kpi": {
-      "total": "Total footprint",
+      "total": "Total carbon footprint",
       "grossEmissions": "Gross emissions · year {year}",
       "scopeEmissions": "{scope} · year {year}",
       "categoryEmissions": "{category} · year {year}",
@@ -286,7 +286,7 @@
       "empty": "No categories with data for this filter."
     },
     "byGas": {
-      "title": "Emissions by gas",
+      "title": "Emissions by GHG gas",
       "empty": "No gas data for this filter.",
       "otherNote": "{tonnes} tCO2e ({pct}%) cannot be split by gas: {count, plural, one {# source} other {# sources}} whose emission factor already arrives as CO2e (refrigerants, SF6/PFC, or spend/distance-based Scope 3)."
     },
@@ -307,7 +307,7 @@
       "cta": "Set a target",
       "baselineCaption": "Target: reduce {pct}% vs. {year} ({tonnes} tCO2e)"
     },
-    "biogenic": "Includes {tonnes} tCO2e biogenic, reported as a memo item.",
+    "biogenic": "Includes {tonnes} tCO2e biogenic.",
     "removalsNote": "Carbon removals: {tonnes} tCO2e, reported separately (never subtracted from the emissions total). Details are on the Summary.",
     "missingGridFactor": "The grid electricity factor for {year} is missing: Scope 2 shows zero until an administrator loads it.",
     "months": {

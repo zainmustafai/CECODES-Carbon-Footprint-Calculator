@@ -40,20 +40,25 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
               const isOther = s.gas === "OTHER";
               return (
                 <li key={s.gas} className="space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <span
                       className={cn("text-sm", isOther && "text-muted-foreground")}
                     >
                       {tGas(s.gas)}
                     </span>
-                    <span
-                      className={cn(
-                        "shrink-0 font-mono text-sm tabular-nums",
-                        isOther && "text-muted-foreground",
-                      )}
-                    >
-                      {format.number(s.tonnes, { maximumFractionDigits: 1 })}
-                    </span>
+                    <div className="shrink-0 text-right">
+                      <p
+                        className={cn(
+                          "font-mono text-sm font-semibold tabular-nums",
+                          isOther && "font-normal text-muted-foreground",
+                        )}
+                      >
+                        {format.number(s.tonnes, { maximumFractionDigits: 1 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {format.number(s.pct, { maximumFractionDigits: 1 })}%
+                      </p>
+                    </div>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div

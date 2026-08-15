@@ -262,7 +262,7 @@
       "clear": "Limpiar"
     },
     "kpi": {
-      "total": "Huella total",
+      "total": "Huella de carbono total",
       "grossEmissions": "Emisiones brutas · año {year}",
       "scopeEmissions": "{scope} · año {year}",
       "categoryEmissions": "{category} · año {year}",
@@ -286,7 +286,7 @@
       "empty": "Sin categorías con datos para este filtro."
     },
     "byGas": {
-      "title": "Emisiones por gas",
+      "title": "Emisiones por gas GEI",
       "empty": "Sin datos de gases para este filtro.",
       "otherNote": "{tonnes} tCO2e ({pct}%) no se pueden desglosar por gas: {count, plural, one {# fuente} other {# fuentes}} cuyo factor de emisión ya viene expresado en CO2e (refrigerantes, SF6/PFC, o Alcance 3 por gasto o distancia)."
     },
@@ -307,7 +307,7 @@
       "cta": "Definir meta",
       "baselineCaption": "Meta: reducir {pct}% frente a {year} ({tonnes} tCO2e)"
     },
-    "biogenic": "Incluye {tonnes} tCO2e biogénicas, reportadas como memoria.",
+    "biogenic": "Incluye {tonnes} tCO2e biogénicas.",
     "removalsNote": "Remociones o absorciones de carbono: {tonnes} tCO2e, reportadas por separado (no se restan del total de emisiones). El detalle está en el Resumen.",
     "missingGridFactor": "Falta el factor de red eléctrica para {year}: el Alcance 2 se muestra en cero hasta que el administrador lo cargue.",
     "months": {

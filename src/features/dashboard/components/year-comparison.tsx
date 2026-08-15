@@ -21,14 +21,16 @@ export function YearComparison({
   currentYear: number;
 }) {
   const t = useTranslations("dashboard.comparison");
+  const tUnit = useTranslations("dashboard");
   const format = useFormatter();
 
   const data = totals.map((y) => ({ year: String(y.year), tonnes: y.tonnes }));
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{t("title")}</CardTitle>
+        <span className="text-xs text-muted-foreground">{tUnit("tCo2e")}</span>
       </CardHeader>
       <CardContent>
         {totals.length >= 2 ? (

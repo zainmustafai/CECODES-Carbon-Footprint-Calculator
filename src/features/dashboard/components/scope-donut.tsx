@@ -14,6 +14,7 @@ export function ScopeDonut({ slices, total }: { slices: ScopeSlice[]; total: num
   const t = useTranslations("dashboard.byScope");
   const tScopes = useTranslations("dashboard.scopeNames");
   const tSub = useTranslations("dashboard.scopeSubtitles");
+  const tUnit = useTranslations("dashboard");
   const format = useFormatter();
 
   const n = (value: number) => format.number(value, { maximumFractionDigits: 1 });
@@ -26,8 +27,9 @@ export function ScopeDonut({ slices, total }: { slices: ScopeSlice[]; total: num
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{t("title")}</CardTitle>
+        <span className="text-xs text-muted-foreground">{tUnit("tCo2e")}</span>
       </CardHeader>
       <CardContent className="grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <ChartContainer
