@@ -10,15 +10,18 @@ import { FactorTable } from "./factor-table";
 import { TablePagination } from "./table-pagination";
 import { GridFactorDialog } from "./grid-factor-dialog";
 import { GridFactorsTable } from "./grid-factors-table";
+import { SubsidyPriceDialog } from "./subsidy-price-dialog";
+import { SubsidyPricesTable } from "./subsidy-prices-table";
 import { VersionsTable } from "./versions-table";
 import {
   getFactorLibraryPage,
   getGridFactors,
+  getSubsidyPrices,
   type FactorFilters as FactorFilterValues,
 } from "../lib/factor-library-cache";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-type Tab = "library" | "grid" | "versions";
+type Tab = "library" | "grid" | "subsidy" | "versions";
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -39,7 +42,7 @@ export async function FactorLibraryScreen({
   const t = await getTranslations("admin.factors");
   const tabParam = first(searchParams.tab);
   const tab: Tab =
-    tabParam === "grid" || tabParam === "versions" ? tabParam : "library";
+    tabParam === "grid" || tabParam === "subsidy" || tabParam === "versions" ? tabParam : "library";
 
   return (
     <div className="space-y-8">
@@ -60,6 +63,7 @@ export async function FactorLibraryScreen({
 
       {tab === "library" ? <LibraryTab searchParams={searchParams} /> : null}
       {tab === "grid" ? <GridTab /> : null}
+      {tab === "subsidy" ? <SubsidyTab /> : null}
       {tab === "versions" ? <VersionsTab /> : null}
     </div>
   );
@@ -70,6 +74,7 @@ async function TabBar({ tab }: { tab: Tab }) {
   const items: { key: Tab; label: string }[] = [
     { key: "library", label: t("library") },
     { key: "grid", label: t("grid") },
+    { key: "subsidy", label: t("subsidy") },
     { key: "versions", label: t("versions") },
   ];
 
@@ -171,6 +176,25 @@ async function GridTab() {
         <GridFactorDialog />
       </div>
       <GridFactorsTable gridFactors={gridFactors} />
+    </div>
+  );
+}
+
+async function SubsidyTab() {
+  const t = await getTranslations("admin.factors.subsidy");
+  // Also shared, non-tenant reference data: cached and invalidated on the subsidy mutations.
+  const subsidyPrices = await getSubsidyPrices();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold">{t("title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        <SubsidyPriceDialog />
+      </div>
+      <SubsidyPricesTable subsidyPrices={subsidyPrices} />
     </div>
   );
 }

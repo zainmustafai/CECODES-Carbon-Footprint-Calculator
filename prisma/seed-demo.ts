@@ -45,6 +45,9 @@ type SourceSpec = {
   /** One value for an annual source; twelve (or fewer) for a Scope 2 monthly source. */
   monthlyValues?: (string | null)[];
   annualValue?: string;
+  /** Only meaningful for a COUNT_TIMES_DISTANCE factor (client feedback 2026-08-15): the
+   *  distance-in-km half, paired with annualValue as the passenger/vehicle count. */
+  secondaryValue?: string;
 };
 
 function requireEnv(name: string): string {
@@ -178,8 +181,15 @@ async function seedSource(
       select: { id: true },
     });
 
+    // secondaryValue only ever applies to the single annual row (COUNT_TIMES_DISTANCE is
+    // Scope 3 only, never monthly).
+    const secondaryValue = month === null ? (spec.secondaryValue ?? null) : null;
+
     if (existing) {
-      await prisma.activityEntry.update({ where: { id: existing.id }, data: { value } });
+      await prisma.activityEntry.update({
+        where: { id: existing.id },
+        data: { value, secondaryValue },
+      });
       continue;
     }
 
@@ -195,6 +205,7 @@ async function seedSource(
         unit: factor.unit,
         month,
         value,
+        secondaryValue,
       },
     });
   }
@@ -253,7 +264,9 @@ async function seedFullCompany(password: string): Promise<void> {
     { scope: Scope.SCOPE_1, categoryContains: "Fuentes Fijas", elementContains: "Diésel o ACPM (B2) - Fijo", annualValue: "14957.10" },
     { scope: Scope.SCOPE_1, categoryContains: "Fuentes Móviles", elementContains: "Diésel B10 (Mezcla comercial) - Móvil", annualValue: "1500" },
     { scope: Scope.SCOPE_1, categoryContains: "Fugitivas", elementContains: "R-22", annualValue: "12.5" },
-    { scope: Scope.SCOPE_3, categoryContains: "C6", elementContains: "Viajes aéreos - Recorridos largos", annualValue: "180000" },
+    // COUNT_TIMES_DISTANCE (client feedback 2026-08-15): 1200 pasajeros * 150 km = 180000
+    // pasajeros*km, the same total this row always had under the old single-field entry.
+    { scope: Scope.SCOPE_3, categoryContains: "C6", elementContains: "Viajes aéreos - Recorridos largos", annualValue: "1200", secondaryValue: "150" },
     { scope: Scope.SCOPE_3, categoryContains: "C5", elementContains: "Compostaje de materia orgánica (base húmeda)", annualValue: "5200" },
   ];
 

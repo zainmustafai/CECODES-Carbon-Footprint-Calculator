@@ -115,6 +115,24 @@ export const deleteGridFactorInput = z
   .object({ year: z.coerce.number().int().min(1990).max(2100) })
   .strict();
 
+// Average price per gallon (COP), by year - Scope 3 Cat 6 "Subsidios de transporte"
+// (client feedback 2026-08-15). Same shape and same create/edit convention as the grid factor.
+export const upsertSubsidyPriceInput = z
+  .object({
+    year: z.coerce.number().int().min(1990).max(2100),
+    pricePerGallonCop: z
+      .string()
+      .transform((value) => normalizeDecimalInput(value.trim()))
+      .refine((value) => /^\d{1,18}(\.\d{1,2})?$/.test(value), { message: "decimalInvalid" }),
+    source: optionalString(200),
+    mode: z.enum(["create", "edit"]).optional(),
+  })
+  .strict();
+
+export const deleteSubsidyPriceInput = z
+  .object({ year: z.coerce.number().int().min(1990).max(2100) })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // Client factories. These drive React Hook Form and produce localized messages.
 // The values stay strings; the server re-validates and null-ifies.
@@ -211,3 +229,27 @@ export function gridFactorFormSchema(t: T) {
 }
 
 export type GridFactorFormValues = z.infer<ReturnType<typeof gridFactorFormSchema>>;
+
+export function subsidyPriceFormSchema(t: T) {
+  return z.object({
+    year: z
+      .string()
+      .trim()
+      .refine((value) => {
+        if (!/^\d{4}$/.test(value)) return false;
+        const year = Number(value);
+        return year >= 1990 && year <= 2100;
+      }, t("yearInvalid")),
+    pricePerGallonCop: z
+      .string()
+      .refine(
+        (value) =>
+          normalizeDecimalInput(value) !== "" &&
+          /^\d{1,18}(\.\d{1,2})?$/.test(normalizeDecimalInput(value)),
+        t("decimalInvalid"),
+      ),
+    source: z.string().trim().max(200),
+  });
+}
+
+export type SubsidyPriceFormValues = z.infer<ReturnType<typeof subsidyPriceFormSchema>>;

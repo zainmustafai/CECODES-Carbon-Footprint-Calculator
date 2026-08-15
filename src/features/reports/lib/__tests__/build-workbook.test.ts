@@ -61,6 +61,7 @@ const base: ReportVM = {
   biogenicCo2Tonnes: 0,
   biogenicCo2Partial: false,
   missingGridFactor: false,
+  missingTransportSubsidyPrice: false,
   unpricedCount: 0,
   generatedAt: new Date("2026-07-12T12:00:00Z"),
 };

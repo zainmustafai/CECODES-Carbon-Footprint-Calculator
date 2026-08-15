@@ -4,3 +4,4 @@
 // carries. See factor-library-cache.ts for why these surfaces are safe to cache.
 export const FACTOR_LIBRARY_TAG = "factor-library";
 export const GRID_FACTORS_TAG = "grid-factors";
+export const SUBSIDY_PRICES_TAG = "subsidy-prices";

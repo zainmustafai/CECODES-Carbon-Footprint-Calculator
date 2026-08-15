@@ -1,4 +1,4 @@
-import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
+import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { computeCo2eKg } from "@/lib/calc/engine";
 import { isFuelCategory } from "@/lib/calc/ch4-rule";
 import { kgToTonnes } from "@/lib/gwp";
@@ -23,9 +23,12 @@ export type PreviewFactor = {
   biogenic: boolean;
   factorUnit: string | null;
   source: string | null;
+  /** How the activity quantity is derived - client feedback 2026-08-15. */
+  entryMode: EntryMode;
 };
 
 export type PreviewGridFactor = { factor: string; source: string | null };
+export type PreviewSubsidyPrice = { pricePerGallonCop: string; source: string | null };
 
 export type SourceEstimate =
   | {
@@ -41,8 +44,12 @@ export type SourceEstimate =
       factorValue: string | null;
       factorUnit: string | null;
       factorSource: string | null;
+      /** Set only for MONEY_PER_GALLON: the gallons derived from the reported money, shown as
+       *  an intermediate step so the estimate stays auditable. */
+      derivedGallons?: number;
     }
   | { kind: "missingGridFactor" }
+  | { kind: "missingTransportSubsidyPrice" }
   | { kind: "noFactor" };
 
 /** Sums the valid cells. Blank and half-typed cells contribute nothing. */
@@ -74,13 +81,19 @@ function toNumber(value: string | null): number | null {
 
 export function estimateSourceTonnes({
   values,
+  secondaryValues = [],
   scope,
   category,
   factor,
   gridFactor,
+  pricePerGallon,
   gwpSet,
 }: {
   values: string[];
+  /** Only meaningful for a COUNT_TIMES_DISTANCE source (client feedback 2026-08-15): the
+   *  distance-in-km half of each cell, same indexing as `values`. Always a single element in
+   *  practice, since these entry modes only exist on Scope 3's annual, single-cell sources. */
+  secondaryValues?: string[];
   scope: Scope;
   /**
    * The source's category. Only used to answer "is this a fuel" for the "is-a-fuel" CH4 rule, so
@@ -90,13 +103,17 @@ export function estimateSourceTonnes({
   /** null when the factor row was deleted and emissionFactorId went SetNull. */
   factor: PreviewFactor | null;
   gridFactor: PreviewGridFactor | null;
+  /** Only consulted for a MONEY_PER_GALLON source. */
+  pricePerGallon: PreviewSubsidyPrice | null;
   gwpSet: GwpSet;
 }): SourceEstimate {
-  const { total, hasValues } = sumActivity(values);
+  const entryMode: EntryMode = factor?.entryMode ?? "QUANTITY";
 
   // Scope 2 does not carry its factor on the EmissionFactor row. It is the national grid
-  // factor for the reporting year, which an admin may not have loaded yet.
+  // factor for the reporting year, which an admin may not have loaded yet. Scope 2 is always
+  // QUANTITY (a pure kWh reading), so the money/distance derivations below never apply to it.
   if (scope === "SCOPE_2") {
+    const { total, hasValues } = sumActivity(values);
     if (!gridFactor) return { kind: "missingGridFactor" };
 
     const gridValue = toNumber(gridFactor.factor);
@@ -114,6 +131,28 @@ export function estimateSourceTonnes({
 
   if (!factor) return { kind: "noFactor" };
 
+  let activity: number;
+  let hasValues: boolean;
+  let derivedGallons: number | undefined;
+
+  if (entryMode === "MONEY_PER_GALLON") {
+    const money = sumActivity(values);
+    hasValues = money.hasValues;
+    const price = toNumber(pricePerGallon?.pricePerGallonCop ?? null);
+    if (price === null) return { kind: "missingTransportSubsidyPrice" };
+    activity = money.total / price;
+    derivedGallons = activity;
+  } else if (entryMode === "COUNT_TIMES_DISTANCE") {
+    const count = sumActivity(values);
+    const distance = sumActivity(secondaryValues);
+    hasValues = count.hasValues && distance.hasValues;
+    activity = count.total * distance.total;
+  } else {
+    const quantity = sumActivity(values);
+    hasValues = quantity.hasValues;
+    activity = quantity.total;
+  }
+
   const co2 = toNumber(factor.co2Factor);
   const ch4 = toNumber(factor.ch4Factor);
   const n2o = toNumber(factor.n2oFactor);
@@ -124,7 +163,7 @@ export function estimateSourceTonnes({
   }
 
   const kg = computeCo2eKg(
-    total,
+    activity,
     {
       co2Factor: co2,
       ch4Factor: ch4,
@@ -138,6 +177,7 @@ export function estimateSourceTonnes({
 
   return {
     kind: "ok",
+    ...(derivedGallons !== undefined ? { derivedGallons } : {}),
     tonnes: kgToTonnes(kg),
     hasValues,
     // The consolidated CO2e wins when present, mirroring computeCo2eKg; otherwise the CO2

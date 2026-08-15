@@ -38,7 +38,10 @@ export function SourceSummary({
   const format = useFormatter();
 
   if (estimate.kind !== "ok") {
-    if (estimate.kind === "missingGridFactor" && conciseWarning) {
+    if (
+      (estimate.kind === "missingGridFactor" || estimate.kind === "missingTransportSubsidyPrice") &&
+      conciseWarning
+    ) {
       return (
         <p
           className={cn(
@@ -47,7 +50,9 @@ export function SourceSummary({
           )}
         >
           <AlertTriangle className="size-3.5 shrink-0 text-chart-2" aria-hidden />
-          {t("missingGridFactorShort")}
+          {estimate.kind === "missingGridFactor"
+            ? t("missingGridFactorShort")
+            : t("missingSubsidyPriceShort")}
         </p>
       );
     }
@@ -65,7 +70,9 @@ export function SourceSummary({
           {estimate.kind === "missingGridFactor"
             ? // String, not number: ICU would render 2020 as "2.020".
               t("missingGridFactor", { year: String(year) })
-            : t("noFactor")}
+            : estimate.kind === "missingTransportSubsidyPrice"
+              ? t("missingSubsidyPrice", { year: String(year) })
+              : t("noFactor")}
         </p>
       </div>
     );
@@ -102,6 +109,14 @@ export function SourceSummary({
       )}
 
       <dl className="mt-3 space-y-1 text-xs">
+        {estimate.derivedGallons !== undefined ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground">{t("derivedGallons")}</dt>
+            <dd className="text-right font-mono">
+              {format.number(estimate.derivedGallons, { maximumFractionDigits: 4 })} gal
+            </dd>
+          </div>
+        ) : null}
         {factorLabel ? (
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">{t("factorApplied")}</dt>

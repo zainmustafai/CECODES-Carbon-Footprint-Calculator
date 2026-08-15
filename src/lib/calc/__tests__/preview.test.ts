@@ -9,6 +9,7 @@ const NO_FACTORS: PreviewFactor = {
   biogenic: false,
   factorUnit: null,
   source: null,
+  entryMode: "QUANTITY",
 };
 
 const factor = (over: Partial<PreviewFactor>): PreviewFactor => ({ ...NO_FACTORS, ...over });
@@ -21,6 +22,7 @@ describe("estimateSourceTonnes: consolidated CO2e", () => {
       scope: "SCOPE_1",
       factor: factor({ co2eFactor: "1960", factorUnit: "kg CO2e/kg", source: "IPCC AR6" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -34,6 +36,7 @@ describe("estimateSourceTonnes: consolidated CO2e", () => {
       // co2eFactor wins; the per-gas values must be ignored, exactly as computeCo2eKg does.
       factor: factor({ co2eFactor: "1000", co2Factor: "999999" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -49,6 +52,7 @@ describe("estimateSourceTonnes: per-gas math", () => {
       scope: "SCOPE_1",
       factor: factor({ co2Factor: "2", ch4Factor: "0.1", n2oFactor: "0.01" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -63,6 +67,7 @@ describe("estimateSourceTonnes: per-gas math", () => {
       scope: "SCOPE_1",
       factor: factor({ ch4Factor: "1", biogenic: false }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
     const biogenic = estimateSourceTonnes({
@@ -70,6 +75,7 @@ describe("estimateSourceTonnes: per-gas math", () => {
       scope: "SCOPE_1",
       factor: factor({ ch4Factor: "1", biogenic: true }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -83,6 +89,7 @@ describe("estimateSourceTonnes: per-gas math", () => {
       scope: "SCOPE_1",
       factor: factor({ ch4Factor: "1" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR5",
     });
 
@@ -99,6 +106,7 @@ describe("estimateSourceTonnes: Scope 2", () => {
       scope: "SCOPE_2",
       factor: factor({}),
       gridFactor: { factor: "0.217", source: "UPME/XM" },
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -116,6 +124,7 @@ describe("estimateSourceTonnes: Scope 2", () => {
       scope: "SCOPE_2",
       factor: null,
       gridFactor: { factor: "0.5", source: null },
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -128,6 +137,7 @@ describe("estimateSourceTonnes: Scope 2", () => {
       scope: "SCOPE_2",
       factor: factor({}),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -142,6 +152,7 @@ describe("estimateSourceTonnes: honest failure states", () => {
       scope: "SCOPE_1",
       factor: null,
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -154,6 +165,7 @@ describe("estimateSourceTonnes: honest failure states", () => {
       scope: "SCOPE_3",
       factor: factor({}),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -169,6 +181,7 @@ describe("estimateSourceTonnes: raw store values", () => {
       scope: "SCOPE_1",
       factor: factor({ co2eFactor: "1000" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -181,6 +194,7 @@ describe("estimateSourceTonnes: raw store values", () => {
       scope: "SCOPE_1",
       factor: factor({ co2eFactor: "1000" }),
       gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 
@@ -194,6 +208,67 @@ describe("estimateSourceTonnes: raw store values", () => {
       scope: "SCOPE_1",
       factor: factor({ co2eFactor: "1000" }),
       gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toMatchObject({ kind: "ok", tonnes: 0, hasValues: false });
+  });
+});
+
+// Client feedback 2026-08-15: the live estimate popover must show the same derived math as
+// rollupYear for the two new Scope 3 entry modes, not just the persisted/official totals.
+describe("estimateSourceTonnes: MONEY_PER_GALLON", () => {
+  it("divides the reported money by the price per gallon, and surfaces the derived gallons", () => {
+    const result = estimateSourceTonnes({
+      values: ["1000000"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON" }),
+      gridFactor: null,
+      pricePerGallon: { pricePerGallonCop: "5000", source: null },
+      gwpSet: "AR6",
+    });
+
+    expect(result).toMatchObject({ kind: "ok", tonnes: 2, derivedGallons: 200 });
+  });
+
+  it("reports missingTransportSubsidyPrice instead of computing zero", () => {
+    const result = estimateSourceTonnes({
+      values: ["1000000"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toEqual({ kind: "missingTransportSubsidyPrice" });
+  });
+});
+
+describe("estimateSourceTonnes: COUNT_TIMES_DISTANCE", () => {
+  it("multiplies the count by the distance", () => {
+    const result = estimateSourceTonnes({
+      values: ["4"],
+      secondaryValues: ["250"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "0.1", entryMode: "COUNT_TIMES_DISTANCE" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toMatchObject({ kind: "ok", tonnes: 0.1, hasValues: true });
+  });
+
+  it("treats a missing distance as not-yet-reported, not a failure", () => {
+    const result = estimateSourceTonnes({
+      values: ["4"],
+      secondaryValues: [""],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "0.1", entryMode: "COUNT_TIMES_DISTANCE" }),
+      gridFactor: null,
+      pricePerGallon: null,
       gwpSet: "AR6",
     });
 

@@ -63,6 +63,8 @@ export type PreviewVM = {
   cleanTech: PreviewCleanTechRow[];
   /** The selected year has Scope 2 activity but no national grid factor was loaded for it. */
   missingGridFactor: boolean;
+  /** The selected year has a MONEY_PER_GALLON source but no transport-subsidy price loaded. */
+  missingTransportSubsidyPrice: boolean;
   isEmpty: boolean;
   emptyReason: PreviewEmptyReason | null;
 };

@@ -59,7 +59,7 @@ export function MonthlySourceRow({
   const tv = useTranslations("dataEntry");
   const [open, setOpen] = useState(defaultOpen);
   const { copyJanuary, isPending } = useSourceActions();
-  const estimate = useSourceEstimate({ source, gridFactor, gwpSet });
+  const estimate = useSourceEstimate({ source, gridFactor, pricePerGallon: null, gwpSet });
 
   const entryIds = source.cells.map((cell) => cell.entryId);
   const reported = useReportedCount(entryIds);

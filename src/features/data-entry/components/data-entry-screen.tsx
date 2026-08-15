@@ -101,59 +101,66 @@ export async function DataEntryScreen({
     );
   }
 
-  const [entries, applicability, factors, gridFactor, cleanTech] = await Promise.all([
-    prisma.activityEntry.findMany({
-      where: { reportingYearId: selectedYear.id, companyId },
-      orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
-      select: {
-        id: true,
-        emissionFactorId: true,
-        scope: true,
-        category: true,
-        subcategory: true,
-        element: true,
-        unit: true,
-        month: true,
-        value: true,
-        emissionFactor: {
-          select: {
-            active: true,
-            biogenic: true,
-            // Feeds the per-source estimated-emissions summary. Decimals, so stringify below.
-            co2Factor: true,
-            ch4Factor: true,
-            n2oFactor: true,
-            co2eFactor: true,
-            factorUnit: true,
-            source: true,
+  const [entries, applicability, factors, gridFactor, subsidyPrice, cleanTech] =
+    await Promise.all([
+      prisma.activityEntry.findMany({
+        where: { reportingYearId: selectedYear.id, companyId },
+        orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
+        select: {
+          id: true,
+          emissionFactorId: true,
+          scope: true,
+          category: true,
+          subcategory: true,
+          element: true,
+          unit: true,
+          month: true,
+          value: true,
+          secondaryValue: true,
+          emissionFactor: {
+            select: {
+              active: true,
+              biogenic: true,
+              // Feeds the per-source estimated-emissions summary. Decimals, so stringify below.
+              co2Factor: true,
+              ch4Factor: true,
+              n2oFactor: true,
+              co2eFactor: true,
+              factorUnit: true,
+              source: true,
+              entryMode: true,
+            },
           },
         },
-      },
-    }),
-    prisma.categoryApplicability.findMany({
-      where: { reportingYearId: selectedYear.id, companyId },
-      select: { scope: true, category: true, applies: true },
-    }),
-    // The whole active library for the source picker, via the tagged reference-data cache:
-    // it is the heaviest query in the app and identical for every tenant. Admin edits
-    // invalidate the tag; CLI imports surface within the hour (see factor-library-cache.ts).
-    getActiveFactorsForPicker(),
-    prisma.gridElectricityFactor.findUnique({
-      where: { year: selectedYear.year },
-      select: { factor: true, source: true },
-    }),
-    prisma.cleanTechEntry.findMany({
-      where: { reportingYearId: selectedYear.id, companyId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        scope: true,
-        element: true,
-        quantity: true,
-        unit: true,
-      },
-    }),
-  ]);
+      }),
+      prisma.categoryApplicability.findMany({
+        where: { reportingYearId: selectedYear.id, companyId },
+        select: { scope: true, category: true, applies: true },
+      }),
+      // The whole active library for the source picker, via the tagged reference-data cache:
+      // it is the heaviest query in the app and identical for every tenant. Admin edits
+      // invalidate the tag; CLI imports surface within the hour (see factor-library-cache.ts).
+      getActiveFactorsForPicker(),
+      prisma.gridElectricityFactor.findUnique({
+        where: { year: selectedYear.year },
+        select: { factor: true, source: true },
+      }),
+      prisma.transportSubsidyPrice.findUnique({
+        where: { year: selectedYear.year },
+        select: { pricePerGallonCop: true, source: true },
+      }),
+      prisma.cleanTechEntry.findMany({
+        where: { reportingYearId: selectedYear.id, companyId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          scope: true,
+          element: true,
+          quantity: true,
+          unit: true,
+        },
+      }),
+    ]);
 
   // Prisma hands back decimal.js instances, which are not serializable to a Client
   // Component. They become strings here and stay strings all the way to the input and back.
@@ -168,8 +175,10 @@ export async function DataEntryScreen({
     unit: entry.unit,
     month: entry.month,
     value: entry.value === null ? "" : entry.value.toString(),
+    secondaryValue: entry.secondaryValue === null ? "" : entry.secondaryValue.toString(),
     factorActive: entry.emissionFactor?.active ?? false,
     biogenic: entry.emissionFactor?.biogenic ?? false,
+    entryMode: entry.emissionFactor?.entryMode ?? "QUANTITY",
     factor: entry.emissionFactor
       ? {
           co2Factor: entry.emissionFactor.co2Factor?.toString() ?? null,
@@ -179,16 +188,27 @@ export async function DataEntryScreen({
           biogenic: entry.emissionFactor.biogenic,
           factorUnit: entry.emissionFactor.factorUnit,
           source: entry.emissionFactor.source,
+          entryMode: entry.emissionFactor.entryMode,
         }
       : null,
   }));
 
   const grouped = groupFactors(factors);
   const scopes = shapeEntries(entryRows, applicability, grouped);
-  const initialValues = Object.fromEntries(entryRows.map((e) => [e.id, e.value]));
+  // A COUNT_TIMES_DISTANCE row's distance half hydrates under a synthetic "<id>:secondary"
+  // key (see data-entry-provider.tsx) so the store never needs its own concept of a second
+  // field per entry.
+  const initialValues: Record<string, string> = {};
+  for (const e of entryRows) {
+    initialValues[e.id] = e.value;
+    if (e.entryMode === "COUNT_TIMES_DISTANCE") initialValues[`${e.id}:secondary`] = e.secondaryValue;
+  }
 
   const gridFactorVM = gridFactor
     ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
+    : null;
+  const pricePerGallonVM = subsidyPrice
+    ? { pricePerGallonCop: subsidyPrice.pricePerGallonCop.toString(), source: subsidyPrice.source }
     : null;
 
   return (
@@ -211,6 +231,7 @@ export async function DataEntryScreen({
           grouped={grouped}
           missingGridFactorYear={gridFactor ? null : selectedYear.year}
           gridFactor={gridFactorVM}
+          pricePerGallon={pricePerGallonVM}
           gwpSet={selectedYear.gwpSet}
           year={selectedYear.year}
           reportingYearId={selectedYear.id}

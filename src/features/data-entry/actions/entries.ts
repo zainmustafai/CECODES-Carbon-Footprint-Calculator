@@ -186,7 +186,7 @@ export async function removeSource(input: {
 // twelve-month grid is one request rather than twelve.
 export async function saveEntryValues(input: {
   reportingYearId: string;
-  values: { entryId: string; value: string }[];
+  values: { entryId: string; value: string; field?: "value" | "secondaryValue" }[];
 }): Promise<{ error?: string }> {
   const parsed = saveEntryValuesInput.safeParse(input);
   if (!parsed.success) return { error: "invalidValue" };
@@ -197,13 +197,20 @@ export async function saveEntryValues(input: {
 
     await prisma.$transaction(async (tx) => {
       const changes: Prisma.ActivityEntryChangeCreateManyInput[] = [];
-      for (const { entryId, value } of values) {
+      for (const { entryId, value, field = "value" } of values) {
         // Read the current row first: the scope check is the same one the update needs, and its
         // old value is the "from" side of the audit. Selecting by the tenant-scoped key means a
         // cross-tenant entryId returns nothing and is rejected before any write.
         const before = await tx.activityEntry.findFirst({
           where: { id: entryId, reportingYearId, companyId: scope.companyId },
-          select: { value: true, scope: true, element: true, month: true, emissionFactorId: true },
+          select: {
+            value: true,
+            secondaryValue: true,
+            scope: true,
+            element: true,
+            month: true,
+            emissionFactorId: true,
+          },
         });
         if (!before) throw new ScopeError("forbidden");
 
@@ -211,11 +218,12 @@ export async function saveEntryValues(input: {
         // unchecked count would report success on a cross-tenant write.
         const result = await tx.activityEntry.updateMany({
           where: { id: entryId, reportingYearId, companyId: scope.companyId },
-          data: { value },
+          data: { [field]: value },
         });
         if (result.count !== 1) throw new ScopeError("forbidden");
 
-        const from = before.value === null ? null : before.value.toString();
+        const previous = field === "secondaryValue" ? before.secondaryValue : before.value;
+        const from = previous === null ? null : previous.toString();
         const to = value === null ? null : String(value);
         if (from === to) continue; // an autosave batch can include unchanged cells; do not log them
         changes.push({
@@ -225,7 +233,7 @@ export async function saveEntryValues(input: {
           element: before.element,
           month: before.month,
           action: to === null ? "VALUE_CLEARED" : "VALUE_SET",
-          changes: { value: { from, to } },
+          changes: { [field]: { from, to } },
         });
       }
       if (changes.length > 0) await tx.activityEntryChange.createMany({ data: changes });

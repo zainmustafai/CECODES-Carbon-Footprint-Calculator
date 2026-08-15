@@ -1,4 +1,4 @@
-import type { Scope } from "@/lib/generated/prisma/client";
+import type { EntryMode, Scope } from "@/lib/generated/prisma/client";
 import type { PreviewFactor } from "@/lib/calc/preview";
 import type { CategoryVM, GroupedFactors, ScopeVM, SourceVM } from "./types";
 
@@ -14,8 +14,10 @@ export type EntryRow = {
   unit: string;
   month: number | null;
   value: string;
+  secondaryValue: string;
   factorActive: boolean;
   biogenic: boolean;
+  entryMode: EntryMode;
   /** Optional: only the screen supplies it, for the estimated-emissions summary. */
   factor?: PreviewFactor | null;
 };
@@ -78,11 +80,17 @@ function buildSources(entries: EntryRow[]): SourceVM[] {
         biogenic: entry.biogenic,
         factorActive: entry.factorActive,
         factor: entry.factor ?? null,
+        entryMode: entry.entryMode,
         cells: [],
       };
       byFactor.set(key, source);
     }
-    source.cells.push({ entryId: entry.id, month: entry.month, value: entry.value });
+    source.cells.push({
+      entryId: entry.id,
+      month: entry.month,
+      value: entry.value,
+      secondaryValue: entry.secondaryValue,
+    });
   }
 
   const sources = [...byFactor.values()];

@@ -1,10 +1,10 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { Prisma, type Scope } from "@/lib/generated/prisma/client";
-import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "./factor-cache-tags";
+import { Prisma, type EntryMode, type Scope } from "@/lib/generated/prisma/client";
+import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG, SUBSIDY_PRICES_TAG } from "./factor-cache-tags";
 
-export { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG };
+export { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG, SUBSIDY_PRICES_TAG };
 
 // WHY THIS IS SAFE TO CACHE (and why the tenant surfaces are not):
 //
@@ -65,6 +65,14 @@ export type FactorLibraryPage = {
 export type CachedGridFactor = {
   year: number;
   factor: string;
+  source: string | null;
+  updatedByEmail: string | null;
+  updatedAt: string; // ISO
+};
+
+export type CachedSubsidyPrice = {
+  year: number;
+  pricePerGallonCop: string;
   source: string | null;
   updatedByEmail: string | null;
   updatedAt: string; // ISO
@@ -174,6 +182,8 @@ export type CachedPickerFactor = {
   element: string;
   unit: string;
   biogenic: boolean;
+  /** How the data-entry row derives its activity quantity - client feedback 2026-08-15. */
+  entryMode: EntryMode;
 };
 
 export const getActiveFactorsForPicker = unstable_cache(
@@ -194,6 +204,7 @@ export const getActiveFactorsForPicker = unstable_cache(
         element: true,
         unit: true,
         biogenic: true,
+        entryMode: true,
       },
     }),
   ["factor-picker"],
@@ -213,4 +224,19 @@ export const getGridFactors = unstable_cache(
   },
   ["grid-factors"],
   { tags: [GRID_FACTORS_TAG] },
+);
+
+export const getSubsidyPrices = unstable_cache(
+  async (): Promise<CachedSubsidyPrice[]> => {
+    const rows = await prisma.transportSubsidyPrice.findMany({ orderBy: { year: "desc" } });
+    return rows.map((row) => ({
+      year: row.year,
+      pricePerGallonCop: row.pricePerGallonCop.toString(),
+      source: row.source,
+      updatedByEmail: row.updatedByEmail,
+      updatedAt: row.updatedAt.toISOString(),
+    }));
+  },
+  ["subsidy-prices"],
+  { tags: [SUBSIDY_PRICES_TAG] },
 );

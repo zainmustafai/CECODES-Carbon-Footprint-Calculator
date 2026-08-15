@@ -1,3 +1,4 @@
+import type { EntryMode } from "@/lib/generated/prisma/client";
 import type { RollupEntry } from "./rollup";
 
 // The Prisma-row-to-RollupEntry mapping, shared by every caller that hands raw activityEntry
@@ -12,12 +13,14 @@ export type RollupSourceRow = {
   element: string;
   month: number | null;
   value: Decimalish | null;
+  secondaryValue: Decimalish | null;
   emissionFactor: {
     co2Factor: Decimalish | null;
     ch4Factor: Decimalish | null;
     n2oFactor: Decimalish | null;
     co2eFactor: Decimalish | null;
     biogenic: boolean;
+    entryMode: EntryMode;
   } | null;
 };
 
@@ -29,6 +32,7 @@ export function toRollupEntries(rows: RollupSourceRow[]): RollupEntry[] {
     element: row.element,
     month: row.month,
     value: row.value === null ? null : row.value.toString(),
+    secondaryValue: row.secondaryValue === null ? null : row.secondaryValue.toString(),
     factor: row.emissionFactor
       ? {
           co2Factor: row.emissionFactor.co2Factor?.toString() ?? null,
@@ -36,6 +40,7 @@ export function toRollupEntries(rows: RollupSourceRow[]): RollupEntry[] {
           n2oFactor: row.emissionFactor.n2oFactor?.toString() ?? null,
           co2eFactor: row.emissionFactor.co2eFactor?.toString() ?? null,
           biogenic: row.emissionFactor.biogenic,
+          entryMode: row.emissionFactor.entryMode,
         }
       : null,
   }));

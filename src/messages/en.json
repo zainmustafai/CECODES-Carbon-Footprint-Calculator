@@ -432,7 +432,11 @@
       "copyJanuary": "Copy January to the empty months",
       "monthsProgress": "{reported} of {total} months",
       "delete": "Delete source",
-      "copyJanuaryNothingEmpty": "Every month already has a value."
+      "copyJanuaryNothingEmpty": "Every month already has a value.",
+      "cop": "COP",
+      "count": "Count",
+      "km": "km",
+      "distance": "Distance"
     },
     "summary": {
       "title": "Element summary",
@@ -443,8 +447,11 @@
       "unknownSource": "No source recorded",
       "missingGridFactor": "No grid factor for {year}. Emissions will compute once an administrator loads it.",
       "missingGridFactorShort": "No grid factor",
+      "missingSubsidyPrice": "No transport subsidy price for {year}. Emissions will compute once an administrator loads it.",
+      "missingSubsidyPriceShort": "No subsidy price",
       "noFactor": "This element has no emission factor loaded.",
       "noFactorShort": "No factor",
+      "derivedGallons": "Derived gallons",
       "note": "Reference estimate. Official totals are calculated on the Dashboard.",
       "notReportedYet": "Nothing reported yet"
     },
@@ -800,6 +807,7 @@
       "tabs": {
         "library": "Factors",
         "grid": "Grid electricity",
+        "subsidy": "Transport subsidies",
         "versions": "Versions"
       },
       "create": "New factor",
@@ -957,6 +965,32 @@
           "cancel": "Cancel"
         }
       },
+      "subsidy": {
+        "title": "Transport subsidy price per gallon",
+        "subtitle": "Average price by year, in COP. Alcance 3 - Categoria 6 (transport subsidies) uses it to convert the reported amount into gallons.",
+        "add": "Add year",
+        "addTitle": "Add subsidy price",
+        "editTitle": "Edit subsidy price",
+        "dialogSubtitle": "Average price per gallon, in COP.",
+        "year": "Year",
+        "price": "Price",
+        "priceUnit": "COP/gal",
+        "source": "Source",
+        "sourcePlaceholder": "e.g. Ministry of Mines and Energy average",
+        "updatedBy": "Updated by",
+        "updatedAt": "Updated",
+        "never": "No record",
+        "empty": "No transport subsidy prices yet.",
+        "save": "Save",
+        "edit": "Edit",
+        "delete": "Delete",
+        "deleteDialog": {
+          "title": "Delete the {year} price?",
+          "body": "Transport subsidy sources for that year will show the missing-price notice again until you load it back.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
       "validation": {
         "scopeRequired": "Select an alcance.",
         "categoryRequired": "Category is required.",
@@ -973,6 +1007,7 @@
         "factorExists": "A factor with that alcance, category, element and unit already exists.",
         "versionExists": "A version with that name already exists.",
         "gridYearExists": "A factor for that year already exists.",
+        "subsidyYearExists": "A price for that year already exists.",
         "notFound": "The factor no longer exists.",
         "generic": "Something went wrong. Please try again."
       },
@@ -988,7 +1023,10 @@
         "versionCreated": "Version created.",
         "gridSaved": "Grid factor saved.",
         "gridDeleting": "Deleting grid factor...",
-        "gridDeleted": "Grid factor deleted."
+        "gridDeleted": "Grid factor deleted.",
+        "subsidySaved": "Subsidy price saved.",
+        "subsidyDeleting": "Deleting subsidy price...",
+        "subsidyDeleted": "Subsidy price deleted."
       }
     },
     "onboarding": {
@@ -1112,9 +1150,11 @@
     "scopeTotal": "Scope total",
     "notReported": "Not reported",
     "missingGrid": "No grid factor",
+    "missingSubsidyPrice": "No subsidy price",
     "noFactor": "No factor",
     "inactiveFactor": "Factor deactivated",
     "missingGridNote": "Year {year} has no electricity grid factor loaded, so Scope 2 cannot be estimated. An admin can load it in the factor library.",
+    "missingSubsidyPriceNote": "Year {year} has no transport subsidy price loaded, so those sources cannot be estimated. An admin can load it in the factor library.",
     "biogenicNote": "Includes {tonnes} t CO2e from biogenic sources, which the GHG Protocol reports separately.",
     "removals": {
       "title": "Carbon removals",

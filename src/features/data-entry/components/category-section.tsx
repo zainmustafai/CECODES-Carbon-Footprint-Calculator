@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { GwpSet } from "@/lib/generated/prisma/client";
-import type { PreviewGridFactor } from "@/lib/calc/preview";
+import type { PreviewGridFactor, PreviewSubsidyPrice } from "@/lib/calc/preview";
 import type { CategoryVM, FactorCategory } from "../lib/types";
 import { isMonthly } from "../lib/months";
 import { domId } from "../lib/dom-id";
@@ -27,6 +27,7 @@ type CategorySectionProps = {
   category: CategoryVM;
   factorCategory: FactorCategory | undefined;
   gridFactor: PreviewGridFactor | null;
+  pricePerGallon: PreviewSubsidyPrice | null;
   gwpSet: GwpSet;
   year: number;
   /** The scope panel's shared format hint. Every field here points at it. */
@@ -47,6 +48,7 @@ export function CategorySection({
   category,
   factorCategory,
   gridFactor,
+  pricePerGallon,
   gwpSet,
   year,
   hintId,
@@ -254,6 +256,7 @@ export function CategorySection({
                     key={source.emissionFactorId}
                     source={source}
                     gridFactor={gridFactor}
+                    pricePerGallon={pricePerGallon}
                     gwpSet={gwpSet}
                     year={year}
                     hintId={hintId}

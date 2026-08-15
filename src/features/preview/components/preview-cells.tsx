@@ -31,6 +31,9 @@ export async function FactorCell({ estimate }: { estimate: SourceEstimate }) {
   if (estimate.kind === "missingGridFactor") {
     return <span className="text-muted-foreground">{t("missingGrid")}</span>;
   }
+  if (estimate.kind === "missingTransportSubsidyPrice") {
+    return <span className="text-muted-foreground">{t("missingSubsidyPrice")}</span>;
+  }
   if (estimate.kind === "noFactor") {
     return <span className="text-muted-foreground">{t("noFactor")}</span>;
   }

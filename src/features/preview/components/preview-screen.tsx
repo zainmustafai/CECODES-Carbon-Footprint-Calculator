@@ -196,6 +196,12 @@ export async function PreviewScreen({
         </Note>
       ) : null}
 
+      {vm.missingTransportSubsidyPrice ? (
+        <Note tone="warning" icon={<AlertTriangle className="size-4 text-chart-2" aria-hidden />}>
+          {t("missingSubsidyPriceNote", { year: String(vm.filters.year) })}
+        </Note>
+      ) : null}
+
       {/* One card per scope that actually has sources. */}
       {vm.scopes
         .filter((scope) => scope.categories.length > 0)

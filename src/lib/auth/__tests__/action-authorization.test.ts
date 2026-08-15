@@ -63,6 +63,7 @@ const MODELS = [
   "emissionFactorChange",
   "emissionFactorVersion",
   "gridElectricityFactor",
+  "transportSubsidyPrice",
 ] as const;
 
 type PrismaMock = Record<string, Record<string, ReturnType<typeof vi.fn>>>;
@@ -306,6 +307,18 @@ describe("a company user cannot reach ANY admin action", () => {
       await adminFactors.upsertGridFactor({ year: 2024, factor: "0.001", source: "hack" }),
     ).toEqual({ error: "forbidden" });
     expect(await adminFactors.deleteGridFactor({ year: 2024 })).toEqual({
+      error: "forbidden",
+    });
+    // Same reasoning as the grid factor above: the transport-subsidy price is also global
+    // reference data (client feedback 2026-08-15), so it gets the same admin-only guard.
+    expect(
+      await adminFactors.upsertSubsidyPrice({
+        year: 2024,
+        pricePerGallonCop: "0.01",
+        source: "hack",
+      }),
+    ).toEqual({ error: "forbidden" });
+    expect(await adminFactors.deleteSubsidyPrice({ year: 2024 })).toEqual({
       error: "forbidden",
     });
 

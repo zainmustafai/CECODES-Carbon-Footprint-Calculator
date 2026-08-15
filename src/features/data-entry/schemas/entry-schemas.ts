@@ -24,7 +24,18 @@ export const saveEntryValuesInput = z
   .object({
     reportingYearId: z.uuid(),
     values: z
-      .array(z.object({ entryId: z.uuid(), value: entryValue }).strict())
+      .array(
+        z
+          .object({
+            entryId: z.uuid(),
+            value: entryValue,
+            // Which ActivityEntry column this batch item writes. Absent means "value", the
+            // path every entry used before COUNT_TIMES_DISTANCE (client feedback 2026-08-15)
+            // needed a second number (distance in km) on the same row.
+            field: z.enum(["value", "secondaryValue"]).optional(),
+          })
+          .strict(),
+      )
       .min(1)
       .max(64), // one Scope-2 grid is 12; a generous ceiling on a single batch
   })

@@ -45,6 +45,7 @@ function empty(
     removals: null,
     cleanTech: [],
     missingGridFactor: false,
+    missingTransportSubsidyPrice: false,
     isEmpty: true,
     emptyReason: reason,
   };
@@ -83,7 +84,7 @@ export async function loadPreview(
   const selectedYear =
     reportingYears.find((y) => y.year === requested.year) ?? reportingYears[0];
 
-  const [entries, gridFactor, cleanTechRows] = await Promise.all([
+  const [entries, gridFactor, subsidyPrice, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -97,6 +98,7 @@ export async function loadPreview(
         unit: true,
         month: true,
         value: true,
+        secondaryValue: true,
         emissionFactor: {
           select: {
             active: true,
@@ -107,6 +109,7 @@ export async function loadPreview(
             co2eFactor: true,
             factorUnit: true,
             source: true,
+            entryMode: true,
           },
         },
       },
@@ -114,6 +117,10 @@ export async function loadPreview(
     prisma.gridElectricityFactor.findUnique({
       where: { year: selectedYear.year },
       select: { factor: true, source: true },
+    }),
+    prisma.transportSubsidyPrice.findUnique({
+      where: { year: selectedYear.year },
+      select: { pricePerGallonCop: true, source: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
@@ -162,8 +169,10 @@ export async function loadPreview(
     unit: entry.unit,
     month: entry.month,
     value: entry.value === null ? "" : entry.value.toString(),
+    secondaryValue: entry.secondaryValue === null ? "" : entry.secondaryValue.toString(),
     factorActive: entry.emissionFactor?.active ?? false,
     biogenic: entry.emissionFactor?.biogenic ?? false,
+    entryMode: entry.emissionFactor?.entryMode ?? "QUANTITY",
     factor: entry.emissionFactor
       ? {
           co2Factor: entry.emissionFactor.co2Factor?.toString() ?? null,
@@ -173,12 +182,16 @@ export async function loadPreview(
           biogenic: entry.emissionFactor.biogenic,
           factorUnit: entry.emissionFactor.factorUnit,
           source: entry.emissionFactor.source,
+          entryMode: entry.emissionFactor.entryMode,
         }
       : null,
   }));
 
   const gridFactorVM = gridFactor
     ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
+    : null;
+  const pricePerGallonVM = subsidyPrice
+    ? { pricePerGallonCop: subsidyPrice.pricePerGallonCop.toString(), source: subsidyPrice.source }
     : null;
   const gwpSet = selectedYear.gwpSet as GwpSet;
 
@@ -187,6 +200,7 @@ export async function loadPreview(
   let totalTonnes = 0;
   let biogenicTonnes = 0;
   let missingGridFactor = false;
+  let missingTransportSubsidyPrice = false;
   // Removals (category "Remociones") get their own table with their own negative total,
   // exactly as the client's Excel separates BASE_remociones. They never enter a scope total.
   let removals: PreviewVM["removals"] = null;
@@ -203,16 +217,20 @@ export async function loadPreview(
 
         const sources: PreviewSourceRow[] = category.sources.map((source) => {
           const values = source.cells.map((cell) => cell.value);
+          const secondaryValues = source.cells.map((cell) => cell.secondaryValue);
           const estimate = estimateSourceTonnes({
             values,
+            secondaryValues,
             scope: source.scope,
             category: source.category,
             factor: source.factor,
             gridFactor: gridFactorVM,
+            pricePerGallon: pricePerGallonVM,
             gwpSet,
           });
 
           if (estimate.kind === "missingGridFactor") missingGridFactor = true;
+          if (estimate.kind === "missingTransportSubsidyPrice") missingTransportSubsidyPrice = true;
 
           let quantity = 0;
           let hasQuantity = false;
@@ -286,6 +304,7 @@ export async function loadPreview(
     removals,
     cleanTech,
     missingGridFactor,
+    missingTransportSubsidyPrice,
     isEmpty: false,
     emptyReason: null,
   };

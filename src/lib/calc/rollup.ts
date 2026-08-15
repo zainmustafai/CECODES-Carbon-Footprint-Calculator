@@ -1,4 +1,4 @@
-import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
+import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import {
   computeCo2eBreakdownKg,
   computeCo2eKg,
@@ -24,6 +24,9 @@ export type RollupFactor = {
   n2oFactor: string | null;
   co2eFactor: string | null;
   biogenic: boolean;
+  /** How `value` (and, for COUNT_TIMES_DISTANCE, `secondaryValue`) become the activity quantity
+   *  the engine prices. Defaults to QUANTITY for every factor before 2026-08-15. */
+  entryMode: EntryMode;
 };
 
 export type RollupEntry = {
@@ -33,8 +36,12 @@ export type RollupEntry = {
   subcategory: string | null;
   element: string;
   month: number | null;
-  /** Activity data as a Decimal string, or null when not reported. */
+  /** Activity data as a Decimal string, or null when not reported. For MONEY_PER_GALLON entries
+   *  this is money (COP), not gallons. For COUNT_TIMES_DISTANCE entries this is the passenger/
+   *  vehicle count. */
   value: string | null;
+  /** Only meaningful for COUNT_TIMES_DISTANCE entries: distance in km. Null otherwise. */
+  secondaryValue: string | null;
   /** null when the factor row was removed (onDelete SetNull); Scope 2 never has one. */
   factor: RollupFactor | null;
 };
@@ -137,6 +144,9 @@ export type YearRollup = {
   };
   /** The year has no national grid factor, so its Scope 2 emissions could not be computed. */
   missingGridFactor: boolean;
+  /** The year has no transport-subsidy price per gallon, so its MONEY_PER_GALLON entries
+   *  (Scope 3 Cat 6 "Subsidios de transporte") could not be computed. */
+  missingTransportSubsidyPrice: boolean;
   /**
    * Entries EXCLUDED from every total because they could not be priced: no factor row, a factor
    * with no readable value (e.g. spend-only COP/USD), or Scope 2 with no grid factor. A non-zero
@@ -189,11 +199,15 @@ function toFactorInput(factor: RollupFactor, category: string): FactorInput {
 export function rollupYear({
   entries,
   gridFactor,
+  pricePerGallon,
   gwpSet,
 }: {
   entries: RollupEntry[];
   /** kg CO2 per kWh for the reporting year, or null when it has not been loaded. */
   gridFactor: string | null;
+  /** COP per gallon for the reporting year, or null when it has not been loaded. Only consulted
+   *  for MONEY_PER_GALLON entries (Scope 3 Cat 6 "Subsidios de transporte"). */
+  pricePerGallon: string | null;
   gwpSet: GwpSet;
 }): YearRollup {
   let unpricedCount = 0;
@@ -208,15 +222,35 @@ export function rollupYear({
   const monthReported = new Array<boolean>(12).fill(false);
   let biogenicTonnes = 0;
   let missingGridFactor = false;
+  let missingTransportSubsidyPrice = false;
 
   const grid = gridFactor !== null ? Number(gridFactor) : null;
+  const price = pricePerGallon !== null ? Number(pricePerGallon) : null;
 
   let removalsTonnes = 0;
   let removalsUnpriced = 0;
   const removalElements = new Map<string, ElementTotal>();
 
   for (const entry of entries) {
-    const activity = parseActivity(entry.value);
+    const entryMode: EntryMode = entry.factor?.entryMode ?? "QUANTITY";
+
+    let activity: number;
+    if (entryMode === "MONEY_PER_GALLON") {
+      // Reference data, not user input: like a missing grid factor, this excludes the entry and
+      // flags the year as incomplete rather than dividing by a fabricated price.
+      if (price === null) {
+        missingTransportSubsidyPrice = true;
+        unpricedCount += 1;
+        continue;
+      }
+      activity = parseActivity(entry.value) / price;
+    } else if (entryMode === "COUNT_TIMES_DISTANCE") {
+      // Either half missing means "not fully reported yet", the same honest 0 a single missing
+      // QUANTITY value already produces - not a pricing failure, so not excluded/flagged.
+      activity = parseActivity(entry.value) * parseActivity(entry.secondaryValue);
+    } else {
+      activity = parseActivity(entry.value);
+    }
     const reported = entry.value !== null;
 
     // Removals divert BEFORE any emissions accumulator is touched. They are priced by the same
@@ -401,6 +435,7 @@ export function rollupYear({
       unpricedCount: removalsUnpriced,
     },
     missingGridFactor,
+    missingTransportSubsidyPrice,
     unpricedCount,
   };
 }

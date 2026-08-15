@@ -432,7 +432,11 @@
       "copyJanuary": "Copiar Enero a los meses vacíos",
       "monthsProgress": "{reported} de {total} meses",
       "delete": "Eliminar fuente",
-      "copyJanuaryNothingEmpty": "Todos los meses ya tienen valor."
+      "copyJanuaryNothingEmpty": "Todos los meses ya tienen valor.",
+      "cop": "COP",
+      "count": "Cantidad",
+      "km": "km",
+      "distance": "Distancia"
     },
     "summary": {
       "title": "Resumen del elemento",
@@ -443,8 +447,11 @@
       "unknownSource": "Sin fuente registrada",
       "missingGridFactor": "Sin factor de red para {year}. Las emisiones se calcularán cuando el administrador cargue el factor.",
       "missingGridFactorShort": "Sin factor de red",
+      "missingSubsidyPrice": "Sin precio de subsidio de transporte para {year}. Las emisiones se calcularán cuando el administrador cargue el precio.",
+      "missingSubsidyPriceShort": "Sin precio de subsidio",
       "noFactor": "Este elemento no tiene un factor de emisión cargado.",
       "noFactorShort": "Sin factor",
+      "derivedGallons": "Galones derivados",
       "note": "Estimación referencial. Los totales oficiales se calcularán en el Tablero.",
       "notReportedYet": "Sin registrar aún"
     },
@@ -800,6 +807,7 @@
       "tabs": {
         "library": "Factores",
         "grid": "Red eléctrica",
+        "subsidy": "Subsidios de transporte",
         "versions": "Versiones"
       },
       "create": "Nuevo factor",
@@ -957,6 +965,32 @@
           "cancel": "Cancelar"
         }
       },
+      "subsidy": {
+        "title": "Precio del galón para subsidios de transporte",
+        "subtitle": "Precio promedio por año, en COP. Alcance 3 - Categoría 6 (Subsidios de transporte) lo usa para convertir el valor reportado a galones.",
+        "add": "Agregar año",
+        "addTitle": "Agregar precio de subsidio",
+        "editTitle": "Editar precio de subsidio",
+        "dialogSubtitle": "Precio promedio del galón, en COP.",
+        "year": "Año",
+        "price": "Precio",
+        "priceUnit": "COP/gal",
+        "source": "Fuente",
+        "sourcePlaceholder": "Ej. promedio Ministerio de Minas y Energía",
+        "updatedBy": "Actualizado por",
+        "updatedAt": "Actualizado",
+        "never": "Sin registro",
+        "empty": "Aún no hay precios de subsidio de transporte.",
+        "save": "Guardar",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteDialog": {
+          "title": "¿Eliminar el precio de {year}?",
+          "body": "Las fuentes de subsidio de transporte de ese año volverán a mostrar el aviso de precio faltante hasta que lo cargues de nuevo.",
+          "confirm": "Eliminar",
+          "cancel": "Cancelar"
+        }
+      },
       "validation": {
         "scopeRequired": "Selecciona un alcance.",
         "categoryRequired": "La categoría es obligatoria.",
@@ -973,6 +1007,7 @@
         "factorExists": "Ya existe un factor con ese alcance, categoría, elemento y unidad.",
         "versionExists": "Ya existe una versión con ese nombre.",
         "gridYearExists": "Ya existe un factor para ese año.",
+        "subsidyYearExists": "Ya existe un precio para ese año.",
         "notFound": "El factor ya no existe.",
         "generic": "Algo salió mal. Inténtalo de nuevo."
       },
@@ -988,7 +1023,10 @@
         "versionCreated": "Versión creada.",
         "gridSaved": "Factor de red guardado.",
         "gridDeleting": "Eliminando factor de red...",
-        "gridDeleted": "Factor de red eliminado."
+        "gridDeleted": "Factor de red eliminado.",
+        "subsidySaved": "Precio de subsidio guardado.",
+        "subsidyDeleting": "Eliminando precio de subsidio...",
+        "subsidyDeleted": "Precio de subsidio eliminado."
       }
     },
     "onboarding": {
@@ -1112,9 +1150,11 @@
     "scopeTotal": "Total del alcance",
     "notReported": "Sin registrar",
     "missingGrid": "Falta factor de red",
+    "missingSubsidyPrice": "Falta precio de subsidio",
     "noFactor": "Sin factor",
     "inactiveFactor": "Factor desactivado",
     "missingGridNote": "El año {year} no tiene factor de red eléctrica cargado, así que el Alcance 2 no se puede estimar. Un administrador puede cargarlo en la biblioteca de factores.",
+    "missingSubsidyPriceNote": "El año {year} no tiene precio de subsidio de transporte cargado, así que esas fuentes no se pueden estimar. Un administrador puede cargarlo en la biblioteca de factores.",
     "biogenicNote": "Incluye {tonnes} t CO2e de fuentes biogénicas, que el Protocolo GHG reporta por separado.",
     "removals": {
       "title": "Remociones o absorciones de carbono",

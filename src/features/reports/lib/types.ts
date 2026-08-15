@@ -99,6 +99,7 @@ export type ReportVM = {
   biogenicCo2Tonnes: number;
   biogenicCo2Partial: boolean;
   missingGridFactor: boolean;
+  missingTransportSubsidyPrice: boolean;
   unpricedCount: number;
 
   /** When the numbers were produced. They are computed live, not snapshotted. */

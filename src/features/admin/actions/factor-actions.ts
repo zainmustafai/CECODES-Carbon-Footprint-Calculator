@@ -3,7 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG } from "../lib/factor-cache-tags";
+import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG, SUBSIDY_PRICES_TAG } from "../lib/factor-cache-tags";
 import {
   ScopeError,
   resolveAdminScope,
@@ -18,9 +18,11 @@ import {
   createFactorInput,
   createVersionInput,
   deleteGridFactorInput,
+  deleteSubsidyPriceInput,
   setFactorActiveInput,
   updateFactorInput,
   upsertGridFactorInput,
+  upsertSubsidyPriceInput,
 } from "../schemas/factor-schemas";
 
 function hasCode(error: unknown, code: string): boolean {
@@ -277,6 +279,60 @@ export async function deleteGridFactor(input: unknown): Promise<{ error?: string
     revalidatePath("/admin/factors");
     revalidatePath("/data-entry");
     updateTag(GRID_FACTORS_TAG);
+    return {};
+  } catch (error) {
+    return { error: scopeErrorKey(error) };
+  }
+}
+
+// Average price per gallon (COP) by year - Scope 3 Cat 6 "Subsidios de transporte" (client
+// feedback 2026-08-15). Same upsert-by-year shape as the grid factor above.
+export async function upsertSubsidyPrice(input: unknown): Promise<{ error?: string }> {
+  const parsed = upsertSubsidyPriceInput.safeParse(input);
+  if (!parsed.success) return { error: "generic" };
+
+  try {
+    const scope = await resolveAdminScope();
+    const { year, pricePerGallonCop, source, mode } = parsed.data;
+
+    if (mode === "create") {
+      const existing = await prisma.transportSubsidyPrice.findUnique({
+        where: { year },
+        select: { year: true },
+      });
+      if (existing) return { error: "subsidyYearExists" };
+    }
+
+    await prisma.transportSubsidyPrice.upsert({
+      where: { year },
+      create: { year, pricePerGallonCop, source, updatedByEmail: scope.appUser.email },
+      update: { pricePerGallonCop, source, updatedByEmail: scope.appUser.email },
+    });
+
+    revalidatePath("/admin/factors");
+    revalidatePath("/data-entry");
+    updateTag(SUBSIDY_PRICES_TAG);
+    return {};
+  } catch (error) {
+    return { error: scopeErrorKey(error) };
+  }
+}
+
+export async function deleteSubsidyPrice(input: unknown): Promise<{ error?: string }> {
+  const parsed = deleteSubsidyPriceInput.safeParse(input);
+  if (!parsed.success) return { error: "generic" };
+
+  try {
+    await resolveAdminScope();
+
+    const result = await prisma.transportSubsidyPrice.deleteMany({
+      where: { year: parsed.data.year },
+    });
+    if (result.count !== 1) throw new ScopeError("not-found");
+
+    revalidatePath("/admin/factors");
+    revalidatePath("/data-entry");
+    updateTag(SUBSIDY_PRICES_TAG);
     return {};
   } catch (error) {
     return { error: scopeErrorKey(error) };

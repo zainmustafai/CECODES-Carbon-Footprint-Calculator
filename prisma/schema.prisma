@@ -29,6 +29,15 @@ enum GwpSet {
   AR6 // reporting years after 2021
 }
 
+// How ActivityEntry.value (plus, for COUNT_TIMES_DISTANCE, secondaryValue) is turned into the
+// physical activity quantity the engine actually prices - client feedback 2026-08-15, Scope 3
+// Categoria 6/7. Default QUANTITY preserves today's behavior for every existing factor.
+enum EntryMode {
+  QUANTITY // value IS the activity quantity, in EmissionFactor.unit - every factor before this
+  MONEY_PER_GALLON // value is money (COP); divide by that year's TransportSubsidyPrice to get gallons
+  COUNT_TIMES_DISTANCE // value is a passenger/vehicle count, secondaryValue is distance in km; multiply
+}
+
 enum Role {
   COMPANY_USER // Usuario Empresa - sees only their own company
   CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
@@ -168,6 +177,10 @@ model ActivityEntry {
 
   month Int? // 1..12 for Scope 2; null = annual (Scopes 1 & 3)
   value Decimal? @db.Decimal(20, 6) // activity data - decimals allowed, never truncated; null = not reported
+  // Only meaningful when emissionFactor.entryMode = COUNT_TIMES_DISTANCE: distance in km, paired
+  // with `value` holding the passenger/vehicle count (client feedback 2026-08-15). Null for
+  // every other entry.
+  secondaryValue Decimal? @db.Decimal(20, 6)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -300,6 +313,10 @@ model EmissionFactor {
   uncertaintyPct Decimal? @db.Decimal(10, 4)
   effectiveYear  Int? // for year-specific factors
   active         Boolean  @default(true)
+  // Client feedback 2026-08-15: Scope 3 Cat 6 "Subsidios de transporte" is reported in COP, not
+  // gallons; Cat 6/7 distance categories (unit "pasajeros * km" / "vehiculo * km") are reported
+  // as a count and a distance, multiplied. Default QUANTITY changes nothing for any other factor.
+  entryMode      EntryMode @default(QUANTITY)
 
   version   EmissionFactorVersion? @relation(fields: [versionId], references: [id])
   versionId String?
@@ -395,6 +412,22 @@ model GridElectricityFactor {
   updatedByEmail String?
 
   @@map("grid_electricity_factors")
+}
+
+// Average price per gallon (COP) by year, for Scope 3 Cat 6 "Subsidios de transporte" - client
+// feedback 2026-08-15. The company reports a money amount; the engine divides it by this year's
+// price to get gallons, then prices the gallons with the normal per-gallon factor. Same shape and
+// history convention as GridElectricityFactor: the year rows are themselves the history.
+model TransportSubsidyPrice {
+  id                String   @id @default(uuid())
+  year              Int      @unique
+  pricePerGallonCop Decimal  @db.Decimal(20, 2) // COP / gal
+  source            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+  updatedByEmail    String?
+
+  @@map("transport_subsidy_prices")
 }
 
 // ---------------------------------------------------------------------------

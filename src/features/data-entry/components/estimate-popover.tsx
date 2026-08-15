@@ -11,7 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { GwpSet } from "@/lib/generated/prisma/client";
-import type { PreviewGridFactor } from "@/lib/calc/preview";
+import type { PreviewGridFactor, PreviewSubsidyPrice } from "@/lib/calc/preview";
 import { useSourceEstimate } from "../hooks/use-source-estimate";
 import type { SourceVM } from "../lib/types";
 import { SourceSummary } from "./source-summary";
@@ -32,21 +32,24 @@ import { SourceSummary } from "./source-summary";
 export function EstimatePopover({
   source,
   gridFactor,
+  pricePerGallon,
   gwpSet,
   year,
 }: {
   source: SourceVM;
   gridFactor: PreviewGridFactor | null;
+  pricePerGallon: PreviewSubsidyPrice | null;
   gwpSet: GwpSet;
   year: number;
 }) {
   const t = useTranslations("dataEntry.summary");
   const format = useFormatter();
-  const estimate = useSourceEstimate({ source, gridFactor, gwpSet });
+  const estimate = useSourceEstimate({ source, gridFactor, pricePerGallon, gwpSet });
 
   const warn = estimate.kind !== "ok";
   const label =
     estimate.kind === "missingGridFactor" ? t("missingGridFactorShort")
+    : estimate.kind === "missingTransportSubsidyPrice" ? t("missingSubsidyPriceShort")
     : estimate.kind === "noFactor" ? t("noFactorShort")
     : estimate.hasValues ?
       `${format.number(estimate.tonnes, { maximumFractionDigits: 2 })} t CO2e`

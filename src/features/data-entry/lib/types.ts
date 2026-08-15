@@ -1,4 +1,4 @@
-import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
+import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { PreviewFactor } from "@/lib/calc/preview";
 
 // One editable value. `value` is a display string; "" means "not reported yet" (null in
@@ -7,6 +7,9 @@ export type EntryCell = {
   entryId: string;
   month: number | null;
   value: string;
+  /** Only meaningful when the source's entryMode is COUNT_TIMES_DISTANCE: distance in km,
+   *  paired with `value` holding the passenger/vehicle count (client feedback 2026-08-15). */
+  secondaryValue: string;
 };
 
 export type SourceVM = {
@@ -20,6 +23,9 @@ export type SourceVM = {
   factorActive: boolean;
   /** Feeds the estimated-emissions summary. Null when the factor row is gone (SetNull). */
   factor: PreviewFactor | null;
+  /** How this source's activity quantity is derived. Defaults to QUANTITY for every source
+   *  before 2026-08-15; MONEY_PER_GALLON and COUNT_TIMES_DISTANCE change how the row renders. */
+  entryMode: EntryMode;
   cells: EntryCell[];
 };
 

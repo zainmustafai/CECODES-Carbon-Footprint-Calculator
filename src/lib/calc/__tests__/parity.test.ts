@@ -83,6 +83,7 @@ function toRollupEntries(fixture: Fixture): RollupEntry[] {
           n2oFactor: entry.factor.n2oFactor,
           co2eFactor: entry.factor.co2eFactor,
           biogenic: entry.factor.biogenic,
+          entryMode: "QUANTITY",
         }
       : null;
 
@@ -91,6 +92,7 @@ function toRollupEntries(fixture: Fixture): RollupEntry[] {
       category: entry.category,
       subcategory: entry.subcategory ?? null,
       element: entry.element,
+      secondaryValue: null,
       factor,
     };
 
@@ -118,6 +120,7 @@ describe("Excel parity (Requirements 14.1)", () => {
       const rollup = rollupYear({
         entries: toRollupEntries(fixture),
         gridFactor: fixture.gridFactor,
+        pricePerGallon: null,
         gwpSet: fixture.gwpSet,
       });
       const tolerance = fixture.toleranceTonnes;

@@ -89,8 +89,9 @@ export async function loadDashboard(
   }
   const allReportingYearIds = scopedYears.map((ry) => ry.id);
 
-  // One pass for every entry, plus the grid factors and the company's reduction target (if any).
-  const [entries, gridFactors, companyTargetRow] = await Promise.all([
+  // One pass for every entry, plus the grid factors, transport-subsidy prices, and the
+  // company's reduction target (if any).
+  const [entries, gridFactors, subsidyPrices, companyTargetRow] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: { in: allReportingYearIds } },
       select: {
@@ -103,6 +104,7 @@ export async function loadDashboard(
         element: true,
         month: true,
         value: true,
+        secondaryValue: true,
         updatedAt: true,
         emissionFactor: {
           select: {
@@ -111,6 +113,7 @@ export async function loadDashboard(
             n2oFactor: true,
             co2eFactor: true,
             biogenic: true,
+            entryMode: true,
           },
         },
       },
@@ -119,6 +122,10 @@ export async function loadDashboard(
       where: { year: { in: years } },
       select: { year: true, factor: true },
     }),
+    prisma.transportSubsidyPrice.findMany({
+      where: { year: { in: years } },
+      select: { year: true, pricePerGallonCop: true },
+    }),
     prisma.companyTarget.findUnique({
       where: { companyId },
       select: { reductionPct: true },
@@ -126,6 +133,7 @@ export async function loadDashboard(
   ]);
 
   const gridByYear = new Map(gridFactors.map((g) => [g.year, g.factor.toString()]));
+  const priceByYear = new Map(subsidyPrices.map((p) => [p.year, p.pricePerGallonCop.toString()]));
   const gwpByYear = new Map(scopedYears.map((ry) => [ry.year, ry.gwpSet]));
 
   const entriesByReportingYear = new Map<string, typeof entries>();
@@ -142,6 +150,7 @@ export async function loadDashboard(
     return rollupYear({
       entries: toRollupEntries(rows),
       gridFactor: gridByYear.get(targetYear) ?? null,
+      pricePerGallon: priceByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     });
   }
@@ -329,7 +338,7 @@ async function loadCompanyTargetProgress(
   const baselineIds = idsFor(baselineYear);
   const currentIds = idsFor(selectedYear);
 
-  const [entries, gridFactors] = await Promise.all([
+  const [entries, gridFactors, subsidyPrices] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { companyId, reportingYearId: { in: [...baselineIds, ...currentIds] } },
       select: {
@@ -340,6 +349,7 @@ async function loadCompanyTargetProgress(
         element: true,
         month: true,
         value: true,
+        secondaryValue: true,
         emissionFactor: {
           select: {
             co2Factor: true,
@@ -347,6 +357,7 @@ async function loadCompanyTargetProgress(
             n2oFactor: true,
             co2eFactor: true,
             biogenic: true,
+            entryMode: true,
           },
         },
       },
@@ -355,15 +366,21 @@ async function loadCompanyTargetProgress(
       where: { year: { in: [baselineYear, selectedYear] } },
       select: { year: true, factor: true },
     }),
+    prisma.transportSubsidyPrice.findMany({
+      where: { year: { in: [baselineYear, selectedYear] } },
+      select: { year: true, pricePerGallonCop: true },
+    }),
   ]);
 
   const gridByYear = new Map(gridFactors.map((g) => [g.year, g.factor.toString()]));
+  const priceByYear = new Map(subsidyPrices.map((p) => [p.year, p.pricePerGallonCop.toString()]));
   const gwpByYear = new Map(allReportingYears.map((ry) => [ry.year, ry.gwpSet]));
 
   const rollFor = (ids: string[], targetYear: number) =>
     rollupYear({
       entries: toRollupEntries(entries.filter((e) => ids.includes(e.reportingYearId))),
       gridFactor: gridByYear.get(targetYear) ?? null,
+      pricePerGallon: priceByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     }).totalTonnes;
 

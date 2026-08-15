@@ -11,6 +11,25 @@ import { saveEntryValues } from "../actions/entries";
 const CHANGE_DEBOUNCE_MS = 700;
 const BLUR_DEBOUNCE_MS = 180;
 
+// A COUNT_TIMES_DISTANCE source (client feedback 2026-08-15) needs two numbers on the same
+// ActivityEntry row. The store only ever holds one value per key, so the distance half lives
+// under a synthetic "<entryId>:secondary" key - the store itself never needs to know this;
+// only the flush below, which splits it back into the real entryId + which column to write.
+const SECONDARY_KEY_SUFFIX = ":secondary";
+
+function toServerBatch(batch: DirtyValue[]) {
+  return batch.map(({ entryId: key, value }) => {
+    if (key.endsWith(SECONDARY_KEY_SUFFIX)) {
+      return {
+        entryId: key.slice(0, -SECONDARY_KEY_SUFFIX.length),
+        value,
+        field: "secondaryValue" as const,
+      };
+    }
+    return { entryId: key, value, field: "value" as const };
+  });
+}
+
 export type DataEntryContextValue = {
   store: EntryStore;
   reportingYearId: string | null;
@@ -62,7 +81,10 @@ export function DataEntryProvider({
     // the pill would say "Guardando..." forever while nothing saved: autosave wedged for the
     // rest of the session, silently.
     try {
-      const { error } = await saveEntryValues({ reportingYearId, values: batch });
+      const { error } = await saveEntryValues({
+        reportingYearId,
+        values: toServerBatch(batch),
+      });
       if (error) {
         store.rollback(batch);
         toast.error(t(`errors.${error}`));

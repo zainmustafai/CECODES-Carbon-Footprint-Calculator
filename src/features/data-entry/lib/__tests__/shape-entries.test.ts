@@ -44,8 +44,10 @@ function annual(id: string, factorId: string, element: string, value: string): E
     unit: "ton",
     month: null,
     value,
+    secondaryValue: "",
     factorActive: true,
     biogenic: false,
+    entryMode: "QUANTITY",
   };
 }
 
@@ -112,8 +114,10 @@ describe("shapeEntries", () => {
       unit: "kWh",
       month: i + 1,
       value: i < 8 ? "100" : "",
+      secondaryValue: "",
       factorActive: true,
       biogenic: false,
+      entryMode: "QUANTITY",
     }));
 
     const scopes = shapeEntries(cells, [], grouped);

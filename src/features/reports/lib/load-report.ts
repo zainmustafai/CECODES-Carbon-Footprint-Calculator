@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { rollupYear, type RollupEntry } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
-import type { GwpSet } from "@/lib/generated/prisma/client";
+import type { EntryMode, GwpSet } from "@/lib/generated/prisma/client";
 import type { ActivityRow, ReportVM, ResultRow, SedeTotal } from "./types";
 
 // Builds the export for one facility (or, when facilityId is null, an entire company) and
@@ -29,6 +29,7 @@ type EntryRow = {
   unit: string;
   month: number | null;
   value: Decimalish | null;
+  secondaryValue: Decimalish | null;
   emissionFactor: {
     co2Factor: Decimalish | null;
     ch4Factor: Decimalish | null;
@@ -37,6 +38,7 @@ type EntryRow = {
     factorUnit: string | null;
     biogenic: boolean;
     uncertaintyPct: Decimalish | null;
+    entryMode: EntryMode;
   } | null;
 };
 
@@ -62,11 +64,13 @@ function buildReportFromEntries({
   entries,
   cleanTechRows,
   gridFactor,
+  pricePerGallon,
   gwpSet,
 }: {
   entries: EntryRow[];
   cleanTechRows: CleanTechRow[];
   gridFactor: string | null;
+  pricePerGallon: string | null;
   gwpSet: GwpSet;
 }): Pick<
   ReportVM,
@@ -81,10 +85,11 @@ function buildReportFromEntries({
   | "biogenicCo2Tonnes"
   | "biogenicCo2Partial"
   | "missingGridFactor"
+  | "missingTransportSubsidyPrice"
   | "unpricedCount"
 > {
   const rollupEntries: RollupEntry[] = toRollupEntries(entries);
-  const rollup = rollupYear({ entries: rollupEntries, gridFactor, gwpSet });
+  const rollup = rollupYear({ entries: rollupEntries, gridFactor, pricePerGallon, gwpSet });
 
   // What the company entered. No arithmetic.
   const activity: ActivityRow[] = entries.map((entry) => ({
@@ -190,6 +195,7 @@ function buildReportFromEntries({
     biogenicCo2Tonnes: rollup.biogenicCo2Tonnes,
     biogenicCo2Partial: rollup.biogenicCo2Partial,
     missingGridFactor: rollup.missingGridFactor,
+    missingTransportSubsidyPrice: rollup.missingTransportSubsidyPrice,
     unpricedCount: rollup.unpricedCount,
   };
 }
@@ -203,6 +209,7 @@ const ENTRY_SELECT = {
   unit: true,
   month: true,
   value: true,
+  secondaryValue: true,
   emissionFactor: {
     select: {
       co2Factor: true,
@@ -212,6 +219,7 @@ const ENTRY_SELECT = {
       factorUnit: true,
       biogenic: true,
       uncertaintyPct: true,
+      entryMode: true,
     },
   },
 } as const;
@@ -236,7 +244,7 @@ async function loadSingleFacilityReport(
 
   if (!company || !facility || !reportingYear) return null;
 
-  const [entries, grid, cleanTechRows] = await Promise.all([
+  const [entries, grid, subsidyPrice, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: reportingYear.id, companyId },
       orderBy: [
@@ -252,6 +260,10 @@ async function loadSingleFacilityReport(
       where: { year: reportingYear.year },
       select: { factor: true },
     }),
+    prisma.transportSubsidyPrice.findUnique({
+      where: { year: reportingYear.year },
+      select: { pricePerGallonCop: true },
+    }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: reportingYear.id, companyId },
       orderBy: { createdAt: "asc" },
@@ -265,9 +277,10 @@ async function loadSingleFacilityReport(
   ]);
 
   const gridFactor = grid ? grid.factor.toString() : null;
+  const pricePerGallon = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
   const gwpSet = reportingYear.gwpSet as GwpSet;
 
-  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, gwpSet });
+  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, pricePerGallon, gwpSet });
 
   return {
     companyName: company.name,
@@ -301,7 +314,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
   // choice), so any one of them is representative.
   const gwpSet = reportingYears[0].gwpSet as GwpSet;
 
-  const [entries, grid, cleanTechRows] = await Promise.all([
+  const [entries, grid, subsidyPrice, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
       orderBy: [
@@ -317,6 +330,10 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
       where: { year },
       select: { factor: true },
     }),
+    prisma.transportSubsidyPrice.findUnique({
+      where: { year },
+      select: { pricePerGallonCop: true },
+    }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
       orderBy: { createdAt: "asc" },
@@ -330,8 +347,9 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
   ]);
 
   const gridFactor = grid ? grid.factor.toString() : null;
+  const pricePerGallon = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
 
-  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, gwpSet });
+  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, pricePerGallon, gwpSet });
 
   // Per-sede subtotal: the same rollup, scoped to one facility's own entries, mirroring
   // dashboard-data.ts's own per-facility rollupForIds usage.
@@ -347,6 +365,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
       const rollup = rollupYear({
         entries: toRollupEntries(facilityEntries),
         gridFactor,
+        pricePerGallon,
         gwpSet,
       });
       return {
