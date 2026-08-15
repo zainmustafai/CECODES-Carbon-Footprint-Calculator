@@ -54,7 +54,7 @@ const prisma = new PrismaClient({ adapter });
 const REFERENCE_DIR = path.join(process.cwd(), "docs", "reference");
 const IMPORTER_EMAIL = "importador";
 // The Scope-2 element the data-entry source picker depends on. Never removed by cleanup.
-const GRID_PICKER_ELEMENT = "Electricidad (Red Nacional - SIN)";
+const GRID_PICKER_ELEMENT = "Electricidad (Sistema Interconectado Nacional - SIN)";
 const STARTER_SUFFIX = "(starter)";
 
 type Flags = {
