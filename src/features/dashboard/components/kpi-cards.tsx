@@ -26,7 +26,9 @@ export function KpiCards({
   const n = (value: number, digits = 1) =>
     format.number(value, { maximumFractionDigits: digits });
 
-  // Headline caption: gross, or the active scope, or the active category.
+  // Headline caption: gross, or the active scope(s), or the active category. totalScopeLabel
+  // can hold one or two scopes now (the multi-scope filter); join their names so "Alcance 1" and
+  // "Alcance 1, Alcance 2" both read naturally in the same slot.
   const totalCaption = current.totalCategoryLabel
     ? t("categoryEmissions", {
         category: current.totalCategoryLabel,
@@ -34,7 +36,7 @@ export function KpiCards({
       })
     : current.totalScopeLabel
       ? t("scopeEmissions", {
-          scope: tScopes(current.totalScopeLabel),
+          scope: current.totalScopeLabel.map((s) => tScopes(s)).join(", "),
           year: String(current.year),
         })
       : t("grossEmissions", { year: String(current.year) });

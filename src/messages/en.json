@@ -281,6 +281,13 @@
       "title": "Emissions by alcance",
       "totalCenter": "tCO2e total"
     },
+    "scopeDetail": {
+      "total": "Total for the filtered scope",
+      "byCategory": "By category",
+      "emptyCategory": "No categories with data for this filter.",
+      "byElement": "By element",
+      "emptyElement": "No emission sources with data for this filter."
+    },
     "byCategory": {
       "title": "Emissions by category",
       "empty": "No categories with data for this filter."

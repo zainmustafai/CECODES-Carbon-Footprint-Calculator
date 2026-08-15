@@ -73,13 +73,15 @@ export type YearTotal = {
 export type DashboardFilters = {
   facilityId: string | null; // null means "all facilities" (company aggregate)
   year: number | null;
-  scope: Scope | null; // null means "all scopes"
+  scope: Scope[]; // empty array means "all scopes" (replaces the old single-value null)
   category: string | null; // null means "all categories"
 };
 
 // The numbers for the selected year, after the scope/category refinement is applied to the
-// headline figure and the category chart. The scope donut and the monthly trend always show
-// the unfiltered year, because they are themselves the breakdown.
+// headline figure and the category chart. The monthly trend always shows the unfiltered year,
+// because Scope 2 is the only thing it ever plots. The scope donut is the same, UNLESS the scope
+// filter narrows to a proper subset of the three scopes (1 or 2 checked) - see dashboard-screen.tsx,
+// which then swaps it for ScopeDetailBars, built from byCategory/byElement below.
 export type DashboardCurrent = {
   year: number;
   gwpSet: GwpSet;
@@ -90,8 +92,12 @@ export type DashboardCurrent = {
   total: number;
   /** The gross year total, ignoring any refinement. Year over year compares this. */
   yearTotal: number;
-  /** The label under the headline: "Emisiones brutas", "Alcance 1", a category name, ... */
-  totalScopeLabel: Scope | null;
+  /**
+   * The label under the headline: "Emisiones brutas", one or more scope names, a category name.
+   * Non-empty only when no category is selected (a category is a finer refinement, so it wins
+   * the caption); holds every scope checked in the filter, in SCOPE_1/2/3 order.
+   */
+  totalScopeLabel: Scope[] | null;
   totalCategoryLabel: string | null;
 
   byScope: ScopeSlice[]; // always the full three-scope split

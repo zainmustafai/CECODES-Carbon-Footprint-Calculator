@@ -60,7 +60,7 @@ export async function loadDashboard(
     company: companyVM,
     facilities,
     years,
-    filters: { facilityId, year: null, scope: null, category: null },
+    filters: { facilityId, year: null, scope: [], category: null },
     current: null,
     previous: null,
     yearComparison: [],
@@ -78,7 +78,10 @@ export async function loadDashboard(
   // The selected calendar year, defaulting to the most recent one with data.
   const year =
     requested.year && years.includes(requested.year) ? requested.year : years[0];
-  const scope = requested.scope && SCOPES.includes(requested.scope) ? requested.scope : null;
+  // Dedupe and drop anything that isn't a real scope, then keep the SCOPE_1/2/3 order regardless
+  // of the order the URL happened to list them in, so `scope` is a stable key wherever it's used
+  // below (the byCategory/byElement filters, the KPI caption, and the donut-vs-detail-bars switch).
+  const scope = SCOPES.filter((s) => (requested.scope ?? []).includes(s));
 
   // Reporting-year ids grouped by calendar year, within the facility scope.
   const idsByYear = new Map<number, string[]>();
@@ -185,8 +188,8 @@ export async function loadDashboard(
   }));
 
   // The category chart follows the scope refinement; the category filter narrows the headline.
-  const scopedCategories = scope
-    ? rollup.byCategory.filter((c) => c.scope === scope)
+  const scopedCategories = scope.length > 0
+    ? rollup.byCategory.filter((c) => scope.includes(c.scope))
     : rollup.byCategory;
   const byCategory: CategorySlice[] = scopedCategories.map((c) => ({
     scope: c.scope,
@@ -204,17 +207,19 @@ export async function loadDashboard(
   // element level for the Pareto chart. rollup.byElement is already sorted largest-first, and
   // filtering an already-sorted array preserves that order, so no re-sort is needed here.
   const byElement = rollup.byElement.filter(
-    (e) => (!scope || e.scope === scope) && (!category || e.category === category),
+    (e) => (scope.length === 0 || scope.includes(e.scope)) && (!category || e.category === category),
   );
 
-  // The headline total honours whatever refinement is active.
+  // The headline total honours whatever refinement is active. A multi-scope selection sums the
+  // checked scopes' own totals rather than re-deriving from scopedCategories, so it agrees with
+  // byScope (and therefore the donut, when it's showing) by construction.
   let total = yearTotal;
   if (category) {
     total = scopedCategories
       .filter((c) => c.category === category)
       .reduce((sum, c) => sum + c.tonnes, 0);
-  } else if (scope) {
-    total = rollup.byScope[scope];
+  } else if (scope.length > 0) {
+    total = scope.reduce((sum, s) => sum + rollup.byScope[s], 0);
   }
 
   // Same filter as `total` above (scope AND category), so the gas breakdown always ties back to
@@ -257,7 +262,7 @@ export async function loadDashboard(
     lastUpdated,
     total,
     yearTotal,
-    totalScopeLabel: category ? null : scope,
+    totalScopeLabel: category || scope.length === 0 ? null : scope,
     totalCategoryLabel: category,
     byScope,
     byCategory,

@@ -8,6 +8,7 @@ import { loadDashboard } from "../lib/dashboard-data";
 import { DashboardFilters } from "./dashboard-filters";
 import { KpiCards } from "./kpi-cards";
 import { ScopeDonut } from "./scope-donut";
+import { ScopeDetailBars } from "./scope-detail-bars";
 import { CategoryBars } from "./category-bars";
 import { GasBars } from "./gas-bars";
 import { ParetoChart } from "./pareto-chart";
@@ -41,13 +42,15 @@ export async function DashboardScreen({
   if (!companyId) return <EmptyDashboard basePath={basePath} />;
 
   const requestedYear = Number(searchParams.year);
+  // Comma-separated list of scopes in the URL, e.g. "SCOPE_1,SCOPE_3". loadDashboard revalidates
+  // and dedupes this itself, so an unknown or malformed token here is harmless.
+  const requestedScopes = (searchParams.scope ?? "")
+    .split(",")
+    .filter((s): s is Scope => SCOPES.includes(s as Scope));
   const vm = await loadDashboard(companyId, {
     facilityId: searchParams.facilityId ?? null,
     year: Number.isFinite(requestedYear) ? requestedYear : null,
-    scope:
-      SCOPES.includes(searchParams.scope as Scope) ?
-        (searchParams.scope as Scope)
-      : null,
+    scope: requestedScopes,
     category: searchParams.category ?? null,
   });
 
@@ -61,6 +64,11 @@ export async function DashboardScreen({
   const facilityName =
     vm.facilities.find((f) => f.id === vm.filters.facilityId)?.name ??
     t("subtitleAllFacilities");
+
+  // See the comment above the scope+category grid below for why 1 or 2 checked scopes swaps in
+  // ScopeDetailBars, while 0 (no filter) or all 3 (equivalent to no filter) keep the donut.
+  const showScopeDetail =
+    vm.filters.scope.length > 0 && vm.filters.scope.length < SCOPES.length;
 
   return (
     <div className="space-y-6">
@@ -123,9 +131,30 @@ export async function DashboardScreen({
         companyProfileHref={companyProfileHref}
       />
 
-      {/* Scope + category */}
+      {/*
+        Scope + category. The donut is the full three-way breakdown, so it only earns its place
+        when the user hasn't narrowed the scope filter at all - OR has checked all three, which
+        is the same thing stated differently. Anywhere in between (1 or 2 scopes checked), showing
+        a ring that includes the very scope(s) just excluded is not a breakdown, it's noise, so
+        ScopeDetailBars takes the donut's place instead: a plain total for exactly what's checked,
+        plus the SAME current.byCategory/byElement CategoryBars and the Pareto chart already use,
+        redrawn as two column charts (the shape the client's own reference workbook uses,
+        chart11.xml/chart12.xml). This is the generalization of the original single-scope ask
+        ("please check if it's possible to filter selecting 2 scopes, not only one") to N scopes:
+        the detail view always matches the checked subset exactly, and only degenerates back to
+        the donut at the two extremes where a subset isn't really a filter.
+      */}
       <div className="gap-6 grid lg:grid-cols-2">
-        <ScopeDonut slices={current.byScope} total={current.yearTotal} />
+        {showScopeDetail ? (
+          <ScopeDetailBars
+            scopes={vm.filters.scope}
+            total={current.total}
+            byCategory={current.byCategory}
+            byElement={current.byElement}
+          />
+        ) : (
+          <ScopeDonut slices={current.byScope} total={current.yearTotal} />
+        )}
         <CategoryBars slices={current.byCategory} />
       </div>
 
