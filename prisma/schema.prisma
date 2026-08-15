@@ -305,16 +305,6 @@ model EmissionFactor {
   // Alternate consolidated factor per currency for spend-based Scope 3 (purchased goods & services)
   co2eFactorCop Decimal? @db.Decimal(30, 10) // kg CO2e / COP
   co2eFactorUsd Decimal? @db.Decimal(30, 10) // kg CO2e / USD
-  // Which gas co2eFactor actually is, for a factor that arrives pre-blended (client feedback
-  // 2026-08-15: "for the 'emisiones por gases' chart... specify those 'other' such SF6, NF3,
-  // etc."). Free text, not an enum: the source workbook identifies only the COLUMN a value came
-  // from (HFC/PFC/SF6/NF3), not a fixed small set of compounds, and a future workbook revision
-  // may add columns for specific blends (HFC-134a, R-410A, ...) without a migration. Null for
-  // every per-gas factor (co2Factor/ch4Factor/n2oFactor) and for a pre-blended factor whose
-  // sheet column could not be identified (e.g. a spend/distance-based Scope 3 line read off
-  // column 9 - see map-row.ts); the dashboard falls those back to a documented "unidentified"
-  // bucket rather than guessing. Backfilled by prisma/import-factors.ts, never set by hand yet.
-  gasType       String?
 
   factorUnit     String? // Unidad FE
   source         String? // Fuente bibliográfica
