@@ -10,6 +10,7 @@ import { KpiCards } from "./kpi-cards";
 import { ScopeDonut } from "./scope-donut";
 import { CategoryBars } from "./category-bars";
 import { GasBars } from "./gas-bars";
+import { ParetoChart } from "./pareto-chart";
 import { MonthlyTrend } from "./monthly-trend";
 import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
@@ -129,6 +130,8 @@ export async function DashboardScreen({
       </div>
 
       <GasBars breakdown={current.byGas} />
+
+      <ParetoChart byElement={current.byElement} />
 
       <MonthlyTrend points={current.monthly} year={current.year} />
 

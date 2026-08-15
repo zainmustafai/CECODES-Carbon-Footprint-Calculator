@@ -290,6 +290,12 @@
       "empty": "Sin datos de gases para este filtro.",
       "otherNote": "{tonnes} tCO2e ({pct}%) no se pueden desglosar por gas: {count, plural, one {# fuente} other {# fuentes}} cuyo factor de emisión ya viene expresado en CO2e (refrigerantes, SF6/PFC, o Alcance 3 por gasto o distancia)."
     },
+    "pareto": {
+      "title": "Priorización de fuentes de emisión",
+      "subtitle": "Barras: toneladas por fuente · Línea: % acumulado",
+      "cumulative": "% acumulado",
+      "empty": "Sin fuentes de emisión con datos para este filtro."
+    },
     "monthly": {
       "title": "Tendencia mensual",
       "subtitle": "Electricidad (Alcance 2)",

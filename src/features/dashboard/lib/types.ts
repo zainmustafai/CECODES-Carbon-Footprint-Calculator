@@ -1,7 +1,7 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
-import type { MonthlyPoint } from "@/lib/calc/rollup";
+import type { ElementTotal, MonthlyPoint } from "@/lib/calc/rollup";
 
-export type { MonthlyPoint };
+export type { ElementTotal, MonthlyPoint };
 
 // The view model the dashboard renders. Every number is tonnes CO2e, already computed by the
 // engine roll-up. The screen is a server component: it builds this once and hands it to the
@@ -103,6 +103,12 @@ export type DashboardCurrent = {
    * a filtered view is more informative here, not degenerate.
    */
   byGas: GasBreakdown;
+  /**
+   * Per-element totals, reflecting the SAME scope/category refinement as `byCategory`/`byGas`
+   * above, largest first (the rollup already sorts it that way). Feeds the Pareto chart: one bar
+   * per element, plus a client-computed cumulative-percentage line (see lib/pareto.ts).
+   */
+  byElement: ElementTotal[];
   monthly: MonthlyPoint[]; // Scope 2 only, twelve points
   biogenicTonnes: number;
   /**

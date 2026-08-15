@@ -200,6 +200,13 @@ export async function loadDashboard(
       ? requested.category
       : null;
 
+  // Same scope/category refinement as scopedCategories/category above, applied to the finer
+  // element level for the Pareto chart. rollup.byElement is already sorted largest-first, and
+  // filtering an already-sorted array preserves that order, so no re-sort is needed here.
+  const byElement = rollup.byElement.filter(
+    (e) => (!scope || e.scope === scope) && (!category || e.category === category),
+  );
+
   // The headline total honours whatever refinement is active.
   let total = yearTotal;
   if (category) {
@@ -255,6 +262,7 @@ export async function loadDashboard(
     byScope,
     byCategory,
     byGas,
+    byElement,
     monthly: rollup.scope2Monthly,
     biogenicTonnes: rollup.biogenicTonnes,
     removalsTonnes: rollup.removals.tonnes,

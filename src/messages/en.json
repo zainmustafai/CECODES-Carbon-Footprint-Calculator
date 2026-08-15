@@ -290,6 +290,12 @@
       "empty": "No gas data for this filter.",
       "otherNote": "{tonnes} tCO2e ({pct}%) cannot be split by gas: {count, plural, one {# source} other {# sources}} whose emission factor already arrives as CO2e (refrigerants, SF6/PFC, or spend/distance-based Scope 3)."
     },
+    "pareto": {
+      "title": "Prioritizing emission sources",
+      "subtitle": "Bars: tonnes per source · Line: cumulative %",
+      "cumulative": "Cumulative %",
+      "empty": "No emission sources with data for this filter."
+    },
     "monthly": {
       "title": "Monthly trend",
       "subtitle": "Electricity (Alcance 2)",
