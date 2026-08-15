@@ -27,6 +27,14 @@ export type RollupFactor = {
   /** How `value` (and, for COUNT_TIMES_DISTANCE, `secondaryValue`) become the activity quantity
    *  the engine prices. Defaults to QUANTITY for every factor before 2026-08-15. */
   entryMode: EntryMode;
+  /**
+   * Which gas a PRE-BLENDED factor (co2eFactor set) actually is - "HFC", "PFC", "SF6", "NF3",
+   * as captured by the importer from which sheet column carried the value (client feedback
+   * 2026-08-15: "specify those 'other' such SF6, NF3, etc."). Optional and defaulted to null by
+   * every caller that predates this feature (see rollup-entries.ts), exactly like `entryMode`
+   * defaults to QUANTITY above. Meaningless for a per-gas factor (co2Factor/ch4Factor/n2oFactor).
+   */
+  gasType?: string | null;
 };
 
 export type RollupEntry = {
@@ -56,6 +64,18 @@ export type ScopeTotals = Record<Scope, number>;
  */
 export const REMOVALS_CATEGORY = "Remociones";
 
+/**
+ * The bucket a pre-blended (otherGasesTonnes) entry falls into on CategoryTotal.otherGasesByType
+ * when its factor carries no gasType - an import from before the 2026-08-15 gasType backfill, or
+ * a genuinely gas-less pre-blended factor such as a spend/distance-based Scope 3 line (see
+ * map-row.ts: column 9 read as CO2e carries no gas-identifying column). A stable internal label,
+ * not translated UI copy: dashboard-data.ts compares against it to set OtherGasSlice.isFallback,
+ * which the (client-side) gas-bars.tsx uses to show a translated label (dashboard.gasNames.OTHER)
+ * instead of this raw string - the same reason isFallback exists rather than making the client
+ * import this constant from the calc engine just to compare against it.
+ */
+export const OTHER_GAS_FALLBACK = "Otros gases sin identificar";
+
 export type CategoryTotal = {
   scope: Scope;
   category: string;
@@ -70,8 +90,18 @@ export type CategoryTotal = {
   ch4Tonnes: number;
   n2oTonnes: number;
   /** Entries whose factor arrived already expressed as CO2e (refrigerants, SF6/PFC/NF3, or
-   *  spend/distance-based Scope 3): the individual gas mass was never retained for these. */
+   *  spend/distance-based Scope 3): the individual gas mass was never retained for these.
+   *  Equal to the sum of otherGasesByType's values, by construction (see the accumulation loop) -
+   *  kept as its own field because most callers (the KPI reconciliation, dashboard-data.ts's
+   *  gasTotals) only ever need the total, not the per-gas-type split. */
   otherGasesTonnes: number;
+  /**
+   * otherGasesTonnes, split by which gas the pre-blended factor was captured as - client
+   * feedback 2026-08-15 ("please include all of the gases separately... specify those 'other'
+   * such SF6, NF3, etc."). Keyed by RollupFactor.gasType ("HFC", "PFC", "SF6", "NF3", ...), or
+   * OTHER_GAS_FALLBACK when no gasType was captured. Always sums to otherGasesTonnes exactly.
+   */
+  otherGasesByType: Record<string, number>;
   /** Priced entries with a real per-gas split. */
   gasResolvedEntries: number;
   /** Priced entries counted only in otherGasesTonnes, with no gas-level detail available. */
@@ -320,6 +350,11 @@ export function rollupYear({
     const tonnes = co2Tonnes + ch4Tonnes + n2oTonnes + otherGasesTonnes;
     byScope[entry.scope] += tonnes;
 
+    // Which named-gas bucket a pre-blended entry's otherGasesTonnes falls into. Only meaningful
+    // when gas.isPreBlended (otherGasesTonnes came from this entry at all); computed
+    // unconditionally here since it is cheap and keeps the branches below symmetric.
+    const gasTypeKey = entry.factor?.gasType?.trim() || OTHER_GAS_FALLBACK;
+
     const key = `${entry.scope}::${entry.category}`;
     const existing = categories.get(key);
     if (existing) {
@@ -328,9 +363,16 @@ export function rollupYear({
       existing.ch4Tonnes += ch4Tonnes;
       existing.n2oTonnes += n2oTonnes;
       existing.otherGasesTonnes += otherGasesTonnes;
-      if (gas.isPreBlended) existing.otherGasesEntries += 1;
-      else existing.gasResolvedEntries += 1;
+      if (gas.isPreBlended) {
+        existing.otherGasesEntries += 1;
+        existing.otherGasesByType[gasTypeKey] =
+          (existing.otherGasesByType[gasTypeKey] ?? 0) + otherGasesTonnes;
+      } else {
+        existing.gasResolvedEntries += 1;
+      }
     } else {
+      const otherGasesByType: Record<string, number> = {};
+      if (gas.isPreBlended) otherGasesByType[gasTypeKey] = otherGasesTonnes;
       categories.set(key, {
         scope: entry.scope,
         category: entry.category,
@@ -339,6 +381,7 @@ export function rollupYear({
         ch4Tonnes,
         n2oTonnes,
         otherGasesTonnes,
+        otherGasesByType,
         gasResolvedEntries: gas.isPreBlended ? 0 : 1,
         otherGasesEntries: gas.isPreBlended ? 1 : 0,
       });

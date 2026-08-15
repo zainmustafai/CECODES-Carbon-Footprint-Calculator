@@ -21,6 +21,10 @@ export type RollupSourceRow = {
     co2eFactor: Decimalish | null;
     biogenic: boolean;
     entryMode: EntryMode;
+    /** Which gas a pre-blended factor is (client feedback 2026-08-15) - see rollup.ts's
+     *  RollupFactor.gasType. Optional so a caller that does not need the gas-by-type breakdown
+     *  (the report loader) is not forced to select this column; absent behaves as null. */
+    gasType?: string | null;
   } | null;
 };
 
@@ -41,6 +45,7 @@ export function toRollupEntries(rows: RollupSourceRow[]): RollupEntry[] {
           co2eFactor: row.emissionFactor.co2eFactor?.toString() ?? null,
           biogenic: row.emissionFactor.biogenic,
           entryMode: row.emissionFactor.entryMode,
+          gasType: row.emissionFactor.gasType ?? null,
         }
       : null,
   }));
