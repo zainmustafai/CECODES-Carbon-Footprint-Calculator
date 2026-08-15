@@ -17,6 +17,8 @@ export const E2E_VERSION_PREFIX = "E2E";
 export const E2E_GRID_SOURCE_PREFIX = "E2E";
 // Far enough out that no real reporting year will ever collide with it.
 export const E2E_GRID_YEAR = 2031;
+// Same idea, its own year so the grid and subsidy CRUD specs never fight over one row.
+export const E2E_SUBSIDY_YEAR = 2030;
 
 // 2024 has a seeded grid electricity factor, so Scope 2 shows no missing-factor warning.
 export const E2E_YEAR = 2024;
@@ -113,6 +115,11 @@ export async function purgeE2E(client: Client, companyId?: string) {
     `${E2E_VERSION_PREFIX}%`,
   ]);
   await client.query(`DELETE FROM grid_electricity_factors WHERE source LIKE $1`, [
+    `${E2E_GRID_SOURCE_PREFIX}%`,
+  ]);
+  // Same reference-data shape as the grid factor above (client feedback 2026-08-15). A crashed
+  // subsidy-CRUD run recovers here instead of leaking a row into the shared global table.
+  await client.query(`DELETE FROM transport_subsidy_prices WHERE source LIKE $1`, [
     `${E2E_GRID_SOURCE_PREFIX}%`,
   ]);
 

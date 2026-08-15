@@ -62,17 +62,23 @@ async function main() {
       reportingYearId: true,
       scope: true,
       month: true,
-      reportingYear: { select: { year: true, company: { select: { name: true } } } },
+      reportingYear: { select: { year: true } },
       emissionFactor: { select: { entryMode: true } },
     },
   });
 
   console.log(`Found ${entries.length} pre-existing entr${entries.length === 1 ? "y" : "ies"}.`);
+  const companies = await prisma.company.findMany({
+    where: { id: { in: [...new Set(entries.map((e) => e.companyId))] } },
+    select: { id: true, name: true },
+  });
+  const companyNameById = new Map(companies.map((c) => [c.id, c.name]));
   for (const e of entries) {
-    if (e.reportingYear.company.name !== "Demo Alimentos del Valle") {
+    const companyName = companyNameById.get(e.companyId);
+    if (companyName !== "Demo Alimentos del Valle") {
       // Refuse to touch anything outside the one company this was verified against.
       throw new Error(
-        `Refusing: entry ${e.id} belongs to "${e.reportingYear.company.name}", not the demo company. Aborting without writing anything.`,
+        `Refusing: entry ${e.id} belongs to "${companyName}", not the demo company. Aborting without writing anything.`,
       );
     }
   }
@@ -102,6 +108,11 @@ async function main() {
   let fixed = 0;
   let skipped = 0;
   for (const entry of entries) {
+    // The where clause above already required emissionFactor.entryMode != QUANTITY, which is
+    // impossible to satisfy for a null relation - this narrows the type, not the runtime set.
+    if (!entry.emissionFactor) {
+      throw new Error(`Refusing: entry ${entry.id} matched the query but has no emissionFactor.`);
+    }
     if (entry.emissionFactor.entryMode === "COUNT_TIMES_DISTANCE") {
       if (entry.secondaryValue !== null) {
         console.log(`  SKIP (already has a distance)  ${entry.element}`);
