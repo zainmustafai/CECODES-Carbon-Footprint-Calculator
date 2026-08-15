@@ -422,8 +422,7 @@
     "addSource": {
       "trigger": "Agregar fuente",
       "search": "Buscar elemento...",
-      "empty": "Sin resultados.",
-      "biogenic": "Biogénica"
+      "empty": "Sin resultados."
     },
     "source": {
       "annualValue": "Valor anual",

@@ -422,8 +422,7 @@
     "addSource": {
       "trigger": "Add source",
       "search": "Search element...",
-      "empty": "No results.",
-      "biogenic": "Biogenic"
+      "empty": "No results."
     },
     "source": {
       "annualValue": "Annual value",

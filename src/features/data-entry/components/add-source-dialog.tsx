@@ -13,7 +13,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
 import { accentInsensitiveFilter } from "@/lib/text-fold";
 import type { FactorCategory } from "../lib/types";
 import { useSourceActions } from "../hooks/use-source-actions";
@@ -51,7 +50,10 @@ export const AddSourceDialog = forwardRef<HTMLButtonElement, AddSourceDialogProp
             {t("trigger")}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] p-0">
+        <PopoverContent
+          align="start"
+          className="w-[min(34rem,calc(100vw-2rem))] p-0"
+        >
           <Command filter={accentInsensitiveFilter}>
             <CommandInput placeholder={t("search")} />
             <CommandList>
@@ -73,18 +75,16 @@ export const AddSourceDialog = forwardRef<HTMLButtonElement, AddSourceDialogProp
                           void add(option.id).then(() => onAdded?.());
                           setOpen(false);
                         }}
+                        className="items-start gap-2 py-2"
                       >
-                        <span className="flex-1 truncate">{option.element}</span>
-                        {option.biogenic ? (
-                          <Badge variant="outline" className="shrink-0">
-                            {t("biogenic")}
-                          </Badge>
-                        ) : null}
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span className="flex-1 text-sm leading-snug text-balance">
+                          {option.element}
+                        </span>
+                        <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                           {option.unit}
                         </span>
                         {isAdded ? (
-                          <Check className="size-4 shrink-0 text-primary" aria-hidden />
+                          <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                         ) : null}
                       </CommandItem>
                     );
