@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Scope } from "@/lib/generated/prisma/client";
+import { formatGwpSource } from "@/lib/gwp";
 import { ExportButtons } from "@/features/reports";
 import { loadPreview } from "../lib/load-preview";
 import { EntryChangeLog } from "./entry-change-log";
@@ -166,7 +167,7 @@ export async function PreviewScreen({
             </p>
             {vm.gwpSet ? (
               <p className="text-xs text-muted-foreground">
-                {t("gwp", { set: vm.gwpSet })}
+                {t("gwp", { set: formatGwpSource(vm.gwpSet) })}
               </p>
             ) : null}
           </CardContent>

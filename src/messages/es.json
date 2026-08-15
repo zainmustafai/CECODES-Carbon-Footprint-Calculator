@@ -392,7 +392,7 @@
     "title": "Ingreso de datos",
     "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
     "emptyScope": "La biblioteca de factores aún no tiene categorías para este alcance.",
-    "valueHint": "Solo valores no negativos. Decimales con coma (,) o punto (.). No uses separador de miles.",
+    "valueHint": "Solo valores no negativos. Decimales con coma (,) o punto (.). No uses separador de miles. Verifica la unidad solicitada en cada campo antes de registrar el valor (kg, lb, km, gal, cc, etc.). Registra el total consolidado por año y sede: si compraste 1.000 galones de diésel para el vehículo A y 2.000 para el vehículo B, registra un solo valor de 3.000 galones para esa sede.",
     "contextBar": {
       "facility": "Sede",
       "year": "Año",
@@ -438,7 +438,7 @@
       "title": "Resumen del elemento",
       "estimated": "Emisiones estimadas",
       "factorApplied": "Factor aplicado",
-      "gwpSet": "Conjunto GWP",
+      "gwpSet": "Fuente GWP",
       "factorSource": "Fuente del factor",
       "unknownSource": "Sin fuente registrada",
       "missingGridFactor": "Sin factor de red para {year}. Las emisiones se calcularán cuando el administrador cargue el factor.",
@@ -1095,7 +1095,7 @@
     "subtitleContext": "{facility} · {year}",
     "totalLabel": "Total estimado",
     "tCO2e": "t CO2e",
-    "gwp": "Conjunto GWP: {set}",
+    "gwp": "Fuente GWP: {set}",
     "filters": {
       "facility": "Sede",
       "year": "Año",

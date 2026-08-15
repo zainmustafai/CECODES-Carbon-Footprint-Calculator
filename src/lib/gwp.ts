@@ -38,3 +38,9 @@ export function resolveGwpSet(year: number): GwpSet {
 export function kgToTonnes(kg: number): number {
   return kg / 1000;
 }
+
+// "AR6" alone does not say which body it's from. The client asked for the IPCC report
+// reference to be visible everywhere a GWP set is displayed.
+export function formatGwpSource(gwpSet: GwpSet): string {
+  return `IPCC ${gwpSet}`;
+}

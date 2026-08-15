@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { ReportVM } from "./types";
+import { formatGwpSource } from "@/lib/gwp";
 
 // The Excel export (Requirements 10, 14.7).
 //
@@ -74,7 +75,7 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   summary.addRow(["Empresa", vm.companyName]);
   summary.addRow(["Sede", vm.facilityName ?? "Todas las sedes"]);
   summary.addRow(["Año de reporte", vm.year]);
-  summary.addRow(["Conjunto GWP", vm.gwpSet]);
+  summary.addRow(["Fuente GWP", formatGwpSource(vm.gwpSet)]);
   summary.addRow([
     "Factor de red eléctrica",
     vm.gridFactor === null ? "No cargado" : num(vm.gridFactor),

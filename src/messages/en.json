@@ -392,7 +392,7 @@
     "title": "Data entry",
     "subtitle": "Record your sources' consumption by alcance. Changes save themselves.",
     "emptyScope": "The factor library has no categories for this alcance yet.",
-    "valueHint": "Non-negative values only. Decimals with a comma (,) or dot (.). Do not use thousands separators.",
+    "valueHint": "Non-negative values only. Decimals with a comma (,) or dot (.). Do not use thousands separators. Check the unit requested by each field before entering a value (kg, lb, km, gal, cc, etc.). Report the consolidated total per year and location: if you bought 1,000 gallons of diesel for vehicle A and 2,000 for vehicle B, report a single value of 3,000 gallons for that location.",
     "contextBar": {
       "facility": "Sede",
       "year": "Year",
@@ -438,7 +438,7 @@
       "title": "Element summary",
       "estimated": "Estimated emissions",
       "factorApplied": "Factor applied",
-      "gwpSet": "GWP set",
+      "gwpSet": "GWP source",
       "factorSource": "Factor source",
       "unknownSource": "No source recorded",
       "missingGridFactor": "No grid factor for {year}. Emissions will compute once an administrator loads it.",
@@ -1095,7 +1095,7 @@
     "subtitleContext": "{facility} · {year}",
     "totalLabel": "Estimated total",
     "tCO2e": "t CO2e",
-    "gwp": "GWP set: {set}",
+    "gwp": "GWP source: {set}",
     "filters": {
       "facility": "Facility",
       "year": "Year",

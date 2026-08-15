@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Document, Image, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
+import { formatGwpSource } from "@/lib/gwp";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
 // and the Excel export. It carries the same numbers the dashboard shows, because it is built from
@@ -214,7 +215,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           <KeyVal k="Empresa" v={vm.companyName} />
           <KeyVal k="Sede" v={facilityLabel} />
           <KeyVal k="Año" v={String(vm.year)} />
-          <KeyVal k="Conjunto GWP" v={vm.gwpSet} />
+          <KeyVal k="Fuente GWP" v={formatGwpSource(vm.gwpSet)} />
           <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
         </View>
 

@@ -4,6 +4,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import type { GwpSet } from "@/lib/generated/prisma/client";
 import type { SourceEstimate } from "@/lib/calc/preview";
+import { formatGwpSource } from "@/lib/gwp";
 import { cn } from "@/lib/utils";
 
 // "Resumen del elemento": the estimated emissions of one source, plus the factor that produced
@@ -108,12 +109,12 @@ export function SourceSummary({
           </div>
         ) : null}
         <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">{t("gwpSet")}</dt>
-          <dd className="text-right font-mono">{gwpSet}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
           <dt className="text-muted-foreground">{t("factorSource")}</dt>
           <dd className="text-right">{estimate.factorSource ?? t("unknownSource")}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">{t("gwpSet")}</dt>
+          <dd className="text-right font-mono">{formatGwpSource(gwpSet)}</dd>
         </div>
       </dl>
 
