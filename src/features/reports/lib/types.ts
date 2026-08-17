@@ -44,7 +44,27 @@ export type ResultRow = {
 };
 
 export type ScopeTotal = { scope: Scope; tonnes: number };
-export type CategoryRow = { scope: Scope; category: string; tonnes: number };
+
+export type CategoryRow = {
+  scope: Scope;
+  category: string;
+  tonnes: number;
+  /**
+   * The category's gas breakdown (see rollup.ts's CategoryTotal, whose extra fields ride along
+   * unnoticed by the type checker whenever `rollup.byCategory` itself is assigned to `byCategory`
+   * below - the same "wider object satisfies the narrower field list" trick load-report.ts's own
+   * EntryRow comment documents). Declared here, and made required to READ, so the ISO 14064-1
+   * table (build-pdf.tsx, build-workbook.ts) can build a by-gas view without a second
+   * calculation. Optional because a handwritten fixture that predates the gas breakdown
+   * (2026-08-15) can still omit them; the ISO table then treats the category as contributing 0 to
+   * every gas bucket, exactly like RollupFactor.gasType defaults to null elsewhere.
+   */
+  co2Tonnes?: number;
+  ch4Tonnes?: number;
+  n2oTonnes?: number;
+  /** Keyed by RollupFactor.gasType ("HFC", "SF6", "NF3", ...) or OTHER_GAS_FALLBACK. */
+  otherGasesByType?: Record<string, number>;
+};
 
 /** One facility's total for the selected year, in a company-wide report. */
 export type SedeTotal = {

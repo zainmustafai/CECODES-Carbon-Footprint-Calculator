@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
-import { estimateSourceTonnes } from "@/lib/calc/preview";
-import { REMOVALS_CATEGORY } from "@/lib/calc/rollup";
-import type { GwpSet } from "@/lib/generated/prisma/client";
+import { estimateSourceTonnes, type SourceEstimate } from "@/lib/calc/preview";
+import { REMOVALS_CATEGORY, rollupYear } from "@/lib/calc/rollup";
+import { toRollupEntries } from "@/lib/calc/rollup-entries";
+import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { shapeEntries, type EntryRow } from "@/features/data-entry/lib/shape-entries";
 import type { GroupedFactors } from "@/features/data-entry/lib/types";
 import type {
   PreviewCategoryGroup,
+  PreviewSedeTotal,
   PreviewSourceRow,
   PreviewScopeGroup,
   PreviewVM,
@@ -42,6 +44,7 @@ function empty(
     scopes: [],
     totalTonnes: 0,
     biogenicTonnes: 0,
+    bySede: [],
     removals: null,
     cleanTech: [],
     missingGridFactor: false,
@@ -301,10 +304,344 @@ export async function loadPreview(
     scopes,
     totalTonnes,
     biogenicTonnes,
+    bySede: [],
     removals,
     cleanTech,
     missingGridFactor,
     missingTransportSubsidyPrice,
+    isEmpty: false,
+    emptyReason: null,
+  };
+}
+
+// ------------------------------------------------------------------------------------- Company-wide
+
+// A element's display meta, summed across every facility for the year: unit/factor labels (the
+// same for every entry sharing an element, since they share one EmissionFactor) plus a summed
+// quantity and, for Scope 2, a summed-per-month bucket.
+type CompanyElementMeta = {
+  unit: string;
+  quantity: number;
+  hasQuantity: boolean;
+  factorValue: string | null;
+  factorUnit: string | null;
+  factorActive: boolean;
+  entryMode: EntryMode;
+  /** Scope 2 only: one bucket per month (index 0 = January), summed across every facility. */
+  monthly: { total: number; hasValue: boolean }[];
+};
+
+type ElementIdentity = {
+  scope: Scope;
+  category: string;
+  subcategory: string | null;
+  element: string;
+};
+
+function elementKey(e: ElementIdentity): string {
+  return `${e.scope}::${e.category}::${e.subcategory ?? ""}::${e.element}`;
+}
+
+/**
+ * The company-wide ("Todas las sedes") counterpart to loadPreview above: the same scope ->
+ * category -> source hierarchy the preview tables render, but summed across every facility for
+ * the selected year (client feedback 2026-08-15: "a total for the whole company that year").
+ *
+ * Deliberately NOT built on shapeEntries/estimateSourceTonnes like loadPreview: that helper keys
+ * a source's cells by (emissionFactorId, month), and two facilities reporting the SAME month for
+ * the SAME Scope 2 factor (the shared "Electricidad de red" element) would collide into two cells
+ * both claiming that month, silently dropping one facility's reading from the monthly matrix
+ * (estimateSourceTonnes sums every cell regardless of position, so the TOTAL would still be right
+ * - only the per-month display would lie, which is worse). Instead this prices the union of every
+ * facility's entries through rollupYear directly, via the shared toRollupEntries mapping (see
+ * rollup-entries.ts's own comment: the Prisma-row-to-RollupEntry mapping has already been
+ * duplicated twice by hand before this helper existed), exactly like load-report.ts's
+ * loadCompanyWideReport does for the company-wide export. Quantities and the monthly matrix are
+ * a SEPARATE display-only sum straight off the raw entries (floats are fine here, as everywhere
+ * else in this preview - nothing is persisted); every t CO2e number comes from rollupYear.
+ */
+export async function loadCompanyWidePreview(
+  companyId: string,
+  requested: { year: number | null },
+): Promise<PreviewVM> {
+  const facilities = await prisma.facility.findMany({
+    where: { companyId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const nameByFacility = new Map(facilities.map((f) => [f.id, f.name]));
+
+  // @@unique([facilityId, year]) guarantees at most one reporting year per facility for a given
+  // calendar year, so grouping these by `year` below is a true one-row-per-facility union.
+  const reportingYears = await prisma.reportingYear.findMany({
+    where: { companyId },
+    select: { id: true, facilityId: true, year: true, gwpSet: true },
+  });
+  const years = [...new Set(reportingYears.map((ry) => ry.year))].sort((a, b) => b - a);
+
+  if (years.length === 0) {
+    return empty(facilities, { facilityId: null, year: null }, "noYear", years);
+  }
+
+  const selectedYear =
+    requested.year && years.includes(requested.year) ? requested.year : years[0];
+  const yearRows = reportingYears.filter((ry) => ry.year === selectedYear);
+  const reportingYearIds = yearRows.map((ry) => ry.id);
+  const baseFilters = { facilityId: null, year: selectedYear };
+  // Every facility's row for the same calendar year carries the same gwpSet (derived from the
+  // year at creation, never a per-facility choice - see load-report.ts's own comment), so any one
+  // of them is representative.
+  const gwpSet = yearRows[0].gwpSet as GwpSet;
+
+  const [entries, gridFactor, subsidyPrice, cleanTechRows] = await Promise.all([
+    prisma.activityEntry.findMany({
+      where: { reportingYearId: { in: reportingYearIds }, companyId },
+      orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
+      select: {
+        reportingYearId: true,
+        scope: true,
+        category: true,
+        subcategory: true,
+        element: true,
+        unit: true,
+        month: true,
+        value: true,
+        secondaryValue: true,
+        emissionFactor: {
+          select: {
+            active: true,
+            biogenic: true,
+            co2Factor: true,
+            ch4Factor: true,
+            n2oFactor: true,
+            co2eFactor: true,
+            factorUnit: true,
+            entryMode: true,
+          },
+        },
+      },
+    }),
+    prisma.gridElectricityFactor.findUnique({
+      where: { year: selectedYear },
+      select: { factor: true },
+    }),
+    prisma.transportSubsidyPrice.findUnique({
+      where: { year: selectedYear },
+      select: { pricePerGallonCop: true },
+    }),
+    prisma.cleanTechEntry.findMany({
+      where: { reportingYearId: { in: reportingYearIds }, companyId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, scope: true, element: true, quantity: true, unit: true },
+    }),
+  ]);
+
+  const cleanTech = cleanTechRows.map((row) => ({
+    id: row.id,
+    scope: row.scope,
+    element: row.element,
+    quantity: row.quantity === null ? null : row.quantity.toString(),
+    unit: row.unit,
+  }));
+
+  if (entries.length === 0 && cleanTech.length === 0) {
+    return { ...empty(facilities, baseFilters, "noData", years), gwpSet };
+  }
+
+  const gridFactorStr = gridFactor ? gridFactor.factor.toString() : null;
+  const pricePerGallonStr = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
+
+  const rollup = rollupYear({
+    entries: toRollupEntries(entries),
+    gridFactor: gridFactorStr,
+    pricePerGallon: pricePerGallonStr,
+    gwpSet,
+  });
+
+  // Element-level display meta: the same kind of join load-report.ts's buildReportFromEntries
+  // does between rollupYear's byElement and the raw entries (unit/factor labels + a summed
+  // quantity), with a monthly bucket added so Scope 2 sums correctly across facilities instead
+  // of the shapeEntries cell-collision described above.
+  const meta = new Map<string, CompanyElementMeta>();
+  for (const entry of entries) {
+    const key = elementKey(entry);
+    let m = meta.get(key);
+    if (!m) {
+      const factor = entry.emissionFactor;
+      m = {
+        unit: entry.unit,
+        quantity: 0,
+        hasQuantity: false,
+        // Scope 2 is priced by the national grid factor, not by a factor on the row - same rule
+        // buildReportFromEntries applies.
+        factorValue:
+          entry.scope === "SCOPE_2"
+            ? gridFactorStr
+            : (factor?.co2eFactor?.toString() ??
+              factor?.co2Factor?.toString() ??
+              factor?.ch4Factor?.toString() ??
+              factor?.n2oFactor?.toString() ??
+              null),
+        factorUnit: entry.scope === "SCOPE_2" ? "kg CO2/kWh" : (factor?.factorUnit ?? null),
+        factorActive: factor?.active ?? false,
+        entryMode: factor?.entryMode ?? "QUANTITY",
+        monthly: Array.from({ length: 12 }, () => ({ total: 0, hasValue: false })),
+      };
+      meta.set(key, m);
+    }
+    if (entry.value !== null) {
+      const qty = toNumber(entry.value.toString());
+      m.quantity += qty;
+      m.hasQuantity = true;
+      if (entry.scope === "SCOPE_2" && entry.month !== null && entry.month >= 1 && entry.month <= 12) {
+        const bucket = m.monthly[entry.month - 1];
+        bucket.total += qty;
+        bucket.hasValue = true;
+      }
+    }
+  }
+
+  const byElement = new Map(rollup.byElement.map((e) => [elementKey(e), e]));
+  const byCategory = new Map(rollup.byCategory.map((c) => [`${c.scope}::${c.category}`, c]));
+  const removalsByElement = new Map(rollup.removals.byElement.map((e) => [elementKey(e), e]));
+
+  // Whether/why an element's tonnes could be priced. An element absent from rollupYear's output
+  // was excluded there for one of the same three reasons a report row goes missing (see
+  // buildReportFromEntries): a missing grid factor, a missing transport-subsidy price, or no
+  // readable factor at all.
+  function buildEstimate(id: ElementIdentity, m: CompanyElementMeta, isRemoval: boolean): SourceEstimate {
+    const key = elementKey(id);
+    const element = (isRemoval ? removalsByElement : byElement).get(key);
+    if (element) {
+      return {
+        kind: "ok",
+        tonnes: element.tonnes,
+        hasValues: m.hasQuantity,
+        factorValue: m.factorValue,
+        factorUnit: m.factorUnit,
+        factorSource: null,
+      };
+    }
+    if (id.scope === "SCOPE_2" && rollup.missingGridFactor) return { kind: "missingGridFactor" };
+    if (m.entryMode === "MONEY_PER_GALLON" && rollup.missingTransportSubsidyPrice) {
+      return { kind: "missingTransportSubsidyPrice" };
+    }
+    return { kind: "noFactor" };
+  }
+
+  // Rebuild the scope -> category -> source hierarchy the tables expect, from the elements that
+  // were actually entered somewhere (never from the factor library): the first entry seen for
+  // each key stands in for its identity, since every entry sharing a key agrees on it.
+  const seenKeys = new Set<string>();
+  const identities: ElementIdentity[] = [];
+  for (const entry of entries) {
+    const key = elementKey(entry);
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    identities.push(entry);
+  }
+
+  const categoriesByKey = new Map<string, { scope: Scope; category: string; sources: PreviewSourceRow[] }>();
+  const removalSources: PreviewSourceRow[] = [];
+
+  for (const id of identities) {
+    const key = elementKey(id);
+    const m = meta.get(key)!;
+    const isRemoval = id.category.trim() === REMOVALS_CATEGORY;
+    const estimate = buildEstimate(id, m, isRemoval);
+
+    const monthly =
+      id.scope === "SCOPE_2"
+        ? m.monthly.map((bucket) => (bucket.hasValue ? String(bucket.total) : ""))
+        : [];
+
+    const source: PreviewSourceRow = {
+      key,
+      element: id.element,
+      unit: m.unit,
+      subcategory: id.subcategory,
+      factorActive: m.factorActive,
+      monthly,
+      quantity: m.quantity,
+      hasQuantity: m.hasQuantity,
+      estimate,
+    };
+
+    if (isRemoval) {
+      removalSources.push(source);
+      continue;
+    }
+
+    const catKey = `${id.scope}::${id.category}`;
+    let cat = categoriesByKey.get(catKey);
+    if (!cat) {
+      cat = { scope: id.scope, category: id.category, sources: [] };
+      categoriesByKey.set(catKey, cat);
+    }
+    cat.sources.push(source);
+  }
+
+  const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
+  const scopes: PreviewScopeGroup[] = SCOPES.map((scope) => {
+    const categories: PreviewCategoryGroup[] = [...categoriesByKey.values()]
+      .filter((c) => c.scope === scope)
+      .map((c) => ({
+        category: c.category,
+        tonnes: byCategory.get(`${c.scope}::${c.category}`)?.tonnes ?? 0,
+        sources: [...c.sources].sort(
+          (a, b) =>
+            (a.subcategory ?? "").localeCompare(b.subcategory ?? "", "es") ||
+            a.element.localeCompare(b.element, "es"),
+        ),
+      }));
+    return { scope, categories, tonnes: rollup.byScope[scope] };
+  });
+
+  const removals: PreviewVM["removals"] =
+    removalSources.length > 0
+      ? { category: REMOVALS_CATEGORY, sources: removalSources, tonnes: rollup.removals.tonnes }
+      : null;
+
+  // Per-sede subtotal: the same rollup, scoped to one facility's own entries, mirroring
+  // load-report.ts's own bySede loop.
+  const entriesByReportingYear = new Map<string, typeof entries>();
+  for (const entry of entries) {
+    const list = entriesByReportingYear.get(entry.reportingYearId) ?? [];
+    list.push(entry);
+    entriesByReportingYear.set(entry.reportingYearId, list);
+  }
+  const bySede: PreviewSedeTotal[] = yearRows
+    .map((ry) => {
+      const facilityEntries = entriesByReportingYear.get(ry.id) ?? [];
+      const facilityRollup = rollupYear({
+        entries: toRollupEntries(facilityEntries),
+        gridFactor: gridFactorStr,
+        pricePerGallon: pricePerGallonStr,
+        gwpSet,
+      });
+      return {
+        facilityId: ry.facilityId,
+        facilityName: nameByFacility.get(ry.facilityId) ?? "",
+        tonnes: facilityRollup.totalTonnes,
+        incomplete: facilityRollup.missingGridFactor || facilityRollup.unpricedCount > 0,
+      };
+    })
+    .sort((a, b) => b.tonnes - a.tonnes);
+
+  return {
+    facilities,
+    years,
+    filters: baseFilters,
+    selectedFacilityName: null,
+    gwpSet,
+    scopes,
+    totalTonnes: rollup.totalTonnes,
+    biogenicTonnes: rollup.biogenicTonnes,
+    bySede,
+    removals,
+    cleanTech,
+    missingGridFactor: rollup.missingGridFactor,
+    missingTransportSubsidyPrice: rollup.missingTransportSubsidyPrice,
     isEmpty: false,
     emptyReason: null,
   };

@@ -44,6 +44,17 @@ export type PreviewFacility = { id: string; name: string };
 
 export type PreviewEmptyReason = "noFacility" | "noYear" | "noData";
 
+/** One facility's total within the company-wide ("Todas las sedes") consolidated view. Mirrors
+ *  reports/lib/types.ts's SedeTotal; kept as its own small type here so preview stays a
+ *  self-contained feature rather than importing across features for four fields. */
+export type PreviewSedeTotal = {
+  facilityId: string;
+  facilityName: string;
+  tonnes: number;
+  /** Same honesty flag as the report's SedeTotal: an unpriceable source undercounts it. */
+  incomplete: boolean;
+};
+
 export type PreviewVM = {
   facilities: PreviewFacility[];
   years: number[];
@@ -53,6 +64,11 @@ export type PreviewVM = {
   scopes: PreviewScopeGroup[];
   totalTonnes: number;
   biogenicTonnes: number;
+  /**
+   * Per-facility subtotals for the selected year, largest first. Always empty in single-facility
+   * mode; populated only by loadCompanyWidePreview ("Todas las sedes").
+   */
+  bySede: PreviewSedeTotal[];
   /**
    * Carbon removals (category "Remociones"), shown as their own table with their own (negative)
    * total and NEVER included in totalTonnes or any scope total, exactly as the client's Excel

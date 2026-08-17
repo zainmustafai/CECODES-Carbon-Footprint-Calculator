@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { ReportVM } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
+import { buildIsoGasTable } from "./iso-gas-table";
 
 // The Excel export (Requirements 10, 14.7).
 //
@@ -222,6 +223,28 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
   const calcTotal = calc.addRow(["", "", "", "", "", "", "", "TOTAL", vm.totalTonnes]);
   calcTotal.font = { bold: true, color: { argb: BRAND_GREEN } };
   calcTotal.getCell(9).numFmt = TONNES_FMT;
+
+  // ---------------------------------------------------------------- ISO 14064-1
+  // The consolidated declaration by gas (Requirements §4: "include the table for the
+  // consolidated declaration of GHG emissions under ISO 14064-1... a summary table by gas"). No
+  // new arithmetic: buildIsoGasTable only re-sums the gas split rollupYear already attached to
+  // each category (see iso-gas-table.ts), so this reconciles to the same TOTAL as Calculo.
+  const iso = wb.addWorksheet("ISO 14064-1");
+  iso.columns = [{ header: "Gas", width: 20 }, { header: "t CO2e", width: 16 }];
+  iso.getRow(1).font = { bold: true };
+
+  const isoGasTable = buildIsoGasTable(vm.byCategory);
+  for (const row of isoGasTable) {
+    const r = iso.addRow([row.gas, row.tonnes]);
+    r.getCell(2).numFmt = TONNES_FMT;
+  }
+  const isoTotal = iso.addRow(["TOTAL", vm.totalTonnes]);
+  isoTotal.font = { bold: true, color: { argb: BRAND_GREEN } };
+  isoTotal.getCell(2).numFmt = TONNES_FMT;
+  iso.addRow([]);
+  iso.addRow([
+    "Declaración consolidada de emisiones de GEI conforme a ISO 14064-1. Mismo total que la hoja Calculo.",
+  ]);
 
   // ------------------------------------------------- Tecnologías más limpias
   // Free-form reporting rows, verbatim, on their own sheet with NO totals: CECODES asked for

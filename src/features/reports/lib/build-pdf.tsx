@@ -3,6 +3,7 @@ import path from "node:path";
 import { Document, Image, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
+import { buildIsoGasTable } from "./iso-gas-table";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
 // and the Excel export. It carries the same numbers the dashboard shows, because it is built from
@@ -31,6 +32,11 @@ const SCOPE_COLOR: Record<string, string> = {
   SCOPE_3: "#4c71b1",
 };
 const BRAND_NAVY = "#002060";
+
+// The running header is absolutely positioned, so the page's own top padding has to be derived
+// from these rather than guessed; see styles.page.
+const HEADER_TOP = 26;
+const HEADER_HEIGHT = 38;
 
 // Loaded once per module, not per request. react-pdf's server-side render cannot fetch a
 // `/public` URL, so the asset is read directly; the export route pins runtime = "nodejs".
@@ -61,10 +67,34 @@ function factorCell(value: string | null, unit: string | null): string {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, color: "#1a1a1a", fontFamily: "Helvetica" },
-  logo: { position: "absolute", top: 30, right: 40, width: 54, height: 54 },
-  h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2, marginRight: 70 },
-  sub: { fontSize: 10, color: "#666", marginBottom: 16, marginRight: 70 },
+  // The top padding must clear the fixed running header (which is drawn outside the flow), and
+  // the bottom padding must clear the fixed footer. Getting these wrong is exactly how content
+  // ends up printed underneath the logo on page 2 onward.
+  page: {
+    paddingTop: HEADER_TOP + HEADER_HEIGHT + 18,
+    paddingBottom: 48,
+    paddingHorizontal: 40,
+    fontSize: 10,
+    color: "#1a1a1a",
+    fontFamily: "Helvetica",
+  },
+  header: {
+    position: "absolute",
+    top: HEADER_TOP,
+    left: 40,
+    right: 40,
+    height: HEADER_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e0e0e0",
+  },
+  headerTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
+  headerMeta: { fontSize: 7.5, color: "#888", marginTop: 2 },
+  logo: { width: 32, height: 32 },
+  h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  sub: { fontSize: 10, color: "#666", marginBottom: 16 },
   section: { marginTop: 18 },
   sectionTitle: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6 },
   kpiRow: { flexDirection: "row", gap: 10 },
@@ -95,12 +125,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "#e5e5e5",
     paddingVertical: 4,
+    paddingHorizontal: 4,
   },
+  // Marked `fixed` at every call site: when a section splits across pages, react-pdf's layout
+  // engine copies its fixed children onto the continuation, so the column headings reappear at
+  // the top of each page the table runs onto instead of leaving orphaned numbers.
   headRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#999",
     paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: "#f4f5f7",
   },
   th: { fontFamily: "Helvetica-Bold", fontSize: 9 },
   cellName: { flex: 4, paddingRight: 8 },
@@ -138,6 +174,9 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
   const facilityLabel = vm.facilityName ?? "Todas las sedes";
   const bySede = [...vm.bySede].sort((a, b) => b.tonnes - a.tonnes);
   const categories = [...vm.byCategory].sort((a, b) => b.tonnes - a.tonnes).slice(0, 14);
+  // The full (untruncated) category list, so this reconciles to totalTonnes exactly - unlike
+  // `categories` above, which is capped at 14 rows for the "Emisiones por categoría" table.
+  const isoGasTable = buildIsoGasTable(vm.byCategory);
   // The complete element-by-element reference, unlike the top-14-truncated category rollup
   // above: this table's entire purpose is being the detailed audit trail.
   const elements: ResultRow[] = [...vm.results].sort((a, b) => b.tonnes - a.tonnes);
@@ -156,9 +195,30 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
       author="CECODES - Huella de Carbono"
     >
       <Page size="A4" style={styles.page}>
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is not an
-            HTML img (it renders into a PDF content stream, not a DOM); its type has no alt prop. */}
-        <Image src={logoBuffer} style={styles.logo} fixed />
+        <View style={styles.header} fixed>
+          {/* Page 1 carries the full title block below, so the running text would only repeat
+              itself there; it starts on the continuation pages, where it is the only thing
+              saying what the reader is looking at. */}
+          <View>
+            <Text
+              style={styles.headerTitle}
+              render={({ pageNumber }) =>
+                pageNumber === 1 ? "" : "HUELLA DE CARBONO CORPORATIVA"
+              }
+            />
+            <Text
+              style={styles.headerMeta}
+              render={({ pageNumber }) =>
+                pageNumber === 1
+                  ? ""
+                  : `${vm.companyName} - ${facilityLabel} - ${vm.year}`
+              }
+            />
+          </View>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is not an
+              HTML img (it renders into a PDF content stream, not a DOM); its type has no alt prop. */}
+          <Image src={logoBuffer} style={styles.logo} />
+        </View>
         <Text style={styles.h1}>Huella de Carbono Corporativa</Text>
         <Text style={styles.sub}>
           {vm.companyName} - {facilityLabel} - {vm.year}
@@ -221,14 +281,16 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {bySede.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Emisiones por sede</Text>
-            <View style={styles.headRow}>
+            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+              Emisiones por sede
+            </Text>
+            <View style={styles.headRow} fixed>
               <Text style={[styles.cellName, styles.th]}>Sede</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
               <Text style={[styles.cellNum, styles.th]}>% del total</Text>
             </View>
             {bySede.map((s) => (
-              <View key={s.facilityId} style={styles.row}>
+              <View key={s.facilityId} style={styles.row} wrap={false}>
                 <Text style={styles.cellName}>
                   {s.facilityName}
                   {s.incomplete ? " (incompleto)" : ""}
@@ -242,14 +304,16 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {categories.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Emisiones por categoría</Text>
-            <View style={styles.headRow}>
+            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+              Emisiones por categoría
+            </Text>
+            <View style={styles.headRow} fixed>
               <Text style={[styles.cellName, styles.th]}>Categoría</Text>
               <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
             </View>
             {categories.map((c) => (
-              <View key={`${c.scope}-${c.category}`} style={styles.row}>
+              <View key={`${c.scope}-${c.category}`} style={styles.row} wrap={false}>
                 <Text style={styles.cellName}>{c.category}</Text>
                 <Text style={styles.cellScope}>{SCOPE_LABEL[c.scope]}</Text>
                 <Text style={styles.cellNum}>{t(c.tonnes)}</Text>
@@ -258,10 +322,36 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} minPresenceAhead={60}>
+            Declaración consolidada GEI (ISO 14064-1)
+          </Text>
+          <Text style={styles.note}>
+            Resumen por gas de la misma huella reportada arriba (GHG Protocol / ISO 14064-1). No
+            es un cálculo nuevo: cada categoría ya trae su propio desglose por gas.
+          </Text>
+          <View style={[styles.headRow, { marginTop: 6 }]} fixed>
+            <Text style={[styles.cellName, styles.th]}>Gas</Text>
+            <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
+          </View>
+          {isoGasTable.map((row) => (
+            <View key={row.gas} style={styles.row} wrap={false}>
+              <Text style={styles.cellName}>{row.gas}</Text>
+              <Text style={styles.cellNum}>{t(row.tonnes)}</Text>
+            </View>
+          ))}
+          <View style={styles.row} wrap={false}>
+            <Text style={[styles.cellName, styles.th]}>TOTAL</Text>
+            <Text style={[styles.cellNum, styles.th]}>{t(total)}</Text>
+          </View>
+        </View>
+
         {elements.length > 0 ? (
           <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle}>Resumen por elemento</Text>
-            <View style={styles.headRow}>
+            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+              Resumen por elemento
+            </Text>
+            <View style={styles.headRow} fixed>
               <Text style={[styles.resElement, styles.th]}>Elemento</Text>
               <Text style={[styles.resCategory, styles.th]}>Categoría</Text>
               <Text style={[styles.resScope, styles.th]}>Alcance</Text>
@@ -270,7 +360,11 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
               <Text style={[styles.resTonnes, styles.th]}>t CO2e</Text>
             </View>
             {elements.map((r) => (
-              <View key={`${r.scope}-${r.category}-${r.subcategory}-${r.element}`} style={styles.row}>
+              <View
+                key={`${r.scope}-${r.category}-${r.subcategory}-${r.element}`}
+                style={styles.row}
+                wrap={false}
+              >
                 <Text style={styles.resElement}>{r.element}</Text>
                 <Text style={styles.resCategory}>{r.category}</Text>
                 <Text style={styles.resScope}>{SCOPE_LABEL[r.scope]}</Text>
@@ -286,22 +380,24 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {vm.removals.rows.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Remociones o absorciones de carbono</Text>
+            <Text style={styles.sectionTitle} minPresenceAhead={90}>
+              Remociones o absorciones de carbono
+            </Text>
             <Text style={styles.note}>
               Se reportan por separado, como en la herramienta de CECODES: no se suman ni se
               restan del total de emisiones.
             </Text>
-            <View style={[styles.headRow, { marginTop: 6 }]}>
+            <View style={[styles.headRow, { marginTop: 6 }]} fixed>
               <Text style={[styles.cellName, styles.th]}>Elemento</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
             </View>
             {vm.removals.rows.map((r) => (
-              <View key={`${r.subcategory}-${r.element}`} style={styles.row}>
+              <View key={`${r.subcategory}-${r.element}`} style={styles.row} wrap={false}>
                 <Text style={styles.cellName}>{r.element}</Text>
                 <Text style={styles.cellNum}>{t(r.tonnes)}</Text>
               </View>
             ))}
-            <View style={styles.row}>
+            <View style={styles.row} wrap={false}>
               <Text style={[styles.cellName, styles.th]}>Total remociones</Text>
               <Text style={[styles.cellNum, styles.th]}>{t(vm.removals.tonnes)}</Text>
             </View>
@@ -310,20 +406,20 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {vm.cleanTech.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} minPresenceAhead={90}>
               Datos sobre tecnologías más limpias y buenas prácticas
             </Text>
             <Text style={styles.note}>
               Sección informativa reportada de manera libre por la empresa. No afecta ningún
               cálculo ni total de este reporte.
             </Text>
-            <View style={[styles.headRow, { marginTop: 6 }]}>
+            <View style={[styles.headRow, { marginTop: 6 }]} fixed>
               <Text style={[styles.cellName, styles.th]}>Práctica reportable</Text>
               <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
               <Text style={[styles.cellNum, styles.th]}>Dato / Unidad</Text>
             </View>
             {vm.cleanTech.map((row, index) => (
-              <View key={`${row.element}-${index}`} style={styles.row}>
+              <View key={`${row.element}-${index}`} style={styles.row} wrap={false}>
                 <Text style={styles.cellName}>{row.element}</Text>
                 <Text style={styles.cellScope}>
                   {row.scope ? SCOPE_LABEL[row.scope] : "-"}
@@ -338,19 +434,21 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Incertidumbre por elemento</Text>
+          <Text style={styles.sectionTitle} minPresenceAhead={110}>
+            Incertidumbre por elemento
+          </Text>
           <Text style={styles.note}>
             Rango +/- del factor de emisión, por elemento. Un guion indica que la biblioteca no
             registra incertidumbre para ese elemento. No se combina en un solo valor por alcance o
             total: no existe un método acordado para hacerlo.
           </Text>
-          <View style={[styles.headRow, { marginTop: 6 }]}>
+          <View style={[styles.headRow, { marginTop: 6 }]} fixed>
             <Text style={[styles.cellName, styles.th]}>Elemento</Text>
             <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
             <Text style={[styles.cellNum, styles.th]}>Incertidumbre</Text>
           </View>
           {uncertainty.map((r) => (
-            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.row}>
+            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.row} wrap={false}>
               <Text style={styles.cellName}>{r.element}</Text>
               <Text style={styles.cellScope}>{SCOPE_LABEL[r.scope]}</Text>
               <Text style={styles.cellNum}>
@@ -367,7 +465,9 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {vm.missingGridFactor || vm.biogenicCo2Tonnes > 0 || vm.unpricedCount > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notas y advertencias</Text>
+            <Text style={styles.sectionTitle} minPresenceAhead={40}>
+              Notas y advertencias
+            </Text>
             {vm.missingGridFactor ? (
               <Text style={styles.note}>
                 Falta el factor de red eléctrica para {vm.year}: el Alcance 2 no incluye la
@@ -390,7 +490,6 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
-        <Text style={styles.note} render={() => ""} fixed />
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>

@@ -1144,13 +1144,20 @@
     "title": "Resumen",
     "subtitle": "Revisa en una tabla todos los datos ingresados.",
     "subtitleContext": "{facility} · {year}",
+    "subtitleContextAll": "Todas las sedes · {year}",
     "totalLabel": "Total estimado",
     "tCO2e": "t CO2e",
     "gwp": "Fuente GWP: {set}",
     "filters": {
       "facility": "Sede",
       "year": "Año",
-      "loading": "Cargando..."
+      "loading": "Cargando...",
+      "allSedes": "Todas"
+    },
+    "bySede": {
+      "title": "Totales por sede",
+      "subtitle": "Cómo se compone el total consolidado, sede por sede.",
+      "incomplete": "(incompleto)"
     },
     "table": {
       "element": "Elemento",

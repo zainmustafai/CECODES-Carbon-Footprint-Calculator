@@ -1144,13 +1144,20 @@
     "title": "Summary",
     "subtitle": "Review every value you entered in one table.",
     "subtitleContext": "{facility} · {year}",
+    "subtitleContextAll": "All facilities · {year}",
     "totalLabel": "Estimated total",
     "tCO2e": "t CO2e",
     "gwp": "GWP source: {set}",
     "filters": {
       "facility": "Facility",
       "year": "Year",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "allSedes": "All"
+    },
+    "bySede": {
+      "title": "Totals by facility",
+      "subtitle": "How the consolidated total breaks down, facility by facility.",
+      "incomplete": "(incomplete)"
     },
     "table": {
       "element": "Element",

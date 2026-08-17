@@ -1,10 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { buildPdf } from "../build-pdf";
-import type { ReportVM } from "../types";
+import { A4_HEIGHT, readPdfTextByPage } from "./read-pdf-text";
+import type { ReportVM, ResultRow } from "../types";
 
-// A first smoke test for this file: none existed before it grew a KPI/bar section, a
-// per-element table, and a logo. This does not assert layout (react-pdf has no snapshot
-// story here), only that it renders a real PDF for realistic data without throwing.
+// Two kinds of test here. The smoke tests only prove a real PDF comes out. The layout tests
+// read the finished PDF's drawing operators back (see read-pdf-text.ts) and assert where text
+// actually landed, because the failure that prompted them (body text printed on top of the
+// running header from page 2 onward) renders perfectly happily and is only visible to a reader.
+
+// The page geometry build-pdf.tsx reserves, restated here on purpose: if someone retunes the
+// header without retuning the page padding, these numbers stop agreeing and the tests say so.
+const HEADER_BAND_TOP = 26;
+const HEADER_BAND_BOTTOM = 64;
+const CONTENT_TOP = 82;
+const CONTENT_BOTTOM = A4_HEIGHT - 48;
+
+/** Every column heading in the document; a continuation page must start with one of these. */
+const COLUMN_HEADINGS = new Set([
+  "Sede",
+  "Categoría",
+  "Elemento",
+  "Alcance",
+  "Cantidad",
+  "Factor",
+  "t CO2e",
+  "% del total",
+  "Incertidumbre",
+  "Práctica reportable",
+  "Dato / Unidad",
+  "Gas",
+]);
 
 const base: ReportVM = {
   companyName: "Alimentos del Valle",
@@ -84,5 +109,102 @@ describe("buildPdf", () => {
     };
     const buffer = await buildPdf(empty);
     expect(buffer.length).toBeGreaterThan(0);
+  });
+});
+
+// A report big enough to spill over several pages, which is the only situation where the
+// running header, the repeating column headings and the footer can collide with anything.
+const manyRows: ResultRow[] = Array.from({ length: 90 }, (_, i) => ({
+  scope: i % 3 === 0 ? "SCOPE_1" : i % 3 === 1 ? "SCOPE_2" : "SCOPE_3",
+  category: `Categoría ${i % 7}`,
+  subcategory: `Subcategoría ${i}`,
+  element: `Elemento de prueba número ${i}`,
+  unit: "Gal",
+  quantity: 1000 + i,
+  factorValue: "10.149",
+  factorUnit: "kg CO2/gal",
+  tonnes: 100 - i * 0.5,
+  uncertaintyPct: i % 2 === 0 ? "5" : null,
+}));
+
+const multiPage: ReportVM = {
+  ...base,
+  facilityName: null,
+  bySede: Array.from({ length: 12 }, (_, i) => ({
+    facilityId: `f${i}`,
+    facilityName: `Planta ${i}`,
+    tonnes: 50 - i,
+    incomplete: i === 3,
+  })),
+  results: manyRows,
+  byScope: [
+    { scope: "SCOPE_1", tonnes: 1200 },
+    { scope: "SCOPE_2", tonnes: 400 },
+    { scope: "SCOPE_3", tonnes: 200 },
+  ],
+  byCategory: Array.from({ length: 14 }, (_, i) => ({
+    scope: "SCOPE_1",
+    category: `Categoría ${i}`,
+    tonnes: 100 - i,
+  })),
+  totalTonnes: 1800,
+};
+
+describe("buildPdf page layout", () => {
+  it("never prints content underneath the running header or the footer", async () => {
+    const pages = readPdfTextByPage(await buildPdf(multiPage));
+    expect(pages.length).toBeGreaterThan(1);
+
+    pages.forEach((page, index) => {
+      expect(page.length).toBeGreaterThan(0);
+      for (const draw of page) {
+        const inHeaderBand =
+          draw.yFromTop >= HEADER_BAND_TOP && draw.yFromTop < HEADER_BAND_BOTTOM;
+        const isRunningHeader =
+          draw.text === "HUELLA DE CARBONO CORPORATIVA" ||
+          draw.text === `${multiPage.companyName} - Todas las sedes - ${multiPage.year}`;
+        const isFooter = draw.text.startsWith("Huella de Carbono CECODES - ");
+
+        if (isRunningHeader) {
+          expect(inHeaderBand, `running header off the band on page ${index + 1}`).toBe(true);
+          continue;
+        }
+        if (isFooter) continue;
+
+        // Everything else is body copy, and must sit inside the reserved content box.
+        expect(
+          draw.yFromTop,
+          `"${draw.text}" collides with the header on page ${index + 1}`,
+        ).toBeGreaterThanOrEqual(CONTENT_TOP);
+        expect(
+          draw.yFromTop,
+          `"${draw.text}" collides with the footer on page ${index + 1}`,
+        ).toBeLessThan(CONTENT_BOTTOM);
+      }
+    });
+  });
+
+  it("repeats a table's column headings on every page it continues onto", async () => {
+    const pages = readPdfTextByPage(await buildPdf(multiPage));
+
+    // Page 1 opens with the title block, so only the continuation pages are constrained.
+    pages.slice(1).forEach((page, offset) => {
+      const body = page.filter((d) => d.yFromTop >= CONTENT_TOP);
+      const top = Math.min(...body.map((d) => d.yFromTop));
+      const firstLine = body.filter((d) => d.yFromTop === top).map((d) => d.text.trim());
+      for (const text of firstLine) {
+        expect(
+          COLUMN_HEADINGS.has(text),
+          `page ${offset + 2} starts with "${text}" instead of a column heading`,
+        ).toBe(true);
+      }
+    });
+  });
+
+  it("leaves the title block to page 1 rather than repeating it there", async () => {
+    const pages = readPdfTextByPage(await buildPdf(multiPage));
+    const firstPageHeaderBand = pages[0].filter((d) => d.yFromTop < CONTENT_TOP);
+    expect(firstPageHeaderBand).toEqual([]);
+    expect(pages[0].some((d) => d.text === "Huella de Carbono Corporativa")).toBe(true);
   });
 });

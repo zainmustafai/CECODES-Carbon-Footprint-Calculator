@@ -12,7 +12,7 @@ import {
 import type { Scope } from "@/lib/generated/prisma/client";
 import { formatGwpSource } from "@/lib/gwp";
 import { ExportButtons } from "@/features/reports";
-import { loadPreview } from "../lib/load-preview";
+import { loadCompanyWidePreview, loadPreview } from "../lib/load-preview";
 import { EntryChangeLog } from "./entry-change-log";
 import { PreviewFilters } from "./preview-filters";
 import { PreviewAnnualTable } from "./preview-annual-table";
@@ -27,6 +27,11 @@ type PreviewScreenProps = {
 
 const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
+// The URL sentinel for "todas las sedes" (a company-wide summary). Mirrors reports-screen.tsx's
+// own ALL_FACILITIES_PARAM: each screen owns its copy since PreviewFilters treats it as an opaque
+// string and does not need to know what it means.
+const ALL_FACILITIES_PARAM = "all";
+
 export async function PreviewScreen({
   companyId,
   basePath,
@@ -37,43 +42,49 @@ export async function PreviewScreen({
   const tSub = await getTranslations("dashboard.scopeSubtitles");
   const format = await getFormatter();
 
+  const isAllFacilities = searchParams.facilityId === ALL_FACILITIES_PARAM;
   const requestedYear = Number(searchParams.year);
-  const vm = await loadPreview(companyId, {
-    facilityId: searchParams.facilityId ?? null,
-    year: Number.isFinite(requestedYear) ? requestedYear : null,
-  });
+  const year = Number.isFinite(requestedYear) ? requestedYear : null;
+
+  const vm = isAllFacilities
+    ? await loadCompanyWidePreview(companyId, { year })
+    : await loadPreview(companyId, { facilityId: searchParams.facilityId ?? null, year });
 
   const companyHref = basePath.replace(/\/preview$/, "/company");
   const dataEntryHref = basePath.replace(/\/preview$/, "/data-entry");
 
-  // The export is offered only when there is a facility and a year to export. Downloading an
-  // empty workbook would be a worse answer than not offering the button.
-  const canExport = vm.filters.facilityId !== null && vm.filters.year !== null && !vm.isEmpty;
+  // The export is offered only when there is a facility (or "todas las sedes") and a year to
+  // export. Downloading an empty workbook would be a worse answer than not offering the button.
+  const canExport = (isAllFacilities || vm.filters.facilityId !== null) && vm.filters.year !== null && !vm.isEmpty;
 
   const header = (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground">
-          {vm.selectedFacilityName && vm.filters.year
-            ? t("subtitleContext", {
-                facility: vm.selectedFacilityName,
-                year: String(vm.filters.year),
-              })
-            : t("subtitle")}
+          {isAllFacilities && vm.filters.year
+            ? t("subtitleContextAll", { year: String(vm.filters.year) })
+            : vm.selectedFacilityName && vm.filters.year
+              ? t("subtitleContext", {
+                  facility: vm.selectedFacilityName,
+                  year: String(vm.filters.year),
+                })
+              : t("subtitle")}
         </p>
       </div>
       {canExport ? (
         <ExportButtons
           companyId={companyId}
-          facilityId={vm.filters.facilityId!}
+          facilityId={isAllFacilities ? null : vm.filters.facilityId!}
           year={vm.filters.year!}
         />
       ) : null}
     </div>
   );
 
-  // No facilities at all: the company has nothing to preview yet.
+  // No facilities at all: the company has nothing to preview yet. Company-wide mode never
+  // reaches this state (a company with no facilities also has no reporting years, so it falls
+  // into "noYear" below instead).
   if (vm.emptyReason === "noFacility") {
     return (
       <div className="space-y-8">
@@ -97,8 +108,9 @@ export async function PreviewScreen({
       basePath={basePath}
       facilities={vm.facilities}
       years={vm.years}
-      facilityId={vm.filters.facilityId}
+      facilityId={isAllFacilities ? ALL_FACILITIES_PARAM : vm.filters.facilityId}
       year={vm.filters.year}
+      allFacilitiesOption={{ value: ALL_FACILITIES_PARAM, label: t("filters.allSedes") }}
     />
   );
 
@@ -113,7 +125,13 @@ export async function PreviewScreen({
           body={t("empty.noYearBody")}
           action={
             <Button asChild>
-              <Link href={`${dataEntryHref}?facilityId=${vm.filters.facilityId}`}>
+              <Link
+                href={
+                  isAllFacilities
+                    ? dataEntryHref
+                    : `${dataEntryHref}?facilityId=${vm.filters.facilityId}`
+                }
+              >
                 {t("empty.goToDataEntry")}
               </Link>
             </Button>
@@ -135,7 +153,11 @@ export async function PreviewScreen({
           action={
             <Button asChild>
               <Link
-                href={`${dataEntryHref}?facilityId=${vm.filters.facilityId}&year=${vm.filters.year}`}
+                href={
+                  isAllFacilities
+                    ? dataEntryHref
+                    : `${dataEntryHref}?facilityId=${vm.filters.facilityId}&year=${vm.filters.year}`
+                }
               >
                 {t("empty.goToDataEntry")}
               </Link>
@@ -189,6 +211,46 @@ export async function PreviewScreen({
           </Card>
         ))}
       </div>
+
+      {/* Company-wide only: how the consolidated total breaks down, sede by sede. Single-facility
+          mode never populates bySede, so this stays hidden there. */}
+      {vm.bySede.length > 0 ? (
+        <Card>
+          <CardHeader className="space-y-0.5">
+            <CardTitle className="text-base">{t("bySede.title")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("bySede.subtitle")}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">{t("filters.facility")}</th>
+                    <th className="py-2 text-right font-medium">{t("tCO2e")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vm.bySede.map((sede) => (
+                    <tr key={sede.facilityId} className="border-b last:border-0">
+                      <td className="py-2 pr-4">
+                        {sede.facilityName}
+                        {sede.incomplete ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {t("bySede.incomplete")}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {format.number(sede.tonnes, { maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {vm.missingGridFactor ? (
         <Note tone="warning" icon={<AlertTriangle className="size-4 text-chart-2" aria-hidden />}>
@@ -295,12 +357,15 @@ export async function PreviewScreen({
         </Note>
       ) : null}
 
-      {/* Who entered or changed each number, for this sede-year. */}
-      <EntryChangeLog
-        companyId={companyId}
-        facilityId={vm.filters.facilityId}
-        year={vm.filters.year}
-      />
+      {/* Who entered or changed each number, for this sede-year. Per-sede only: "todas las
+          sedes" has no single reporting year to show a change log for. */}
+      {!isAllFacilities ? (
+        <EntryChangeLog
+          companyId={companyId}
+          facilityId={vm.filters.facilityId}
+          year={vm.filters.year}
+        />
+      ) : null}
 
       <p className="text-xs text-muted-foreground">{t("footnote")}</p>
     </div>

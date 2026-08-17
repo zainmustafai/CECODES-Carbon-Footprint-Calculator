@@ -77,9 +77,33 @@ async function sheetRows(vm: ReportVM, name: string): Promise<unknown[][]> {
 }
 
 describe("buildWorkbook", () => {
-  it("writes the three sheets a reviewer needs", () => {
+  it("writes the sheets a reviewer needs, including the ISO 14064-1 gas declaration", () => {
     const wb = buildWorkbook(base);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(["Resumen", "Datos", "Calculo"]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Resumen", "Datos", "Calculo", "ISO 14064-1"]);
+  });
+
+  it("carries the ISO 14064-1 gas table, reconciling to the same TOTAL as Calculo", async () => {
+    const withGases: ReportVM = {
+      ...base,
+      byCategory: [
+        {
+          scope: "SCOPE_1",
+          category: "Fuentes Fijas",
+          tonnes: 10.149,
+          co2Tonnes: 9.5,
+          ch4Tonnes: 0.4,
+          n2oTonnes: 0.249,
+        },
+      ],
+    };
+
+    const rows = await sheetRows(withGases, "ISO 14064-1");
+    expect(rows.some((r) => r[0] === "CO2" && (r[1] as number) === 9.5)).toBe(true);
+    expect(rows.some((r) => r[0] === "CH4" && (r[1] as number) === 0.4)).toBe(true);
+    expect(rows.some((r) => r[0] === "N2O")).toBe(true);
+
+    const total = rows.find((r) => r[0] === "TOTAL")!;
+    expect(total[1]).toBeCloseTo(withGases.totalTonnes, 6);
   });
 
   it("writes quantities and tonnes as NUMBERS, so the recipient can sum them", async () => {
