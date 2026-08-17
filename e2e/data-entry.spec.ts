@@ -86,7 +86,9 @@ test.describe("data entry", () => {
     await page.getByRole("tab", { name: "Alcance 2" }).click();
     const electricity = category(page, /^Consumo de energía eléctrica$/);
     await electricity.getByRole("button", { name: /agregar fuente/i }).click();
-    await page.getByRole("option", { name: /Electricidad \(Red Nacional - SIN\)/ }).click();
+    await page
+      .getByRole("option", { name: /Electricidad \(Sistema Interconectado Nacional - SIN\)/ })
+      .click();
 
     // A monthly source that is the only one in its category opens itself (category-section.tsx
     // passes defaultOpen for a single source), so the twelve month fields are already visible.

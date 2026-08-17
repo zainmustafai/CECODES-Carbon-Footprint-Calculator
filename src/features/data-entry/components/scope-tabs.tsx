@@ -65,8 +65,8 @@ export function ScopeTabs({
     >
       {/* The wrapper scrolls so three tabs plus badges never force the page sideways on a
           narrow phone. */}
-      <div className="-mx-1 px-1">
-        <TabsList>
+      <div className="-mx-1 overflow-x-auto px-1">
+        <TabsList variant="line">
           {scopes.map((scope) => {
             const sources = scope.categories.reduce(
               (n, c) => n + c.sources.length,
