@@ -893,7 +893,7 @@
         "gasType": "Gas (for the pre-blended CO2e factor)",
         "factorUnit": "Factor unit",
         "source": "Bibliographic source",
-        "gwpSet": "GWP set",
+        "gwpSet": "GWP source",
         "gwpNone": "Not specified",
         "biogenic": "Biogenic",
         "biogenicHelp": "Switches the CH4 GWP to its non-fossil value.",

@@ -58,7 +58,15 @@ export async function PreviewAnnualTable({ group }: { group: PreviewScopeGroup }
                 <TableCell className="text-muted-foreground">{source.unit}</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {source.hasQuantity ? (
-                    format.number(source.quantity, { maximumFractionDigits: 2 })
+                    <>
+                      {format.number(source.quantity, { maximumFractionDigits: 2 })}
+                      {source.secondaryQuantity !== null ? (
+                        <span className="block text-xs text-muted-foreground">
+                          x {format.number(source.secondaryQuantity, { maximumFractionDigits: 2 })}{" "}
+                          {source.secondaryUnit}
+                        </span>
+                      ) : null}
+                    </>
                   ) : (
                     <span className="text-muted-foreground">{t("notReported")}</span>
                   )}

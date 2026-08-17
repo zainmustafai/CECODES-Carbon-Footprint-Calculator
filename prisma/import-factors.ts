@@ -301,6 +301,36 @@ async function main() {
       },
     });
 
+    if (!existing) {
+      // The natural key includes subcategory, so an admin correction that regrouped a factor
+      // into a different subcategory (e.g. fixing the HCFC-22/R-22 and Propano/R-290 grouping
+      // bug, 2026-08-15) makes the ALREADY-CORRECTED row invisible to this lookup: the workbook
+      // still has the old subcategory for that element, so without this check the importer would
+      // insert a brand-new duplicate under the old, wrong grouping every time it re-runs against
+      // an unmodified workbook - which is exactly what happened once (see
+      // prisma/fix-2026-08-15-refrigerant-duplicate-regression.ts). Before creating anything,
+      // check whether an admin-edited factor already exists for this element under scope +
+      // category + unit, regardless of its current subcategory. If so, this is that same element
+      // reappearing under a stale workbook grouping - skip it exactly like the exact-match
+      // "never touch a human-edited factor" rule below, rather than creating a duplicate.
+      const editedSibling = await prisma.emissionFactor.findFirst({
+        where: {
+          scope: f.scope,
+          category: f.category,
+          element: f.element,
+          unit: f.unit,
+          changes: { some: { action: { not: FactorChangeAction.IMPORTED } } },
+        },
+      });
+      if (editedSibling) {
+        counts.keptAdminEdited++;
+        keptLines.push(
+          `  row ${r}: KEPT (admin-edited, moved to subcategory "${editedSibling.subcategory ?? ""}") - ${f.element}`,
+        );
+        continue;
+      }
+    }
+
     const writeData = {
       co2Factor: f.co2Factor,
       ch4Factor: f.ch4Factor,

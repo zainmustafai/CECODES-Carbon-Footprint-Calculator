@@ -22,6 +22,8 @@ const base: ReportVM = {
       unit: "Gal",
       month: null,
       value: "1000",
+      secondaryValue: null,
+      secondaryUnit: null,
     },
     // Never reported. Must NOT become a zero in the export.
     {
@@ -32,6 +34,8 @@ const base: ReportVM = {
       unit: "kWh",
       month: 3,
       value: null,
+      secondaryValue: null,
+      secondaryUnit: null,
     },
   ],
   results: [
@@ -42,6 +46,8 @@ const base: ReportVM = {
       element: "Diesel",
       unit: "Gal",
       quantity: 1000,
+      secondaryQuantity: null,
+      secondaryUnit: null,
       factorValue: "10.149",
       factorUnit: "kg CO2/gal",
       tonnes: 10.149,
@@ -113,9 +119,9 @@ describe("buildWorkbook", () => {
     const diesel = rows.find((r) => r[3] === "Diesel")!;
 
     expect(typeof diesel[5]).toBe("number"); // quantity
-    expect(typeof diesel[6]).toBe("number"); // factor
-    expect(typeof diesel[8]).toBe("number"); // tonnes
-    expect(diesel[8]).toBeCloseTo(10.149, 6);
+    expect(typeof diesel[8]).toBe("number"); // factor (index shifted by the 2 new secondary-value columns)
+    expect(typeof diesel[10]).toBe("number"); // tonnes
+    expect(diesel[10]).toBeCloseTo(10.149, 6);
   });
 
   it("keeps a never-reported cell EMPTY instead of turning it into a zero", async () => {
@@ -129,8 +135,8 @@ describe("buildWorkbook", () => {
 
   it("carries the total, and it is the engine's total", async () => {
     const rows = await sheetRows(base, "Calculo");
-    const total = rows.find((r) => r[7] === "TOTAL")!;
-    expect(total[8]).toBeCloseTo(base.totalTonnes, 6);
+    const total = rows.find((r) => r[9] === "TOTAL")!;
+    expect(total[10]).toBeCloseTo(base.totalTonnes, 6);
   });
 
   it("shows 'Totales por sede' only in company-wide mode (bySede populated)", async () => {
@@ -206,6 +212,8 @@ describe("buildWorkbook", () => {
             element: "Pastizales convertidos en tierras forestales",
             unit: "ha",
             quantity: 1,
+            secondaryQuantity: null,
+            secondaryUnit: null,
             factorValue: "-13073.87",
             factorUnit: "kgCO2 e/ha",
             tonnes: -13.07387,
@@ -217,11 +225,11 @@ describe("buildWorkbook", () => {
     };
 
     const rows = await sheetRows(withRemovals, "Calculo");
-    const total = rows.find((r) => r[7] === "TOTAL")!;
-    expect(total[8]).toBeCloseTo(base.totalTonnes, 6); // NOT reduced by the removal
+    const total = rows.find((r) => r[9] === "TOTAL")!;
+    expect(total[10]).toBeCloseTo(base.totalTonnes, 6); // NOT reduced by the removal
 
-    const removalsTotal = rows.find((r) => r[7] === "TOTAL REMOCIONES")!;
-    expect(removalsTotal[8]).toBeCloseTo(-13.07387, 6);
+    const removalsTotal = rows.find((r) => r[9] === "TOTAL REMOCIONES")!;
+    expect(removalsTotal[10]).toBeCloseTo(-13.07387, 6);
 
     const summary = await sheetRows(withRemovals, "Resumen");
     expect(summary.flat().join(" ")).toMatch(/Remociones o absorciones de carbono/);
@@ -243,7 +251,7 @@ describe("buildCsv", () => {
     const line = csv.split("\r\n").find((l) => l.includes("Viajes"))!;
     expect(line).toContain('"Viajes aéreos - Recorridos cortos (< 500 km, por recorrido)"');
     // Header + one row + total: the comma inside the name must not have created a new column.
-    expect(line.split('","')).toHaveLength(9);
+    expect(line.split('","')).toHaveLength(11);
   });
 
   it("starts with a BOM so Excel opens it as UTF-8 rather than mojibake", () => {

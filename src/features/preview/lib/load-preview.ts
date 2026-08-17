@@ -3,6 +3,7 @@ import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 import { estimateSourceTonnes, type SourceEstimate } from "@/lib/calc/preview";
 import { REMOVALS_CATEGORY, rollupYear } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
+import { formatEnteredActivity } from "@/lib/calc/format-entered-activity";
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { shapeEntries, type EntryRow } from "@/features/data-entry/lib/shape-entries";
 import type { GroupedFactors } from "@/features/data-entry/lib/types";
@@ -236,11 +237,16 @@ export async function loadPreview(
           if (estimate.kind === "missingTransportSubsidyPrice") missingTransportSubsidyPrice = true;
 
           let quantity = 0;
+          let secondaryQuantity = 0;
           let hasQuantity = false;
           for (const value of values) {
             if (value === "") continue;
             quantity += toNumber(value);
             hasQuantity = true;
+          }
+          for (const value of secondaryValues) {
+            if (value === "") continue;
+            secondaryQuantity += toNumber(value);
           }
 
           if (estimate.kind === "ok") {
@@ -257,15 +263,25 @@ export async function loadPreview(
                 })
               : [];
 
+          const labels = formatEnteredActivity({
+            entryMode: source.entryMode,
+            value: quantity,
+            secondaryValue: secondaryQuantity,
+            unit: source.unit,
+          });
+
           return {
             key: source.emissionFactorId || `${source.element}:${source.unit}`,
             element: source.element,
-            unit: source.unit,
+            unit: labels.unit,
             subcategory: source.subcategory,
             factorActive: source.factorActive,
             monthly,
-            quantity,
+            quantity: labels.value ?? 0,
             hasQuantity,
+            secondaryQuantity:
+              source.entryMode === "COUNT_TIMES_DISTANCE" ? labels.secondaryValue : null,
+            secondaryUnit: labels.secondaryUnit,
             estimate,
           };
         });
@@ -322,6 +338,7 @@ export async function loadPreview(
 type CompanyElementMeta = {
   unit: string;
   quantity: number;
+  secondaryQuantity: number;
   hasQuantity: boolean;
   factorValue: string | null;
   factorUnit: string | null;
@@ -471,6 +488,7 @@ export async function loadCompanyWidePreview(
       m = {
         unit: entry.unit,
         quantity: 0,
+        secondaryQuantity: 0,
         hasQuantity: false,
         // Scope 2 is priced by the national grid factor, not by a factor on the row - same rule
         // buildReportFromEntries applies.
@@ -498,6 +516,9 @@ export async function loadCompanyWidePreview(
         bucket.total += qty;
         bucket.hasValue = true;
       }
+    }
+    if (entry.secondaryValue !== null) {
+      m.secondaryQuantity += toNumber(entry.secondaryValue.toString());
     }
   }
 
@@ -555,15 +576,24 @@ export async function loadCompanyWidePreview(
         ? m.monthly.map((bucket) => (bucket.hasValue ? String(bucket.total) : ""))
         : [];
 
+    const labels = formatEnteredActivity({
+      entryMode: m.entryMode,
+      value: m.quantity,
+      secondaryValue: m.secondaryQuantity,
+      unit: m.unit,
+    });
+
     const source: PreviewSourceRow = {
       key,
       element: id.element,
-      unit: m.unit,
+      unit: labels.unit,
       subcategory: id.subcategory,
       factorActive: m.factorActive,
       monthly,
-      quantity: m.quantity,
+      quantity: labels.value ?? 0,
       hasQuantity: m.hasQuantity,
+      secondaryQuantity: m.entryMode === "COUNT_TIMES_DISTANCE" ? labels.secondaryValue : null,
+      secondaryUnit: labels.secondaryUnit,
       estimate,
     };
 

@@ -6,6 +6,8 @@ import type { SourceEstimate } from "@/lib/calc/preview";
 export type PreviewSourceRow = {
   key: string;
   element: string;
+  /** The correct unit for `quantity` - see src/lib/calc/format-entered-activity.ts. Never the
+   *  raw factor unit for an entry mode that reinterprets the stored number. */
   unit: string;
   subcategory: string | null;
   factorActive: boolean;
@@ -14,6 +16,10 @@ export type PreviewSourceRow = {
   /** Sum of reported activity across all cells, as a display number (referential). */
   quantity: number;
   hasQuantity: boolean;
+  /** COUNT_TIMES_DISTANCE only: the summed distance half of what was entered. Null otherwise. */
+  secondaryQuantity: number | null;
+  /** Unit for secondaryQuantity (e.g. "km"), or null when there is no second number. */
+  secondaryUnit: string | null;
   estimate: SourceEstimate;
 };
 

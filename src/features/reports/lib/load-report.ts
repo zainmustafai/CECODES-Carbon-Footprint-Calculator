@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { rollupYear, type RollupEntry } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
+import { formatEnteredActivity } from "@/lib/calc/format-entered-activity";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 import type { EntryMode, GwpSet } from "@/lib/generated/prisma/client";
 import type { ActivityRow, ReportVM, ResultRow, SedeTotal } from "./types";
@@ -91,16 +92,27 @@ function buildReportFromEntries({
   const rollupEntries: RollupEntry[] = toRollupEntries(entries);
   const rollup = rollupYear({ entries: rollupEntries, gridFactor, pricePerGallon, gwpSet });
 
-  // What the company entered. No arithmetic.
-  const activity: ActivityRow[] = entries.map((entry) => ({
-    scope: entry.scope,
-    category: entry.category,
-    subcategory: entry.subcategory,
-    element: entry.element,
-    unit: entry.unit,
-    month: entry.month,
-    value: entry.value === null ? null : entry.value.toString(),
-  }));
+  // What the company entered. No arithmetic - formatEnteredActivity only relabels the unit and
+  // surfaces secondaryValue; it never touches the Decimal strings themselves (rollupYear does the
+  // actual division/multiplication for entry modes that reinterpret the stored number).
+  const activity: ActivityRow[] = entries.map((entry) => {
+    const entryMode = entry.emissionFactor?.entryMode ?? "QUANTITY";
+    const labels = formatEnteredActivity({ entryMode, value: null, secondaryValue: null, unit: entry.unit });
+    return {
+      scope: entry.scope,
+      category: entry.category,
+      subcategory: entry.subcategory,
+      element: entry.element,
+      unit: labels.unit,
+      month: entry.month,
+      value: entry.value === null ? null : entry.value.toString(),
+      secondaryValue:
+        entryMode === "COUNT_TIMES_DISTANCE" && entry.secondaryValue !== null
+          ? entry.secondaryValue.toString()
+          : null,
+      secondaryUnit: labels.secondaryUnit,
+    };
+  });
 
   // Element metadata (unit, factor) keyed the same way rollupYear keys its element totals, so the
   // two can be joined without either side re-deriving anything.
@@ -115,9 +127,11 @@ function buildReportFromEntries({
     string,
     {
       unit: string;
+      entryMode: EntryMode;
       factorValue: string | null;
       factorUnit: string | null;
       quantity: number;
+      secondaryQuantity: number;
       uncertaintyPct: string | null;
     }
   >();
@@ -126,16 +140,22 @@ function buildReportFromEntries({
     const k = key(entry);
     const existing = meta.get(k);
     const quantity = toNumber(entry.value === null ? null : entry.value.toString());
+    const secondaryQuantity = toNumber(
+      entry.secondaryValue === null ? null : entry.secondaryValue.toString(),
+    );
 
     if (existing) {
       existing.quantity += quantity;
+      existing.secondaryQuantity += secondaryQuantity;
       continue;
     }
 
     const factor = entry.emissionFactor;
     meta.set(k, {
       unit: entry.unit,
+      entryMode: factor?.entryMode ?? "QUANTITY",
       quantity,
+      secondaryQuantity,
       // Scope 2 is priced by the national grid factor, not by a factor on the row.
       factorValue:
         entry.scope === "SCOPE_2"
@@ -157,13 +177,21 @@ function buildReportFromEntries({
   // the disclosures below say how many were dropped.
   const toResultRow = (element: (typeof rollup.byElement)[number]): ResultRow => {
     const m = meta.get(key(element));
+    const labels = formatEnteredActivity({
+      entryMode: m?.entryMode ?? "QUANTITY",
+      value: m?.quantity ?? 0,
+      secondaryValue: m?.secondaryQuantity ?? 0,
+      unit: m?.unit ?? "",
+    });
     return {
       scope: element.scope,
       category: element.category,
       subcategory: element.subcategory,
       element: element.element,
-      unit: m?.unit ?? "",
-      quantity: m?.quantity ?? 0,
+      unit: labels.unit,
+      quantity: labels.value ?? 0,
+      secondaryQuantity: m?.entryMode === "COUNT_TIMES_DISTANCE" ? labels.secondaryValue : null,
+      secondaryUnit: labels.secondaryUnit,
       factorValue: m?.factorValue ?? null,
       factorUnit: m?.factorUnit ?? null,
       tonnes: element.tonnes,

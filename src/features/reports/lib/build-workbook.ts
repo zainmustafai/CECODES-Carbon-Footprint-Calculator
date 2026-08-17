@@ -170,6 +170,10 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
     { header: "Unidad", width: 12 },
     { header: "Periodo", width: 14 },
     { header: "Cantidad", width: 16 },
+    // Only Categoría 6/7's "pasajeros/vehículo x km" sources use these two columns; every other
+    // row leaves them blank rather than losing the second half of what was entered.
+    { header: "Dato secundario", width: 16 },
+    { header: "Unidad secundaria", width: 16 },
   ];
   data.getRow(1).font = { bold: true };
   data.views = [{ state: "frozen", ySplit: 1 }];
@@ -184,8 +188,11 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
       row.month === null ? "Anual" : MONTHS[row.month - 1],
       // null, not 0: a cell nobody filled is not a reported zero.
       num(row.value),
+      num(row.secondaryValue),
+      row.secondaryUnit ?? "",
     ]);
     r.getCell(7).numFmt = QTY_FMT;
+    r.getCell(8).numFmt = QTY_FMT;
   }
 
   // ---------------------------------------------------------------- Calculo
@@ -197,6 +204,8 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
     { header: "Elemento", width: 42 },
     { header: "Unidad", width: 12 },
     { header: "Cantidad", width: 16 },
+    { header: "Dato secundario", width: 16 },
+    { header: "Unidad secundaria", width: 16 },
     { header: "Factor", width: 18 },
     { header: "Unidad del factor", width: 20 },
     { header: "t CO2e", width: 14 },
@@ -212,17 +221,20 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
       row.element,
       row.unit,
       row.quantity,
+      row.secondaryQuantity,
+      row.secondaryUnit ?? "",
       num(row.factorValue),
       row.factorUnit ?? "",
       row.tonnes,
     ]);
     r.getCell(6).numFmt = QTY_FMT;
-    r.getCell(9).numFmt = TONNES_FMT;
+    r.getCell(7).numFmt = QTY_FMT;
+    r.getCell(11).numFmt = TONNES_FMT;
   }
 
-  const calcTotal = calc.addRow(["", "", "", "", "", "", "", "TOTAL", vm.totalTonnes]);
+  const calcTotal = calc.addRow(["", "", "", "", "", "", "", "", "", "TOTAL", vm.totalTonnes]);
   calcTotal.font = { bold: true, color: { argb: BRAND_GREEN } };
-  calcTotal.getCell(9).numFmt = TONNES_FMT;
+  calcTotal.getCell(11).numFmt = TONNES_FMT;
 
   // ---------------------------------------------------------------- ISO 14064-1
   // The consolidated declaration by gas (Requirements §4: "include the table for the
@@ -289,16 +301,21 @@ export function buildWorkbook(vm: ReportVM): ExcelJS.Workbook {
         row.element,
         row.unit,
         row.quantity,
+        row.secondaryQuantity,
+        row.secondaryUnit ?? "",
         num(row.factorValue),
         row.factorUnit ?? "",
         row.tonnes,
       ]);
       r.getCell(6).numFmt = QTY_FMT;
-      r.getCell(9).numFmt = TONNES_FMT;
+      r.getCell(7).numFmt = QTY_FMT;
+      r.getCell(11).numFmt = TONNES_FMT;
     }
-    const removalsTotal = calc.addRow(["", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes]);
+    const removalsTotal = calc.addRow([
+      "", "", "", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes,
+    ]);
     removalsTotal.font = { bold: true };
-    removalsTotal.getCell(9).numFmt = TONNES_FMT;
+    removalsTotal.getCell(11).numFmt = TONNES_FMT;
   }
 
   return wb;
@@ -317,7 +334,7 @@ export function buildCsv(vm: ReportVM): string {
   lines.push(
     [
       "Alcance", "Categoria", "Subcategoria", "Elemento", "Unidad",
-      "Cantidad", "Factor", "Unidad del factor", "t CO2e",
+      "Cantidad", "Dato secundario", "Unidad secundaria", "Factor", "Unidad del factor", "t CO2e",
     ]
       .map(q)
       .join(","),
@@ -332,6 +349,8 @@ export function buildCsv(vm: ReportVM): string {
         row.element,
         row.unit,
         row.quantity,
+        row.secondaryQuantity ?? "",
+        row.secondaryUnit ?? "",
         row.factorValue ?? "",
         row.factorUnit ?? "",
         row.tonnes,
@@ -341,7 +360,7 @@ export function buildCsv(vm: ReportVM): string {
     );
   }
 
-  lines.push(["", "", "", "", "", "", "", "TOTAL", vm.totalTonnes].map(q).join(","));
+  lines.push(["", "", "", "", "", "", "", "", "", "TOTAL", vm.totalTonnes].map(q).join(","));
 
   if (vm.removals.rows.length > 0) {
     lines.push("");
@@ -355,6 +374,8 @@ export function buildCsv(vm: ReportVM): string {
           row.element,
           row.unit,
           row.quantity,
+          row.secondaryQuantity ?? "",
+          row.secondaryUnit ?? "",
           row.factorValue ?? "",
           row.factorUnit ?? "",
           row.tonnes,
@@ -364,7 +385,7 @@ export function buildCsv(vm: ReportVM): string {
       );
     }
     lines.push(
-      ["", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes].map(q).join(","),
+      ["", "", "", "", "", "", "", "", "", "TOTAL REMOCIONES", vm.removals.tonnes].map(q).join(","),
     );
   }
 

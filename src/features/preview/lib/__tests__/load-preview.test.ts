@@ -204,3 +204,143 @@ describe("loadCompanyWidePreview", () => {
     expect(vm.emptyReason).toBe("noData");
   });
 });
+
+// Regression coverage for the 2026-08-15 audit finding: MONEY_PER_GALLON and
+// COUNT_TIMES_DISTANCE entries showed the raw stored number next to the factor's own unit (a
+// COP amount labeled "gal"; a passenger/vehicle count labeled "pasajeros * km" with the distance
+// silently dropped). The fix only relabels what's displayed - it must NOT change what rollupYear
+// computes, so every test here asserts both the label AND the (unchanged) tonnes together.
+describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-times-distance)", () => {
+  const MONEY_FACTOR = {
+    active: true,
+    biogenic: false,
+    co2Factor: "7.6181",
+    ch4Factor: null,
+    n2oFactor: null,
+    co2eFactor: null,
+    factorUnit: "kg CO2/gal",
+    entryMode: "MONEY_PER_GALLON" as const,
+  };
+  const DISTANCE_FACTOR = {
+    active: true,
+    biogenic: false,
+    co2Factor: null,
+    ch4Factor: null,
+    n2oFactor: null,
+    co2eFactor: "0.1013051585",
+    factorUnit: "kg CO2e/pasajeros*km",
+    entryMode: "COUNT_TIMES_DISTANCE" as const,
+  };
+
+  function setupEntryMode(entries: unknown[], subsidyPrice: string | null) {
+    vi.clearAllMocks();
+    findManyFacility.mockResolvedValue([{ id: FACILITY_A, name: "Planta A" }]);
+    findManyReportingYear.mockResolvedValue([
+      { id: RY_A, facilityId: FACILITY_A, year: YEAR, gwpSet: "AR6" },
+    ]);
+    findManyActivityEntry.mockResolvedValue(entries);
+    findUniqueGridFactor.mockResolvedValue(null);
+    findUniqueSubsidyPrice.mockResolvedValue(
+      subsidyPrice === null ? null : { pricePerGallonCop: subsidyPrice },
+    );
+    findManyCleanTech.mockResolvedValue([]);
+  }
+
+  it("labels a MONEY_PER_GALLON entry's quantity as COP, not the factor's gal unit, and still derives the correct tonnes", async () => {
+    setupEntryMode(
+      [
+        {
+          reportingYearId: RY_A,
+          scope: "SCOPE_3",
+          category: "C6: Viajes de negocios",
+          subcategory: "Subsidios de transporte",
+          element: "C6: Gasolina E10",
+          unit: "gal",
+          month: null,
+          value: "13800", // COP, not gallons
+          secondaryValue: null,
+          emissionFactor: MONEY_FACTOR,
+        },
+      ],
+      "13800", // COP/gal -> 1 gallon derived
+    );
+    const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
+    const source = vm.scopes.find((s) => s.scope === "SCOPE_3")!.categories[0].sources[0];
+
+    expect(source.unit).toBe("COP"); // not "gal"
+    expect(source.quantity).toBe(13800); // the entered COP amount, unrelabeled
+    expect(source.secondaryQuantity).toBeNull();
+    expect(source.estimate.kind).toBe("ok");
+    if (source.estimate.kind === "ok") {
+      // 13800 COP / 13800 COP-per-gal = 1 gal; 1 gal * 7.6181 kg CO2/gal = 7.6181 kg = 0.0076181 t.
+      expect(source.estimate.tonnes).toBeCloseTo(0.0076181, 7);
+    }
+  });
+
+  it("shows both the count and the distance for a COUNT_TIMES_DISTANCE entry, and still derives count*distance for tonnes", async () => {
+    setupEntryMode(
+      [
+        {
+          reportingYearId: RY_A,
+          scope: "SCOPE_3",
+          category: "C6: Viajes de negocios",
+          subcategory: "Viajes Aéreos",
+          element: "C6: Viajes aéreos - Recorridos largos",
+          unit: "pasajeros * km",
+          month: null,
+          value: "5600", // passengers, not the full activity quantity
+          secondaryValue: "1", // km
+          emissionFactor: DISTANCE_FACTOR,
+        },
+      ],
+      null,
+    );
+    const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
+    const source = vm.scopes.find((s) => s.scope === "SCOPE_3")!.categories[0].sources[0];
+
+    expect(source.unit).toBe("pasajeros");
+    expect(source.quantity).toBe(5600); // the count, not silently dropped
+    expect(source.secondaryQuantity).toBe(1); // the distance, no longer dropped
+    expect(source.secondaryUnit).toBe("km");
+    expect(source.estimate.kind).toBe("ok");
+    if (source.estimate.kind === "ok") {
+      // 5600 * 1 = 5600 pasajeros*km; 5600 * 0.1013051585 kg CO2e = 567.30889 kg = 0.56730889 t.
+      expect(source.estimate.tonnes).toBeCloseTo(0.56730889, 6);
+    }
+  });
+
+  it("never sets secondaryQuantity for an ordinary QUANTITY entry", async () => {
+    setupEntryMode(
+      [
+        {
+          reportingYearId: RY_A,
+          scope: "SCOPE_1",
+          category: "Fuentes Fijas",
+          subcategory: "Combustibles Líquidos (fijos)",
+          element: "Diesel",
+          unit: "Gal",
+          month: null,
+          value: "100",
+          secondaryValue: null,
+          emissionFactor: {
+            active: true,
+            biogenic: false,
+            co2Factor: null,
+            ch4Factor: null,
+            n2oFactor: null,
+            co2eFactor: "10",
+            factorUnit: "kg CO2e/gal",
+            entryMode: "QUANTITY" as const,
+          },
+        },
+      ],
+      null,
+    );
+    const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
+    const source = vm.scopes.find((s) => s.scope === "SCOPE_1")!.categories[0].sources[0];
+
+    expect(source.unit).toBe("Gal");
+    expect(source.secondaryQuantity).toBeNull();
+    expect(source.secondaryUnit).toBeNull();
+  });
+});

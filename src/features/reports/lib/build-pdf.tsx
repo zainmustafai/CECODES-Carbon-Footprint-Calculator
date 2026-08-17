@@ -370,6 +370,9 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
                 <Text style={styles.resScope}>{SCOPE_LABEL[r.scope]}</Text>
                 <Text style={styles.resQty}>
                   {qtyFmt.format(r.quantity)} {r.unit}
+                  {r.secondaryQuantity !== null
+                    ? ` x ${qtyFmt.format(r.secondaryQuantity)} ${r.secondaryUnit}`
+                    : ""}
                 </Text>
                 <Text style={styles.resFactor}>{factorCell(r.factorValue, r.factorUnit)}</Text>
                 <Text style={styles.resTonnes}>{tonnesFmt.format(r.tonnes)}</Text>

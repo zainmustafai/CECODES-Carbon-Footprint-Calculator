@@ -893,7 +893,7 @@
         "gasType": "Gas (del factor CO2e consolidado)",
         "factorUnit": "Unidad del factor",
         "source": "Fuente bibliográfica",
-        "gwpSet": "Conjunto GWP",
+        "gwpSet": "Fuente GWP",
         "gwpNone": "Sin especificar",
         "biogenic": "Biogénica",
         "biogenicHelp": "Cambia el GWP de CH4 al valor no fósil.",

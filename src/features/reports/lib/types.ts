@@ -15,11 +15,18 @@ export type ActivityRow = {
   category: string;
   subcategory: string | null;
   element: string;
+  /** The correct unit for `value` - see src/lib/calc/format-entered-activity.ts. Never the raw
+   *  factor unit for an entry mode that reinterprets the stored number (MONEY_PER_GALLON,
+   *  COUNT_TIMES_DISTANCE). */
   unit: string;
   /** 1-12 for Scope 2, null for the annual scopes. */
   month: number | null;
   /** As entered. A Decimal string, or null when the cell was never filled. */
   value: string | null;
+  /** COUNT_TIMES_DISTANCE only: the distance half of what was entered. Null otherwise. */
+  secondaryValue: string | null;
+  /** Unit for secondaryValue (e.g. "km"), or null when there is no second number. */
+  secondaryUnit: string | null;
 };
 
 export type ResultRow = {
@@ -27,9 +34,14 @@ export type ResultRow = {
   category: string;
   subcategory: string | null;
   element: string;
+  /** The correct unit for `quantity` - see src/lib/calc/format-entered-activity.ts. */
   unit: string;
-  /** Total activity for this element across the year. */
+  /** Total activity for this element across the year, in `unit`. */
   quantity: number;
+  /** COUNT_TIMES_DISTANCE only: the summed distance half. Null otherwise. */
+  secondaryQuantity: number | null;
+  /** Unit for secondaryQuantity (e.g. "km"), or null when there is no second number. */
+  secondaryUnit: string | null;
   /** The factor that priced it, for auditability. */
   factorValue: string | null;
   factorUnit: string | null;
