@@ -261,6 +261,18 @@
       "allCategories": "All",
       "clear": "Clear"
     },
+    "intro": {
+      "title": "How Carbon Footprint works",
+      "subtitle": "A quick 3-step guide. The full guide lives in the user manual.",
+      "step1Title": "Enter your data",
+      "step1Body": "In \"Data entry\", enter your company's annual consumption (or monthly for Scope 2).",
+      "step2Title": "Check the summary",
+      "step2Body": "\"Summary\" shows a reference estimate before official totals are calculated.",
+      "step3Title": "Review and export",
+      "step3Body": "The Dashboard shows your footprint by scope, category, and gas; \"Reports\" lets you download it as PDF or Excel.",
+      "gotIt": "Got it",
+      "dismiss": "Close guide"
+    },
     "kpi": {
       "total": "Total carbon footprint",
       "grossEmissions": "Gross emissions · year {year}",

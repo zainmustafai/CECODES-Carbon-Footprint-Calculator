@@ -40,7 +40,13 @@ const HEADER_HEIGHT = 38;
 
 // Loaded once per module, not per request. react-pdf's server-side render cannot fetch a
 // `/public` URL, so the asset is read directly; the export route pins runtime = "nodejs".
-const logoBuffer = readFileSync(path.join(process.cwd(), "public", "logo-square.png"));
+// The full wordmark (icon + "CECODES"), not the icon-only square crop - client feedback
+// 2026-08-24: "Pdf report MUST include complete CECODES logo".
+const logoBuffer = readFileSync(path.join(process.cwd(), "public", "logo.png"));
+// Source asset is 5191x1684 (~3.083:1); render at a fixed height and the matching width so it
+// never distorts.
+const LOGO_HEIGHT = 22;
+const LOGO_WIDTH = Math.round(LOGO_HEIGHT * (5191 / 1684));
 
 const tonnesFmt = new Intl.NumberFormat("es-CO", {
   minimumFractionDigits: 2,
@@ -92,7 +98,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
   headerMeta: { fontSize: 7.5, color: "#888", marginTop: 2 },
-  logo: { width: 32, height: 32 },
+  logo: { width: LOGO_WIDTH, height: LOGO_HEIGHT },
   h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2 },
   sub: { fontSize: 10, color: "#666", marginBottom: 16 },
   section: { marginTop: 18 },
@@ -120,6 +126,19 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendSwatch: { width: 8, height: 8, borderRadius: 2 },
   legendText: { fontSize: 8, color: "#666" },
+  // A compact "panorama" bar row: label + value on top, a thin proportional track below - the
+  // same visual language as barTrack above, one row per category/gas instead of one bar total.
+  dashRow: { marginTop: 8 },
+  dashRowHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
+  dashRowLabel: { fontSize: 9 },
+  dashRowValue: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
+  dashRowTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+    backgroundColor: "#eee",
+  },
+  dashRowFill: { height: "100%", borderRadius: 3 },
   row: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
@@ -166,6 +185,33 @@ function KeyVal({ k, v }: { k: string; v: string }) {
     <View style={{ flexDirection: "row", marginBottom: 2 }}>
       <Text style={{ width: 90, color: "#666" }}>{k}</Text>
       <Text>{v}</Text>
+    </View>
+  );
+}
+
+// One row of the "Panorama" dashboard summary: label + value, then a thin bar proportional to
+// the row's share of `total`. Reuses the same width-as-percentage technique as styles.barTrack.
+function DashRow({
+  label,
+  tonnes,
+  total,
+  color,
+}: {
+  label: string;
+  tonnes: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? (tonnes / total) * 100 : 0;
+  return (
+    <View style={styles.dashRow} wrap={false}>
+      <View style={styles.dashRowHead}>
+        <Text style={styles.dashRowLabel}>{label}</Text>
+        <Text style={styles.dashRowValue}>{t(tonnes)}</Text>
+      </View>
+      <View style={styles.dashRowTrack}>
+        <View style={[styles.dashRowFill, { width: `${Math.max(pct, tonnes > 0 ? 1 : 0)}%`, backgroundColor: color }]} />
+      </View>
     </View>
   );
 }
@@ -279,15 +325,48 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
         </View>
 
+        {/* A compact visual panorama, ahead of the detailed tables below - client feedback
+            2026-08-24: "Include dashboard before the tables". Mirrors the two cards the live
+            dashboard leads with (category breakdown, gas breakdown), redrawn with the same plain
+            View-bar technique the scope bar above already uses (react-pdf has no charting
+            library available server-side). */}
+        {categories.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle} minPresenceAhead={100}>
+              Panorama por categoría
+            </Text>
+            {categories.slice(0, 8).map((c) => (
+              <DashRow
+                key={`${c.scope}-${c.category}`}
+                label={`${c.category} (${SCOPE_LABEL[c.scope]})`}
+                tonnes={c.tonnes}
+                total={total}
+                color={BRAND_NAVY}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {isoGasTable.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle} minPresenceAhead={100}>
+              Panorama por gas
+            </Text>
+            {isoGasTable.map((g) => (
+              <DashRow key={g.gas} label={g.gas} tonnes={g.tonnes} total={total} color="#7c3aed" />
+            ))}
+          </View>
+        ) : null}
+
         {bySede.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Emisiones por sede
             </Text>
             <View style={styles.headRow} fixed>
               <Text style={[styles.cellName, styles.th]}>Sede</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
-              <Text style={[styles.cellNum, styles.th]}>% del total</Text>
+              <Text style={[styles.cellNum, styles.th]}>%</Text>
             </View>
             {bySede.map((s) => (
               <View key={s.facilityId} style={styles.row} wrap={false}>
@@ -304,7 +383,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {categories.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Emisiones por categoría
             </Text>
             <View style={styles.headRow} fixed>
@@ -323,7 +402,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle} minPresenceAhead={60}>
+          <Text style={styles.sectionTitle} minPresenceAhead={100}>
             Declaración consolidada GEI (ISO 14064-1)
           </Text>
           <Text style={styles.note}>
@@ -348,7 +427,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {elements.length > 0 ? (
           <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle} minPresenceAhead={60}>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Resumen por elemento
             </Text>
             <View style={styles.headRow} fixed>
@@ -383,7 +462,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {vm.removals.rows.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={90}>
+            <Text style={styles.sectionTitle} minPresenceAhead={110}>
               Remociones o absorciones de carbono
             </Text>
             <Text style={styles.note}>
@@ -409,7 +488,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
 
         {vm.cleanTech.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={90}>
+            <Text style={styles.sectionTitle} minPresenceAhead={110}>
               Datos sobre tecnologías más limpias y buenas prácticas
             </Text>
             <Text style={styles.note}>
@@ -437,7 +516,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle} minPresenceAhead={110}>
+          <Text style={styles.sectionTitle} minPresenceAhead={130}>
             Incertidumbre por elemento
           </Text>
           <Text style={styles.note}>
@@ -496,7 +575,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `Huella de Carbono CECODES - Estimación referencial - Página ${pageNumber} de ${totalPages}`
+            `Huella de Carbono CECODES - Página ${pageNumber} de ${totalPages}`
           }
           fixed
         />

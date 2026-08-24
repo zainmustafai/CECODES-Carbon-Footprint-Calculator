@@ -16,6 +16,7 @@ import { MonthlyTrend } from "./monthly-trend";
 import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
 import { MetaVsReal } from "./meta-vs-real";
+import { IntroGuide } from "./intro-guide";
 
 type DashboardScreenProps = {
   companyId?: string | null;
@@ -72,6 +73,8 @@ export async function DashboardScreen({
 
   return (
     <div className="space-y-6">
+      <IntroGuide />
+
       {/* Header */}
       <div className="flex flex-wrap justify-between items-end gap-3">
         <div className="space-y-1">
@@ -162,7 +165,11 @@ export async function DashboardScreen({
 
       <ParetoChart byElement={current.byElement} />
 
-      <MonthlyTrend points={current.monthly} year={current.year} />
+      {/* Monthly trend is Scope 2 (electricity) only - showing it while the filter is narrowed
+          to Alcance 1 and/or 3 (Scope 2 excluded) would draw a chart with nothing behind it. */}
+      {vm.filters.scope.length === 0 || vm.filters.scope.includes("SCOPE_2") ? (
+        <MonthlyTrend points={current.monthly} year={current.year} />
+      ) : null}
 
       {/* Emissions per sede, as in the client's Power BI reference. Only on the all-facilities
           view with at least two sedes reporting this year. */}

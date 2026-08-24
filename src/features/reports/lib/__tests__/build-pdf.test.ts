@@ -24,7 +24,7 @@ const COLUMN_HEADINGS = new Set([
   "Cantidad",
   "Factor",
   "t CO2e",
-  "% del total",
+  "%",
   "Incertidumbre",
   "Práctica reportable",
   "Dato / Unidad",
@@ -193,6 +193,20 @@ describe("buildPdf page layout", () => {
   it("repeats a table's column headings on every page it continues onto", async () => {
     const pages = readPdfTextByPage(await buildPdf(multiPage));
 
+    // A page can also legitimately open with a brand-new section's title (minPresenceAhead
+    // pushed the whole title+header+first-row block onto a fresh page rather than orphaning the
+    // header row alone at the bottom of the previous one) - that is not a broken table
+    // continuation, so it is allowed here too, alongside an actual repeated column heading.
+    const SECTION_TITLES = new Set([
+      "Panorama por categoría",
+      "Panorama por gas",
+      "Emisiones por sede",
+      "Emisiones por categoría",
+      "Declaración consolidada GEI (ISO 14064-1)",
+      "Resumen por elemento",
+      "Incertidumbre por elemento",
+    ]);
+
     // Page 1 opens with the title block, so only the continuation pages are constrained.
     pages.slice(1).forEach((page, offset) => {
       const body = page.filter((d) => d.yFromTop >= CONTENT_TOP);
@@ -200,8 +214,8 @@ describe("buildPdf page layout", () => {
       const firstLine = body.filter((d) => d.yFromTop === top).map((d) => d.text.trim());
       for (const text of firstLine) {
         expect(
-          COLUMN_HEADINGS.has(text),
-          `page ${offset + 2} starts with "${text}" instead of a column heading`,
+          COLUMN_HEADINGS.has(text) || SECTION_TITLES.has(text),
+          `page ${offset + 2} starts with "${text}" instead of a column heading or section title`,
         ).toBe(true);
       }
     });

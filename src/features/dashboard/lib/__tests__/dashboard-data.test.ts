@@ -83,7 +83,7 @@ const ENTRIES = [
     scope: "SCOPE_2",
     category: "Consumo eléctrico",
     subcategory: null,
-    element: "Electricidad (Sistema Interconectado Nacional - SIN)",
+    element: "SISTEMA INTERCONECTADO NACIONAL - SIN",
     month: 1,
     value: "1000", // kWh
     secondaryValue: null,
@@ -179,7 +179,7 @@ describe("loadDashboard: multi-scope filter", () => {
     expect(tonnesOf(both)).toBeCloseTo(tonnesOf(scope1) + tonnesOf(scope3), 6);
     // SCOPE_2's element must not leak into a filter that never checked SCOPE_2.
     expect(namesOf(both)).not.toContain(
-      "Electricidad (Sistema Interconectado Nacional - SIN)",
+      "SISTEMA INTERCONECTADO NACIONAL - SIN",
     );
   });
 

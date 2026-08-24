@@ -87,7 +87,7 @@ test.describe("data entry", () => {
     const electricity = category(page, /^Consumo de energía eléctrica$/);
     await electricity.getByRole("button", { name: /agregar fuente/i }).click();
     await page
-      .getByRole("option", { name: /Electricidad \(Sistema Interconectado Nacional - SIN\)/ })
+      .getByRole("option", { name: /SISTEMA INTERCONECTADO NACIONAL - SIN/ })
       .click();
 
     // A monthly source that is the only one in its category opens itself (category-section.tsx
