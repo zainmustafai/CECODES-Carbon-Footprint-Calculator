@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import {
   AlertDialog,
@@ -79,12 +77,15 @@ export function ConfirmActionDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>
+            {cancelLabel}
+          </AlertDialogCancel>
           <Button
             loading={pending}
             onClick={handleConfirm}
             className={cn(
-              destructive && "bg-destructive text-white hover:bg-destructive/90",
+              destructive &&
+                "bg-destructive text-white hover:bg-destructive/90",
             )}
           >
             {confirmLabel}
