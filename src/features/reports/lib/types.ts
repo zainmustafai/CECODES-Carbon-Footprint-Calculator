@@ -1,4 +1,7 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
+import type { MonthlyPoint } from "@/lib/calc/rollup";
+
+export type { MonthlyPoint };
 
 // The view model behind the Excel/CSV export (Requirements 10, 14.7).
 //
@@ -113,6 +116,19 @@ export type ReportVM = {
    * BASE_remociones table separate. Empty rows + 0 when the year reports none.
    */
   removals: { rows: ResultRow[]; tonnes: number };
+
+  /** Scope 2 (electricity), month 1-12, twelve points - a gap (null) is a month nobody reported,
+   *  never a zero. Same field `dashboard/lib/types.ts` re-exports from the same source. */
+  monthly: MonthlyPoint[];
+
+  /**
+   * The scope/category narrowing actually applied to every field above (empty scope + null
+   * category for the full, unfiltered company/facility report the Reports page has always
+   * produced). Set when this ReportVM was built for a specific dashboard filter view - see
+   * `filter-report.ts`. Purely descriptive: it never changes how a number was computed, only
+   * which numbers this particular ReportVM carries.
+   */
+  appliedFilters: { scope: Scope[]; category: string | null };
 
   /**
    * Free-form "tecnologías más limpias y buenas prácticas" rows, verbatim as reported. They

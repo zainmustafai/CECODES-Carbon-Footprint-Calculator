@@ -17,6 +17,7 @@ import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
 import { MetaVsReal } from "./meta-vs-real";
 import { IntroGuide } from "./intro-guide";
+import { DownloadViewButton } from "./download-view-button";
 
 type DashboardScreenProps = {
   companyId?: string | null;
@@ -101,13 +102,16 @@ export async function DashboardScreen({
         : null}
       </div>
 
-      <DashboardFilters
-        basePath={basePath}
-        filters={vm.filters}
-        facilities={vm.facilities}
-        years={vm.years}
-        categories={current.byCategory.map((c) => c.category)}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <DashboardFilters
+          basePath={basePath}
+          filters={vm.filters}
+          facilities={vm.facilities}
+          years={vm.years}
+          categories={current.byCategory.map((c) => c.category)}
+        />
+        <DownloadViewButton companyId={companyId} filters={vm.filters} />
+      </div>
 
       {current.missingGridFactor ?
         <Note

@@ -4,6 +4,9 @@ import { ScopeError, resolveCompanyScope } from "@/lib/auth/company-scope";
 import { loadReport } from "@/features/reports/lib/load-report";
 import { buildCsv, buildWorkbook } from "@/features/reports/lib/build-workbook";
 import { buildPdf } from "@/features/reports/lib/build-pdf";
+import type { Scope } from "@/lib/generated/prisma/client";
+
+const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
 // The Excel / CSV export (Requirements 10, 14.7).
 //
@@ -26,6 +29,12 @@ const querySchema = z
     facilityId: z.uuid().optional(),
     year: z.coerce.number().int().min(1990).max(2100),
     format: z.enum(["xlsx", "csv", "pdf"]).default("xlsx"),
+    // Optional: the dashboard's "download this view as PDF" button - a comma-separated scope
+    // list (same encoding dashboard-filters.tsx already writes to its own URL, e.g.
+    // "SCOPE_1,SCOPE_3") and a category name. Omitted means the full, unfiltered report the
+    // Reports page has always produced.
+    scope: z.string().optional(),
+    category: z.string().optional(),
   })
   .strict();
 
@@ -36,15 +45,23 @@ export async function GET(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "badRequest" }, { status: 400 });
   }
-  const { companyId, facilityId, year, format } = parsed.data;
+  const { companyId, facilityId, year, format, scope: scopeParam, category } = parsed.data;
+  // Same decode dashboard-screen.tsx uses for its own URL: dedupe and drop anything that isn't a
+  // real Scope, so an unknown or malformed token is harmless rather than a 400.
+  const requestedScope = (scopeParam ?? "")
+    .split(",")
+    .filter((s): s is Scope => SCOPES.includes(s as Scope));
 
   try {
     // AUTHORIZE FIRST. Everything below this line trusts scope.companyId and nothing else.
-    const scope = await resolveCompanyScope({ companyId });
+    const companyScope = await resolveCompanyScope({ companyId });
 
-    // loadReport re-scopes the facility on scope.companyId, so a facility id belonging to another
-    // company resolves to null rather than to somebody else's data.
-    const vm = await loadReport(scope.companyId, facilityId ?? null, year);
+    // loadReport re-scopes the facility on companyScope.companyId, so a facility id belonging to
+    // another company resolves to null rather than to somebody else's data.
+    const vm = await loadReport(companyScope.companyId, facilityId ?? null, year, {
+      scope: requestedScope,
+      category: category ?? null,
+    });
     if (!vm) return NextResponse.json({ error: "notFound" }, { status: 404 });
 
     const stamp = `${slug(vm.companyName)}-${slug(vm.facilityName ?? "todas-las-sedes")}-${vm.year}`;

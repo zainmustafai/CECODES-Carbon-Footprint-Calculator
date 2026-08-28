@@ -69,6 +69,8 @@ const base: ReportVM = {
   missingGridFactor: false,
   missingTransportSubsidyPrice: false,
   unpricedCount: 0,
+  monthly: [],
+  appliedFilters: { scope: [], category: null },
   generatedAt: new Date("2026-07-12T12:00:00Z"),
 };
 

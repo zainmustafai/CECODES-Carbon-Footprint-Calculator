@@ -3,8 +3,9 @@ import { rollupYear, type RollupEntry } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import { formatEnteredActivity } from "@/lib/calc/format-entered-activity";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
-import type { EntryMode, GwpSet } from "@/lib/generated/prisma/client";
+import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { ActivityRow, ReportVM, ResultRow, SedeTotal } from "./types";
+import { filterReportVM } from "./filter-report";
 
 // Builds the export for one facility (or, when facilityId is null, an entire company) and
 // reporting year.
@@ -88,6 +89,7 @@ function buildReportFromEntries({
   | "missingGridFactor"
   | "missingTransportSubsidyPrice"
   | "unpricedCount"
+  | "monthly"
 > {
   const rollupEntries: RollupEntry[] = toRollupEntries(entries);
   const rollup = rollupYear({ entries: rollupEntries, gridFactor, pricePerGallon, gwpSet });
@@ -225,6 +227,7 @@ function buildReportFromEntries({
     missingGridFactor: rollup.missingGridFactor,
     missingTransportSubsidyPrice: rollup.missingTransportSubsidyPrice,
     unpricedCount: rollup.unpricedCount,
+    monthly: rollup.scope2Monthly,
   };
 }
 
@@ -318,6 +321,7 @@ async function loadSingleFacilityReport(
     gridFactor,
     bySede: [],
     ...built,
+    appliedFilters: { scope: [], category: null },
     generatedAt: new Date(),
   };
 }
@@ -413,6 +417,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
     gridFactor,
     bySede,
     ...built,
+    appliedFilters: { scope: [], category: null },
     generatedAt: new Date(),
   };
 }
@@ -421,8 +426,16 @@ export async function loadReport(
   companyId: string,
   facilityId: string | null,
   year: number,
+  filters?: { scope?: Scope[]; category?: string | null },
 ): Promise<ReportVM | null> {
-  return facilityId
-    ? loadSingleFacilityReport(companyId, facilityId, year)
-    : loadCompanyWideReport(companyId, year);
+  const vm = facilityId
+    ? await loadSingleFacilityReport(companyId, facilityId, year)
+    : await loadCompanyWideReport(companyId, year);
+  if (!vm) return null;
+
+  const scope = filters?.scope ?? [];
+  const category = filters?.category ?? null;
+  if (scope.length === 0 && !category) return vm;
+
+  return filterReportVM(vm, { scope, category });
 }

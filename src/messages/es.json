@@ -262,6 +262,9 @@
       "allCategories": "Todas",
       "clear": "Limpiar"
     },
+    "downloadView": {
+      "button": "Descargar vista como PDF"
+    },
     "intro": {
       "title": "Cómo funciona Huella de Carbono",
       "subtitle": "Guía rápida en 3 pasos. La guía completa está en el manual de usuario.",

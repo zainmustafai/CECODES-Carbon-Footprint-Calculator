@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPdf } from "../build-pdf";
-import { A4_HEIGHT, readPdfTextByPage } from "./read-pdf-text";
+import { PAGE_HEIGHT, readPdfTextByPage } from "./read-pdf-text";
 import type { ReportVM, ResultRow } from "../types";
 
 // Two kinds of test here. The smoke tests only prove a real PDF comes out. The layout tests
@@ -10,10 +10,10 @@ import type { ReportVM, ResultRow } from "../types";
 
 // The page geometry build-pdf.tsx reserves, restated here on purpose: if someone retunes the
 // header without retuning the page padding, these numbers stop agreeing and the tests say so.
-const HEADER_BAND_TOP = 26;
-const HEADER_BAND_BOTTOM = 64;
-const CONTENT_TOP = 82;
-const CONTENT_BOTTOM = A4_HEIGHT - 48;
+const HEADER_BAND_TOP = 34;
+const HEADER_BAND_BOTTOM = 84;
+const CONTENT_TOP = 108;
+const CONTENT_BOTTOM = PAGE_HEIGHT - 64;
 
 /** Every column heading in the document; a continuation page must start with one of these. */
 const COLUMN_HEADINGS = new Set([
@@ -87,6 +87,8 @@ const base: ReportVM = {
   missingGridFactor: false,
   missingTransportSubsidyPrice: false,
   unpricedCount: 0,
+  monthly: [],
+  appliedFilters: { scope: [], category: null },
   generatedAt: new Date("2026-08-04T12:00:00Z"),
 };
 
@@ -200,6 +202,8 @@ describe("buildPdf page layout", () => {
     const SECTION_TITLES = new Set([
       "Panorama por categoría",
       "Panorama por gas",
+      "Priorización de fuentes de emisión (Pareto)",
+      "Tendencia mensual (Alcance 2 - electricidad)",
       "Emisiones por sede",
       "Emisiones por categoría",
       "Declaración consolidada GEI (ISO 14064-1)",

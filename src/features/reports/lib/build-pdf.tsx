@@ -10,10 +10,15 @@ import {
   renderToBuffer,
   Svg,
   Path,
+  Rect,
+  Line,
+  Polyline,
+  Circle,
 } from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
 import { buildIsoGasTable } from "./iso-gas-table";
+import { buildParetoSeries } from "@/features/dashboard/lib/pareto";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
 // and the Excel export. It carries the same numbers the dashboard shows, because it is built from
@@ -44,9 +49,15 @@ const SCOPE_COLOR: Record<string, string> = {
 const BRAND_NAVY = "#002060";
 
 // The running header is absolutely positioned, so the page's own top padding has to be derived
-// from these rather than guessed; see styles.page.
-const HEADER_TOP = 26;
-const HEADER_HEIGHT = 38;
+// from these rather than guessed; see styles.page. Client feedback 2026-08-28: "Larger page" - A3
+// instead of A4 (roughly 2x the area), so every constant below is retuned for that canvas, not
+// just the page size prop.
+const PAGE_HORIZONTAL_PADDING = 54;
+const HEADER_TOP = 34;
+const HEADER_HEIGHT = 50;
+// The content area's usable width, for every chart below that needs a concrete pixel width rather
+// than a percentage (react-pdf's Svg has no "100%" sizing the way a View does).
+const CONTENT_WIDTH = 841.89 - PAGE_HORIZONTAL_PADDING * 2;
 
 // Loaded once per module, not per request. react-pdf's server-side render cannot fetch a
 // `/public` URL, so the asset is read directly; the export route pins runtime = "nodejs".
@@ -55,7 +66,7 @@ const HEADER_HEIGHT = 38;
 const logoBuffer = readFileSync(path.join(process.cwd(), "public", "logo.png"));
 // Source asset is 5191x1684 (~3.083:1); render at a fixed height and the matching width so it
 // never distorts.
-const LOGO_HEIGHT = 22;
+const LOGO_HEIGHT = 30;
 const LOGO_WIDTH = Math.round(LOGO_HEIGHT * (5191 / 1684));
 
 const tonnesFmt = new Intl.NumberFormat("es-CO", {
@@ -87,18 +98,18 @@ const styles = StyleSheet.create({
   // the bottom padding must clear the fixed footer. Getting these wrong is exactly how content
   // ends up printed underneath the logo on page 2 onward.
   page: {
-    paddingTop: HEADER_TOP + HEADER_HEIGHT + 18,
-    paddingBottom: 48,
-    paddingHorizontal: 40,
-    fontSize: 10,
+    paddingTop: HEADER_TOP + HEADER_HEIGHT + 24,
+    paddingBottom: 64,
+    paddingHorizontal: PAGE_HORIZONTAL_PADDING,
+    fontSize: 13,
     color: "#1a1a1a",
     fontFamily: "Helvetica",
   },
   header: {
     position: "absolute",
     top: HEADER_TOP,
-    left: 40,
-    right: 40,
+    left: PAGE_HORIZONTAL_PADDING,
+    right: PAGE_HORIZONTAL_PADDING,
     height: HEADER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
@@ -106,46 +117,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "#e0e0e0",
   },
-  headerTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
-  headerMeta: { fontSize: 7.5, color: "#888", marginTop: 2 },
+  headerTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
+  headerMeta: { fontSize: 9.5, color: "#888", marginTop: 2 },
   logo: { width: LOGO_WIDTH, height: LOGO_HEIGHT },
-  h1: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  sub: { fontSize: 10, color: "#666", marginBottom: 16 },
-  section: { marginTop: 18 },
-  sectionTitle: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6 },
-  kpiRow: { flexDirection: "row", gap: 10 },
+  h1: { fontSize: 26, fontFamily: "Helvetica-Bold", marginBottom: 3 },
+  sub: { fontSize: 13, color: "#666", marginBottom: 20 },
+  section: { marginTop: 24 },
+  sectionTitle: { fontSize: 16, fontFamily: "Helvetica-Bold", marginBottom: 8 },
+  sectionSubtitle: { fontSize: 10, color: "#666", marginBottom: 8, marginTop: -4 },
+  kpiRow: { flexDirection: "row", gap: 12 },
   kpiBox: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 4,
-    padding: 10,
+    borderRadius: 5,
+    padding: 13,
   },
-  kpiLabel: { fontSize: 8, color: "#666", textTransform: "uppercase" },
-  kpiValue: { fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 },
-  kpiPct: { fontSize: 8, color: "#666", marginTop: 1 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
-  legendSwatch: { width: 8, height: 8, borderRadius: 2 },
-  legendText: { fontSize: 8, color: "#666" },
+  kpiLabel: { fontSize: 10, color: "#666", textTransform: "uppercase" },
+  kpiValue: { fontSize: 20, fontFamily: "Helvetica-Bold", marginTop: 3 },
+  kpiPct: { fontSize: 10, color: "#666", marginTop: 2 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 },
+  legendSwatch: { width: 10, height: 10, borderRadius: 2 },
+  legendText: { fontSize: 10, color: "#666" },
   // A compact "panorama" bar row: label + value on top, a thin proportional track below - one
   // row per category/gas, each track's fill width standing in for a bar chart.
-  dashRow: { marginTop: 8 },
-  dashRowHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
-  dashRowLabel: { fontSize: 9 },
-  dashRowValue: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
+  dashRow: { marginTop: 10 },
+  dashRowHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  dashRowLabel: { fontSize: 11 },
+  dashRowValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: BRAND_NAVY },
   dashRowTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     overflow: "hidden",
     backgroundColor: "#eee",
   },
-  dashRowFill: { height: "100%", borderRadius: 3 },
+  dashRowFill: { height: "100%", borderRadius: 4 },
   row: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: "#e5e5e5",
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
   },
   // Marked `fixed` at every call site: when a section splits across pages, react-pdf's layout
   // engine copies its fixed children onto the continuation, so the column headings reappear at
@@ -154,36 +166,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#999",
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
     backgroundColor: "#f4f5f7",
   },
-  th: { fontFamily: "Helvetica-Bold", fontSize: 9 },
-  cellName: { flex: 4, paddingRight: 8 },
-  cellScope: { flex: 2, paddingRight: 8, color: "#666" },
+  th: { fontFamily: "Helvetica-Bold", fontSize: 11 },
+  cellName: { flex: 4, paddingRight: 10 },
+  cellScope: { flex: 2, paddingRight: 10, color: "#666" },
   cellNum: { flex: 2, textAlign: "right" },
   // The element results table needs finer-grained columns than the 3-column layout above.
-  resElement: { flex: 3, paddingRight: 6 },
-  resCategory: { flex: 2, paddingRight: 6, color: "#666" },
-  resScope: { flex: 1.3, paddingRight: 6, color: "#666" },
-  resQty: { flex: 1.5, textAlign: "right", paddingRight: 6 },
-  resFactor: { flex: 1.6, textAlign: "right", paddingRight: 6 },
+  resElement: { flex: 3, paddingRight: 8 },
+  resCategory: { flex: 2, paddingRight: 8, color: "#666" },
+  resScope: { flex: 1.3, paddingRight: 8, color: "#666" },
+  resQty: { flex: 1.5, textAlign: "right", paddingRight: 8 },
+  resFactor: { flex: 1.6, textAlign: "right", paddingRight: 8 },
   resTonnes: { flex: 1.2, textAlign: "right" },
-  note: { fontSize: 9, color: "#555", marginTop: 4 },
+  note: { fontSize: 11, color: "#555", marginTop: 5 },
   footer: {
     position: "absolute",
-    bottom: 24,
-    left: 40,
-    right: 40,
-    fontSize: 8,
+    bottom: 32,
+    left: PAGE_HORIZONTAL_PADDING,
+    right: PAGE_HORIZONTAL_PADDING,
+    fontSize: 10,
     color: "#999",
     textAlign: "center",
   },
+  chartAxisLabel: { fontSize: 8.5, color: "#888" },
+  chartXLabel: { fontSize: 8, color: "#666", textAlign: "center" },
 });
 
 // Arc math for the scope donut below: same geometry Recharts' <Pie> uses in the live dashboard
 // (scope-donut.tsx), redrawn with plain SVG since react-pdf has no charting library server-side.
-const DONUT_SIZE = 110;
+const DONUT_SIZE = 150;
 const DONUT_INNER_RATIO = 0.62;
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
@@ -263,19 +277,244 @@ function ScopeDonutChart({
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: BRAND_NAVY }}>
+        <Text style={{ fontSize: 15, fontFamily: "Helvetica-Bold", color: BRAND_NAVY }}>
           {tonnesFmt.format(total)}
         </Text>
-        <Text style={{ fontSize: 6.5, color: "#888" }}>t CO2e total</Text>
+        <Text style={{ fontSize: 8.5, color: "#888" }}>t CO2e total</Text>
       </View>
     </View>
   );
 }
 
+// The client's own Pareto chart (see pareto.ts's comment: docs/sample-data/CEC-PR-F-024 -
+// DASHBOARD (2025).xlsx, chart3.xml) - bars for the largest elements, descending, with a
+// cumulative-% line climbing toward 100%. Cumulative % is computed over EVERY element (so the
+// line's value at bar N is honest about how much of the whole footprint the top N sources cover),
+// even though only the top PARETO_MAX bars are drawn - matching the same truncation-with-honesty
+// pattern the "Emisiones por categoría" table already uses (`categories.slice(0, 14)`).
+const PARETO_MAX = 12;
+const PARETO_HEIGHT = 260;
+const PARETO_LEFT_AXIS = 50;
+const PARETO_RIGHT_AXIS = 44;
+const PARETO_TOP = 14;
+const PARETO_BOTTOM_LABELS = 50;
+
+function ParetoChartPdf({
+  elements,
+}: {
+  elements: { element: string; scope: string; tonnes: number }[];
+}) {
+  const series = buildParetoSeries(elements);
+  const top = series.slice(0, PARETO_MAX);
+  const plotWidth = CONTENT_WIDTH - PARETO_LEFT_AXIS - PARETO_RIGHT_AXIS;
+  const plotHeight = PARETO_HEIGHT - PARETO_TOP - PARETO_BOTTOM_LABELS;
+  const maxTonnes = Math.max(1e-9, ...top.map((p) => p.tonnes));
+  const slot = plotWidth / Math.max(top.length, 1);
+  const barWidth = slot * 0.55;
+  const baseY = PARETO_TOP + plotHeight;
+
+  const points = top.map((p, i) => {
+    const cx = PARETO_LEFT_AXIS + slot * i + slot / 2;
+    const barHeight = maxTonnes > 0 ? (p.tonnes / maxTonnes) * plotHeight : 0;
+    const lineY = baseY - (p.cumulativePct / 100) * plotHeight;
+    return {
+      element: p.element,
+      tonnes: p.tonnes,
+      scope: elements[i].scope,
+      cx,
+      barHeight,
+      lineY,
+    };
+  });
+
+  const linePoints = points.map((p) => `${p.cx},${p.lineY}`).join(" ");
+  const truncate = (value: string) => (value.length > 12 ? `${value.slice(0, 11)}…` : value);
+
+  return (
+    <View>
+      <Svg width={CONTENT_WIDTH} height={PARETO_HEIGHT}>
+        {/* Left (tonnes) and bottom axis lines */}
+        <Line
+          x1={PARETO_LEFT_AXIS}
+          y1={PARETO_TOP}
+          x2={PARETO_LEFT_AXIS}
+          y2={baseY}
+          stroke="#ccc"
+          strokeWidth={0.75}
+        />
+        <Line
+          x1={PARETO_LEFT_AXIS}
+          y1={baseY}
+          x2={PARETO_LEFT_AXIS + plotWidth}
+          y2={baseY}
+          stroke="#ccc"
+          strokeWidth={0.75}
+        />
+        {/* Left axis ticks: 0 / half / max tonnes */}
+        {[0, 0.5, 1].map((f) => (
+          <Text
+            key={f}
+            x={0}
+            y={baseY - plotHeight * f + 3}
+            style={{ fontSize: 8, fill: "#888" }}
+          >
+            {tonnesFmt.format(maxTonnes * f)}
+          </Text>
+        ))}
+        {/* Right axis ticks: cumulative 0/50/100% */}
+        {[0, 50, 100].map((pct) => (
+          <Text
+            key={pct}
+            x={PARETO_LEFT_AXIS + plotWidth + 6}
+            y={baseY - (pct / 100) * plotHeight + 3}
+            style={{ fontSize: 8, fill: "#7c3aed" }}
+          >
+            {pct}%
+          </Text>
+        ))}
+        {/* Bars: one per element, coloured by its Alcance like category-bars.tsx's own convention */}
+        {points.map((p) => (
+          <Rect
+            key={`bar-${p.element}`}
+            x={p.cx - barWidth / 2}
+            y={baseY - p.barHeight}
+            width={barWidth}
+            height={Math.max(p.barHeight, p.tonnes > 0 ? 1 : 0)}
+            fill={SCOPE_COLOR[p.scope]}
+            rx={2}
+          />
+        ))}
+        {/* Cumulative-% line + dots */}
+        {points.length > 1 ? (
+          <Polyline points={linePoints} stroke="#7c3aed" strokeWidth={1.5} fill="none" />
+        ) : null}
+        {points.map((p) => (
+          <Circle key={`dot-${p.element}`} cx={p.cx} cy={p.lineY} r={2.4} fill="#7c3aed" />
+        ))}
+        {/* X-axis element labels */}
+        {points.map((p) => (
+          <Text
+            key={`label-${p.element}`}
+            x={p.cx}
+            y={baseY + 14}
+            style={{ fontSize: 8, fill: "#666", textAnchor: "middle" }}
+          >
+            {truncate(p.element)}
+          </Text>
+        ))}
+      </Svg>
+      <Text style={styles.note}>
+        Barras: t CO2e por elemento (eje izquierdo). Línea: % acumulado del total (eje derecho).
+        {elements.length > PARETO_MAX
+          ? ` Se muestran los ${PARETO_MAX} elementos de mayor emisión.`
+          : ""}
+      </Text>
+    </View>
+  );
+}
+
+// The monthly trend, Scope 2 (electricity) only - a month nobody reported is a gap in the line,
+// never a dip to zero, matching monthly-trend.tsx's own rule exactly.
+const MONTHLY_HEIGHT = 200;
+const MONTHLY_LEFT_AXIS = 50;
+const MONTHLY_TOP = 14;
+const MONTHLY_BOTTOM_LABELS = 30;
+const MONTH_LABELS = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+];
+
+function MonthlyTrendChartPdf({ points }: { points: { month: number; tonnes: number | null }[] }) {
+  const hasAny = points.some((p) => p.tonnes !== null);
+  if (!hasAny) {
+    return (
+      <Text style={styles.note}>
+        Sin datos mensuales de Alcance 2 (electricidad) para este año.
+      </Text>
+    );
+  }
+
+  const plotWidth = CONTENT_WIDTH - MONTHLY_LEFT_AXIS;
+  const plotHeight = MONTHLY_HEIGHT - MONTHLY_TOP - MONTHLY_BOTTOM_LABELS;
+  const maxTonnes = Math.max(1e-9, ...points.map((p) => p.tonnes ?? 0));
+  const baseY = MONTHLY_TOP + plotHeight;
+  const slot = plotWidth / (points.length - 1 || 1);
+
+  const coords = points.map((p, i) => ({
+    month: p.month,
+    tonnes: p.tonnes,
+    x: MONTHLY_LEFT_AXIS + slot * i,
+    y: p.tonnes === null ? null : baseY - (p.tonnes / maxTonnes) * plotHeight,
+  }));
+
+  // Split into contiguous runs of reported months, so a gap breaks the line instead of drawing a
+  // straight segment across a month nobody entered.
+  const segments: { x: number; y: number }[][] = [];
+  let current: { x: number; y: number }[] = [];
+  for (const c of coords) {
+    if (c.y === null) {
+      if (current.length > 0) segments.push(current);
+      current = [];
+      continue;
+    }
+    current.push({ x: c.x, y: c.y });
+  }
+  if (current.length > 0) segments.push(current);
+
+  return (
+    <Svg width={CONTENT_WIDTH} height={MONTHLY_HEIGHT}>
+      <Line
+        x1={MONTHLY_LEFT_AXIS}
+        y1={MONTHLY_TOP}
+        x2={MONTHLY_LEFT_AXIS}
+        y2={baseY}
+        stroke="#ccc"
+        strokeWidth={0.75}
+      />
+      <Line
+        x1={MONTHLY_LEFT_AXIS}
+        y1={baseY}
+        x2={MONTHLY_LEFT_AXIS + plotWidth}
+        y2={baseY}
+        stroke="#ccc"
+        strokeWidth={0.75}
+      />
+      {[0, 0.5, 1].map((f) => (
+        <Text key={f} x={0} y={baseY - plotHeight * f + 3} style={{ fontSize: 8, fill: "#888" }}>
+          {tonnesFmt.format(maxTonnes * f)}
+        </Text>
+      ))}
+      {segments.map((seg, i) => (
+        <Polyline
+          key={`seg-${i}`}
+          points={seg.map((c) => `${c.x},${c.y}`).join(" ")}
+          stroke={SCOPE_COLOR.SCOPE_2}
+          strokeWidth={1.75}
+          fill="none"
+        />
+      ))}
+      {coords
+        .filter((c) => c.y !== null)
+        .map((c) => (
+          <Circle key={`dot-${c.month}`} cx={c.x} cy={c.y as number} r={2.2} fill={SCOPE_COLOR.SCOPE_2} />
+        ))}
+      {coords.map((c) => (
+        <Text
+          key={`label-${c.month}`}
+          x={c.x}
+          y={baseY + 14}
+          style={{ fontSize: 8, fill: "#666", textAnchor: "middle" }}
+        >
+          {MONTH_LABELS[c.month - 1]}
+        </Text>
+      ))}
+    </Svg>
+  );
+}
+
 function KeyVal({ k, v }: { k: string; v: string }) {
   return (
-    <View style={{ flexDirection: "row", marginBottom: 2 }}>
-      <Text style={{ width: 90, color: "#666" }}>{k}</Text>
+    <View style={{ flexDirection: "row", marginBottom: 3 }}>
+      <Text style={{ width: 140, color: "#666" }}>{k}</Text>
       <Text>{v}</Text>
     </View>
   );
@@ -327,12 +566,28 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
   const total = vm.totalTonnes;
   const pctOf = (value: number) => (total > 0 ? (value / total) * 100 : 0);
 
+  // A filtered ("download this view") PDF says so - the same self-describing rule the numbers
+  // themselves already follow (this reconciles to whatever filterReportVM narrowed).
+  const { scope: appliedScope, category: appliedCategory } = vm.appliedFilters;
+  const hasAppliedFilters = appliedScope.length > 0 || appliedCategory !== null;
+  const appliedFiltersLabel = [
+    appliedScope.length > 0 ? appliedScope.map((s) => SCOPE_LABEL[s]).join(", ") : null,
+    appliedCategory,
+  ]
+    .filter((v): v is string => v !== null)
+    .join(" · ");
+
+  // Monthly trend is Scope 2 (electricity) only - showing it while the filter excludes Scope 2
+  // entirely would draw a chart with nothing behind it, exactly like dashboard-screen.tsx's own
+  // conditional for the same chart.
+  const showMonthlyTrend = appliedScope.length === 0 || appliedScope.includes("SCOPE_2");
+
   return (
     <Document
       title={`Huella de Carbono ${vm.companyName} ${vm.year}`}
       author="CECODES - Huella de Carbono"
     >
-      <Page size="A4" style={styles.page}>
+      <Page size="A3" style={styles.page}>
         <View style={styles.header} fixed>
           {/* Page 1 carries the full title block below, so the running text would only repeat
               itself there; it starts on the continuation pages, where it is the only thing
@@ -365,7 +620,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         <View style={styles.kpiRow}>
           <View style={[styles.kpiBox, { flex: 1.4, borderColor: BRAND_NAVY }]}>
             <Text style={styles.kpiLabel}>Huella total</Text>
-            <Text style={[styles.kpiValue, { fontSize: 20, color: BRAND_NAVY }]}>
+            <Text style={[styles.kpiValue, { fontSize: 27, color: BRAND_NAVY }]}>
               {t(total)}
             </Text>
           </View>
@@ -407,6 +662,9 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           <KeyVal k="Año" v={String(vm.year)} />
           <KeyVal k="Fuente GWP" v={formatGwpSource(vm.gwpSet)} />
           <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
+          {hasAppliedFilters ? (
+            <KeyVal k="Filtros aplicados" v={appliedFiltersLabel} />
+          ) : null}
         </View>
 
         {/* A compact visual panorama, ahead of the detailed tables below - client feedback
@@ -442,12 +700,43 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
+        {elements.length > 0 ? (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle} minPresenceAhead={PARETO_HEIGHT + 40}>
+              Priorización de fuentes de emisión (Pareto)
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              Qué priorizar primero: elementos ordenados de mayor a menor, con el % acumulado del
+              total.
+            </Text>
+            <ParetoChartPdf elements={elements} />
+          </View>
+        ) : null}
+
+        {showMonthlyTrend ? (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle} minPresenceAhead={MONTHLY_HEIGHT + 40}>
+              Tendencia mensual (Alcance 2 - electricidad)
+            </Text>
+            <MonthlyTrendChartPdf points={vm.monthly} />
+          </View>
+        ) : null}
+
         {bySede.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Emisiones por sede
             </Text>
-            <View style={styles.headRow} fixed>
+            {bySede.map((s) => (
+              <DashRow
+                key={`bar-${s.facilityId}`}
+                label={s.facilityName}
+                tonnes={s.tonnes}
+                total={total}
+                color={BRAND_NAVY}
+              />
+            ))}
+            <View style={[styles.headRow, { marginTop: 10 }]} fixed>
               <Text style={[styles.cellName, styles.th]}>Sede</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
               <Text style={[styles.cellNum, styles.th]}>%</Text>

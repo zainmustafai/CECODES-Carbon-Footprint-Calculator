@@ -262,6 +262,9 @@
       "allCategories": "All",
       "clear": "Clear"
     },
+    "downloadView": {
+      "button": "Download view as PDF"
+    },
     "intro": {
       "title": "How Carbon Footprint works",
       "subtitle": "A quick 3-step guide. The full guide lives in the user manual.",

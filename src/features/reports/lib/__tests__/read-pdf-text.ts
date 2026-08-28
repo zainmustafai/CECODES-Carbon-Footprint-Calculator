@@ -22,8 +22,8 @@ export type TextDraw = {
   yFromTop: number;
 };
 
-/** A4 height in PostScript points, matching <Page size="A4" /> in build-pdf.tsx. */
-export const A4_HEIGHT = 841.89;
+/** A3 height in PostScript points, matching <Page size="A3" /> in build-pdf.tsx. */
+export const PAGE_HEIGHT = 1190.55;
 
 type Matrix = [number, number, number, number, number, number];
 
@@ -154,7 +154,7 @@ function parseContentStream(stream: string): TextDraw[] {
         : decodeLiteral(g.lit!.slice(1, -1));
       if (!pendingAt) {
         const { x, y } = origin(concat(tm, ctm));
-        pendingAt = { x, yFromTop: A4_HEIGHT - y };
+        pendingAt = { x, yFromTop: PAGE_HEIGHT - y };
       }
       pending += text;
     }
