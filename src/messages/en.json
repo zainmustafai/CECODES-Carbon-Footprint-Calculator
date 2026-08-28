@@ -228,6 +228,7 @@
     }
   },
   "dashboard": {
+    "welcome": "Welcome to the Carbon Footprint Tool",
     "title": "Dashboard",
     "subtitle": "Carbon footprint · {facility} · Year {year}",
     "subtitleAllFacilities": "All sedes",

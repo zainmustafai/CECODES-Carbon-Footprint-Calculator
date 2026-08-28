@@ -73,6 +73,8 @@ export async function DashboardScreen({
 
   return (
     <div className="space-y-6">
+      <p className="font-semibold text-3xl tracking-tight">{t("welcome")}</p>
+
       <IntroGuide />
 
       {/* Header */}
@@ -248,6 +250,7 @@ async function EmptyDashboard({
 
   return (
     <div className="space-y-6">
+      <p className="font-semibold text-3xl tracking-tight">{t("welcome")}</p>
       <div className="space-y-1">
         <h1 className="font-semibold text-2xl tracking-tight">{t("title")}</h1>
         {companyName ?

@@ -228,6 +228,7 @@
     }
   },
   "dashboard": {
+    "welcome": "Bienvenido a la Herramienta Huella de Carbono",
     "title": "Tablero",
     "subtitle": "Huella de carbono · {facility} · Año {year}",
     "subtitleAllFacilities": "Todas las sedes",

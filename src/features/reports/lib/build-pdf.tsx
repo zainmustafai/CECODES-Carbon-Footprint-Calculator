@@ -1,6 +1,16 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { Document, Image, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  renderToBuffer,
+  Svg,
+  Path,
+} from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
 import { buildIsoGasTable } from "./iso-gas-table";
@@ -114,20 +124,11 @@ const styles = StyleSheet.create({
   kpiLabel: { fontSize: 8, color: "#666", textTransform: "uppercase" },
   kpiValue: { fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 },
   kpiPct: { fontSize: 8, color: "#666", marginTop: 1 },
-  barTrack: {
-    flexDirection: "row",
-    height: 10,
-    borderRadius: 3,
-    overflow: "hidden",
-    marginTop: 10,
-    backgroundColor: "#eee",
-  },
-  legendRow: { flexDirection: "row", gap: 14, marginTop: 6 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
   legendSwatch: { width: 8, height: 8, borderRadius: 2 },
   legendText: { fontSize: 8, color: "#666" },
-  // A compact "panorama" bar row: label + value on top, a thin proportional track below - the
-  // same visual language as barTrack above, one row per category/gas instead of one bar total.
+  // A compact "panorama" bar row: label + value on top, a thin proportional track below - one
+  // row per category/gas, each track's fill width standing in for a bar chart.
   dashRow: { marginTop: 8 },
   dashRowHead: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
   dashRowLabel: { fontSize: 9 },
@@ -180,6 +181,97 @@ const styles = StyleSheet.create({
   },
 });
 
+// Arc math for the scope donut below: same geometry Recharts' <Pie> uses in the live dashboard
+// (scope-donut.tsx), redrawn with plain SVG since react-pdf has no charting library server-side.
+const DONUT_SIZE = 110;
+const DONUT_INNER_RATIO = 0.62;
+
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function donutSlicePath(
+  cx: number,
+  cy: number,
+  outerR: number,
+  innerR: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  const outerStart = polarToCartesian(cx, cy, outerR, startAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerR, endAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerR, endAngle);
+  const innerStart = polarToCartesian(cx, cy, innerR, startAngle);
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}`,
+    "Z",
+  ].join(" ");
+}
+
+/** The scope breakdown as an actual donut (not a bar) - client feedback 2026-08-28: the PDF
+ *  should look like the real dashboard, not a stand-in for it. */
+function ScopeDonutChart({
+  slices,
+  total,
+}: {
+  slices: { scope: string; tonnes: number }[];
+  total: number;
+}) {
+  const nonZero = slices.filter((s) => s.tonnes > 0);
+  const cx = DONUT_SIZE / 2;
+  const cy = DONUT_SIZE / 2;
+  const outerR = DONUT_SIZE / 2;
+  const innerR = outerR * DONUT_INNER_RATIO;
+
+  // A single 100% slice degenerates the arc math (start === end), so cap it just short of a
+  // full circle rather than special-casing a plain <Circle> ring.
+  const sweeps = nonZero.map((s) =>
+    nonZero.length === 1 ? 359.99 : total > 0 ? (s.tonnes / total) * 360 : 0,
+  );
+  // Cumulative start angle per slice, computed from the sweeps above rather than a mutated
+  // running total, since this is a component function and React Compiler forbids that.
+  const starts = sweeps.reduce<number[]>((acc, sweep, i) => {
+    acc.push(i === 0 ? 0 : acc[i - 1] + sweeps[i - 1]);
+    return acc;
+  }, []);
+  const paths = nonZero.map((s, i) => ({
+    scope: s.scope,
+    color: SCOPE_COLOR[s.scope],
+    d: donutSlicePath(cx, cy, outerR, innerR, starts[i], starts[i] + sweeps[i]),
+  }));
+
+  return (
+    <View style={{ width: DONUT_SIZE, height: DONUT_SIZE }}>
+      <Svg width={DONUT_SIZE} height={DONUT_SIZE} viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`}>
+        {paths.map((p) => (
+          <Path key={p.scope} d={p.d} fill={p.color} />
+        ))}
+      </Svg>
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: DONUT_SIZE,
+          height: DONUT_SIZE,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: BRAND_NAVY }}>
+          {tonnesFmt.format(total)}
+        </Text>
+        <Text style={{ fontSize: 6.5, color: "#888" }}>t CO2e total</Text>
+      </View>
+    </View>
+  );
+}
+
 function KeyVal({ k, v }: { k: string; v: string }) {
   return (
     <View style={{ flexDirection: "row", marginBottom: 2 }}>
@@ -190,7 +282,7 @@ function KeyVal({ k, v }: { k: string; v: string }) {
 }
 
 // One row of the "Panorama" dashboard summary: label + value, then a thin bar proportional to
-// the row's share of `total`. Reuses the same width-as-percentage technique as styles.barTrack.
+// the row's share of `total` (width-as-percentage, the same technique dashRowFill uses).
 function DashRow({
   label,
   tonnes,
@@ -293,28 +385,20 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           ))}
         </View>
 
-        <View style={styles.barTrack}>
-          {vm.byScope.map((s) => (
-            <View
-              key={s.scope}
-              style={{
-                width: `${pctOf(s.tonnes)}%`,
-                backgroundColor: SCOPE_COLOR[s.scope],
-              }}
-            />
-          ))}
-        </View>
-        <View style={styles.legendRow}>
-          {vm.byScope.map((s) => (
-            <View key={s.scope} style={styles.legendItem}>
-              <View
-                style={[styles.legendSwatch, { backgroundColor: SCOPE_COLOR[s.scope] }]}
-              />
-              <Text style={styles.legendText}>
-                {SCOPE_LABEL[s.scope]} - {tonnesFmt.format(pctOf(s.tonnes))}%
-              </Text>
-            </View>
-          ))}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 20, marginTop: 14 }}>
+          <ScopeDonutChart slices={vm.byScope} total={total} />
+          <View style={{ flex: 1 }}>
+            {vm.byScope.map((s) => (
+              <View key={s.scope} style={styles.legendItem}>
+                <View
+                  style={[styles.legendSwatch, { backgroundColor: SCOPE_COLOR[s.scope] }]}
+                />
+                <Text style={styles.legendText}>
+                  {SCOPE_LABEL[s.scope]} - {t(s.tonnes)} - {tonnesFmt.format(pctOf(s.tonnes))}%
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={{ marginTop: 14 }}>
