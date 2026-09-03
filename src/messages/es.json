@@ -267,6 +267,14 @@
       "allCategories": "Todas",
       "clear": "Limpiar"
     },
+    "companyHeader": {
+      "eyebrow": "Empresa",
+      "sector": "Sector",
+      "period": "Período",
+      "facilities": "Sedes",
+      "userGuide": "Descargar guía de usuario",
+      "edit": "Editar perfil"
+    },
     "downloadView": {
       "button": "Descargar vista como PDF"
     },

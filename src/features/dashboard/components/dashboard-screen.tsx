@@ -17,6 +17,7 @@ import { YearComparison } from "./year-comparison";
 import { MetaVsReal } from "./meta-vs-real";
 import { IntroGuide } from "./intro-guide";
 import { DownloadViewButton } from "./download-view-button";
+import { CompanyHeader } from "./company-header";
 
 type DashboardScreenProps = {
   companyId?: string | null;
@@ -69,6 +70,16 @@ export async function DashboardScreen({
   return (
     <div className="space-y-6">
       <p className="font-semibold text-3xl tracking-tight">{t("welcome")}</p>
+
+      {/* The company's own information leads the page - client feedback 2026-09-03: "the first
+          thing the user will visualize is their information". */}
+      <CompanyHeader
+        companyName={vm.company.name}
+        sector={vm.company.sector}
+        year={current.year}
+        facilityCount={vm.facilities.length}
+        companyProfileHref={companyProfileHref}
+      />
 
       <IntroGuide />
 
@@ -146,7 +157,7 @@ export async function DashboardScreen({
         ("when filtering by any scope, the total carbon footprint is duplicated"), so the card is
         gone; the filter still narrows the KPI, the categories, the gases and the Pareto.
       */}
-      <div className="gap-6 grid lg:grid-cols-2">
+      <div className="gap-6 grid lg:grid-cols-2 [&>*]:min-w-0">
         <ScopeDonut slices={current.byScope} total={current.yearTotal} />
         <CategoryBars slices={current.byCategory} />
       </div>
@@ -166,7 +177,7 @@ export async function DashboardScreen({
       {vm.bySede.length >= 2 ? <SedeBars sedes={vm.bySede} /> : null}
 
       {/* Year comparison + meta */}
-      <div className="gap-6 grid lg:grid-cols-2">
+      <div className="gap-6 grid lg:grid-cols-2 [&>*]:min-w-0">
         <YearComparison totals={vm.yearComparison} currentYear={current.year} />
         <MetaVsReal target={vm.companyTarget} companyProfileHref={companyProfileHref} />
       </div>

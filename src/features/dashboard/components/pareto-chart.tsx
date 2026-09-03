@@ -154,10 +154,10 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
 }
 
 /**
- * The numbers under the chart, as rows rather than a legend: the client's own Excel prints a
- * "ton CO2e" row and a "% acumulado" row beneath the bars, and reading a Pareto without them means
- * eyeballing a bar against an axis. Scrolls horizontally on its own so a long element list never
- * widens the page.
+ * The numbers under the chart. The client's Excel prints them as two wide rows, one column per
+ * element, which reads fine on a spreadsheet and badly on a page: with twenty-odd sources it
+ * forces the reader sideways. Transposed to one row per element it carries the identical numbers,
+ * ranks top to bottom the way the chart already does, and never needs a horizontal scrollbar.
  */
 function ParetoTable({
   data,
@@ -174,54 +174,49 @@ function ParetoTable({
     format.number(value, { maximumFractionDigits: digits, minimumFractionDigits: digits });
 
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-max border-collapse text-xs">
-        <caption className="sr-only">{t("title")}</caption>
-        <thead>
-          <tr>
-            <th scope="col" className="sr-only">
-              {t("elementColumn")}
+    <table className="mt-4 w-full border-collapse text-xs">
+      <caption className="sr-only">{t("title")}</caption>
+      <thead>
+        <tr className="border-b">
+          <th scope="col" className="py-1.5 pr-3 text-left font-medium text-muted-foreground">
+            {t("elementColumn")}
+          </th>
+          <th scope="col" className="py-1.5 pl-3 text-right font-medium text-muted-foreground">
+            {tUnit("tCo2e")}
+          </th>
+          <th scope="col" className="py-1.5 pl-3 text-right font-medium text-muted-foreground">
+            {t("cumulative")}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((d) => (
+          <tr key={d.element} className="border-b last:border-0">
+            <th
+              scope="row"
+              className={`py-1.5 pr-3 text-left font-normal ${
+                d.isVitalFew ? "font-medium text-chart-2" : ""
+              }`}
+            >
+              {d.element}
             </th>
-            {data.map((d) => (
-              <th
-                key={d.element}
-                scope="col"
-                className="border-b px-2 py-1.5 text-left font-medium text-muted-foreground"
-              >
-                {d.element}
-              </th>
-            ))}
+            <td
+              className={`py-1.5 pl-3 text-right font-mono tabular-nums ${
+                d.isVitalFew ? "font-semibold text-chart-2" : ""
+              }`}
+            >
+              {num(d.tonnes, 1)}
+            </td>
+            <td
+              className={`py-1.5 pl-3 text-right font-mono tabular-nums ${
+                d.isVitalFew ? "font-semibold text-chart-2" : "text-muted-foreground"
+              }`}
+            >
+              {num(d.cumulativePct, 2)}%
+            </td>
           </tr>
-        </thead>
-        <tbody className="font-mono tabular-nums">
-          <tr>
-            <th scope="row" className="whitespace-nowrap py-1.5 pr-3 text-left font-medium">
-              {tUnit("tCo2e")}
-            </th>
-            {data.map((d) => (
-              <td
-                key={d.element}
-                className={`px-2 py-1.5 ${d.isVitalFew ? "font-semibold text-chart-2" : ""}`}
-              >
-                {num(d.tonnes, 1)}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th scope="row" className="whitespace-nowrap py-1.5 pr-3 text-left font-medium">
-              {t("cumulative")}
-            </th>
-            {data.map((d) => (
-              <td
-                key={d.element}
-                className={`px-2 py-1.5 ${d.isVitalFew ? "font-semibold text-chart-2" : ""}`}
-              >
-                {num(d.cumulativePct, 2)}%
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }

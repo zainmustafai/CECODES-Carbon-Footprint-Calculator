@@ -31,9 +31,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {t("skipToContent")}
       </a>
       <AppSidebar role={role} companyName={company?.name ?? null} />
-      <SidebarInset>
+      {/* min-w-0 is load-bearing: SidebarInset is a flex item, and a flex item's default
+          min-width:auto refuses to shrink below its content. Without it, any wide child (a data
+          table, a chart legend) widens the whole page instead of scrolling inside its own
+          overflow-x-auto container, and the entire dashboard gains a horizontal scrollbar. */}
+      <SidebarInset className="min-w-0">
         <AppTopbar email={appUser?.email} role={role} companyName={company?.name ?? null} />
-        <div id="main-content" tabIndex={-1} className="flex-1 p-6 lg:p-8">
+        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-6 lg:p-8">
           {children}
         </div>
       </SidebarInset>
