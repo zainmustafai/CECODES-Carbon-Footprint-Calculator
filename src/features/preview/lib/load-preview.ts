@@ -368,6 +368,10 @@ type CompanyElementMeta = {
   unit: string;
   quantity: number;
   secondaryQuantity: number;
+  /** How many routes this element carries across every sede. Only the count is used: with routes,
+   *  `quantity` already holds the sum of their products, so formatEnteredActivity keeps the
+   *  factor's whole unit rather than printing "8.400 ton x 1 km". */
+  tripCount: number;
   hasQuantity: boolean;
   factorValue: string | null;
   factorUnit: string | null;
@@ -525,6 +529,10 @@ export async function loadCompanyWidePreview(
         unit: entry.unit,
         quantity: 0,
         secondaryQuantity: 0,
+        // How many routes the source carries, across every sede. Only the count matters: with
+        // routes, value already holds the sum of their products, so the labels must name the
+        // factor's whole unit instead of reading "8.400 ton x 1 km".
+        tripCount: 0,
         hasQuantity: false,
         // Scope 2 is priced by the national grid factor, not by a factor on the row - same rule
         // buildReportFromEntries applies.
@@ -555,6 +563,9 @@ export async function loadCompanyWidePreview(
     }
     if (entry.secondaryValue !== null) {
       m.secondaryQuantity += toNumber(entry.secondaryValue.toString());
+    }
+    if (entry.trips.length > 0) {
+      m.tripCount += entry.trips.length;
     }
   }
 
@@ -620,6 +631,7 @@ export async function loadCompanyWidePreview(
       value: m.quantity,
       secondaryValue: m.secondaryQuantity,
       unit: m.unit,
+      tripCount: m.tripCount,
     });
 
     const source: PreviewSourceRow = {

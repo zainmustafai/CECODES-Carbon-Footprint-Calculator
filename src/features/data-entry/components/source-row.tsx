@@ -81,7 +81,12 @@ export function SourceRow({
           <div className="min-w-0 flex-1">{identity}</div>
           {actions}
         </div>
+        {/* Keyed by the entry. The field seeds its rows from props ONCE and deliberately does
+            not re-sync them, so that a server refresh cannot discard what the user is typing.
+            Without a key React would reconcile by position and hand one source's rows to a
+            different source after a year or filter change; the key makes it remount instead. */}
         <TransportTripsField
+          key={cell.entryId}
           cell={cell}
           unit={source.unit}
           element={source.element}
