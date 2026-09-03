@@ -497,7 +497,7 @@
       "subtitle": "Registra un renglón por ruta o viaje. La herramienta multiplica cada renglón y suma los resultados.",
       "reference": "Referencia",
       "referencePlaceholder": "Ej. Bogotá - Cali",
-      "count": "Cantidad ({unit})",
+      "count": "Cantidad",
       "distance": "Distancia (km)",
       "note": "Observaciones",
       "add": "Agregar viaje",

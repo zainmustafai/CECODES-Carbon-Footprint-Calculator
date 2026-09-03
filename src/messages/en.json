@@ -497,7 +497,7 @@
       "subtitle": "Record one line per route or trip. The tool multiplies each line and adds the results.",
       "reference": "Reference",
       "referencePlaceholder": "e.g. Bogotá to Cali",
-      "count": "Quantity ({unit})",
+      "count": "Quantity",
       "distance": "Distance (km)",
       "note": "Notes",
       "add": "Add trip",
