@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildParetoSeries } from "../pareto";
+import { buildParetoSeries, paretoHighlightCount } from "../pareto";
 
 describe("buildParetoSeries", () => {
   it("climbs to 100% across many elements, matching the Excel reference shape", () => {
@@ -49,5 +49,33 @@ describe("buildParetoSeries", () => {
     expect(series[0].cumulativePct).toBeCloseTo(50, 6);
     expect(series[1].cumulativePct).toBeCloseTo(75, 6);
     expect(series[2].cumulativePct).toBeCloseTo(100, 6);
+  });
+});
+
+describe("paretoHighlightCount", () => {
+  const series = (...pcts: number[]) =>
+    pcts.map((cumulativePct, i) => ({ element: `E${i}`, tonnes: 1, cumulativePct }));
+
+  it("includes the element that crosses 85 percent, matching the client's own chart", () => {
+    // Their highlighted bars: 37,60 / 69,53 / 79,42 / 86,95 - four of them, the fourth being the
+    // one that crosses the line.
+    expect(paretoHighlightCount(series(37.6, 69.53, 79.42, 86.95, 91.83, 94.19, 100))).toBe(4);
+  });
+
+  it("highlights a single element that already covers everything", () => {
+    expect(paretoHighlightCount(series(100))).toBe(1);
+  });
+
+  it("highlights nothing when nothing was emitted", () => {
+    expect(paretoHighlightCount(series(0, 0, 0))).toBe(0);
+    expect(paretoHighlightCount([])).toBe(0);
+  });
+
+  it("treats an element landing exactly on the threshold as inside the vital few", () => {
+    expect(paretoHighlightCount(series(40, 85, 100))).toBe(2);
+  });
+
+  it("honours a caller-supplied threshold", () => {
+    expect(paretoHighlightCount(series(30, 55, 80, 100), 50)).toBe(2);
   });
 });

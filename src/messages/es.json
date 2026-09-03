@@ -297,13 +297,6 @@
       "title": "Emisiones por alcance",
       "totalCenter": "tCO2e total"
     },
-    "scopeDetail": {
-      "total": "Total del alcance filtrado",
-      "byCategory": "Por categoría",
-      "emptyCategory": "Sin categorías con datos para este filtro.",
-      "byElement": "Por elemento",
-      "emptyElement": "Sin fuentes de emisión con datos para este filtro."
-    },
     "byCategory": {
       "title": "Emisiones por categoría",
       "empty": "Sin categorías con datos para este filtro."
@@ -317,6 +310,7 @@
       "title": "Priorización de fuentes de emisión",
       "subtitle": "Barras: toneladas por fuente · Línea: % acumulado",
       "cumulative": "% acumulado",
+      "elementColumn": "Elemento",
       "empty": "Sin fuentes de emisión con datos para este filtro."
     },
     "monthly": {

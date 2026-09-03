@@ -22,9 +22,13 @@ export type NavLeaf = {
 
 // The company workspace. A company user sees it at the root; an admin sees the same
 // items nested under /admin/companies/[companyId]. The sidebar prepends the base.
+// Order is the client's, requested 2026-09-03: data entry comes first because it is where the
+// work starts, and the dashboard reads what it produced. This array IS the render order for both
+// roles, so the admin drill-down reorders with it. It does not move the post-login landing page,
+// which is /dashboard and is hardcoded elsewhere.
 export const WORKSPACE_ITEMS: NavLeaf[] = [
-  { key: "dashboard", segment: "dashboard", icon: LayoutDashboard },
   { key: "dataEntry", segment: "data-entry", icon: ClipboardList },
+  { key: "dashboard", segment: "dashboard", icon: LayoutDashboard },
   { key: "preview", segment: "preview", icon: Table2 },
   // Sedes (facilities) is managed inside the company page now, not as its own item.
   { key: "company", segment: "company", icon: Building },

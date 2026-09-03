@@ -92,9 +92,9 @@ export type DashboardFilters = {
 
 // The numbers for the selected year, after the scope/category refinement is applied to the
 // headline figure and the category chart. The monthly trend always shows the unfiltered year,
-// because Scope 2 is the only thing it ever plots. The scope donut is the same, UNLESS the scope
-// filter narrows to a proper subset of the three scopes (1 or 2 checked) - see dashboard-screen.tsx,
-// which then swaps it for ScopeDetailBars, built from byCategory/byElement below.
+// because Scope 2 is the only thing it ever plots, and so does the scope donut: with a filter
+// active the KPI card already states the filtered total, so a ring restricted to the checked
+// scope would repeat that number instead of breaking anything down.
 export type DashboardCurrent = {
   year: number;
   gwpSet: GwpSet;

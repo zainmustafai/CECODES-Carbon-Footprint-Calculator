@@ -18,7 +18,7 @@ import {
 import type { ReportVM, ResultRow } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
 import { buildIsoGasTable } from "./iso-gas-table";
-import { buildParetoSeries } from "@/features/dashboard/lib/pareto";
+import { buildParetoSeries, paretoHighlightCount } from "@/features/dashboard/lib/pareto";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
 // and the Excel export. It carries the same numbers the dashboard shows, because it is built from
@@ -47,6 +47,8 @@ const SCOPE_COLOR: Record<string, string> = {
   SCOPE_3: "#4c71b1",
 };
 const BRAND_NAVY = "#002060";
+// The Pareto's "vital few" highlight: the brand orange, matching --chart-2 on the dashboard.
+const PARETO_HIGHLIGHT = "#eb6428";
 
 // The running header is absolutely positioned, so the page's own top padding has to be derived
 // from these rather than guessed; see styles.page. Client feedback 2026-08-28: "Larger page" - A3
@@ -305,6 +307,10 @@ function ParetoChartPdf({
   elements: { element: string; scope: string; tonnes: number }[];
 }) {
   const series = buildParetoSeries(elements);
+  // Same rule the dashboard paints: one colour for everything, orange only for the vital few up
+  // to the 85% crossing. Computed over the FULL series even though only the top bars are drawn,
+  // so the highlight means the same thing in both places.
+  const highlighted = paretoHighlightCount(series);
   const top = series.slice(0, PARETO_MAX);
   const plotWidth = CONTENT_WIDTH - PARETO_LEFT_AXIS - PARETO_RIGHT_AXIS;
   const plotHeight = PARETO_HEIGHT - PARETO_TOP - PARETO_BOTTOM_LABELS;
@@ -320,7 +326,7 @@ function ParetoChartPdf({
     return {
       element: p.element,
       tonnes: p.tonnes,
-      scope: elements[i].scope,
+      isVitalFew: i < highlighted,
       cx,
       barHeight,
       lineY,
@@ -380,7 +386,7 @@ function ParetoChartPdf({
             y={baseY - p.barHeight}
             width={barWidth}
             height={Math.max(p.barHeight, p.tonnes > 0 ? 1 : 0)}
-            fill={SCOPE_COLOR[p.scope]}
+            fill={p.isVitalFew ? PARETO_HIGHLIGHT : BRAND_NAVY}
             rx={2}
           />
         ))}

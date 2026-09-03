@@ -8,7 +8,6 @@ import { loadDashboard } from "../lib/dashboard-data";
 import { DashboardFilters } from "./dashboard-filters";
 import { KpiCards } from "./kpi-cards";
 import { ScopeDonut } from "./scope-donut";
-import { ScopeDetailBars } from "./scope-detail-bars";
 import { CategoryBars } from "./category-bars";
 import { GasBars } from "./gas-bars";
 import { ParetoChart } from "./pareto-chart";
@@ -66,11 +65,6 @@ export async function DashboardScreen({
   const facilityName =
     vm.facilities.find((f) => f.id === vm.filters.facilityId)?.name ??
     t("subtitleAllFacilities");
-
-  // See the comment above the scope+category grid below for why 1 or 2 checked scopes swaps in
-  // ScopeDetailBars, while 0 (no filter) or all 3 (equivalent to no filter) keep the donut.
-  const showScopeDetail =
-    vm.filters.scope.length > 0 && vm.filters.scope.length < SCOPES.length;
 
   return (
     <div className="space-y-6">
@@ -141,29 +135,19 @@ export async function DashboardScreen({
       />
 
       {/*
-        Scope + category. The donut is the full three-way breakdown, so it only earns its place
-        when the user hasn't narrowed the scope filter at all - OR has checked all three, which
-        is the same thing stated differently. Anywhere in between (1 or 2 scopes checked), showing
-        a ring that includes the very scope(s) just excluded is not a breakdown, it's noise, so
-        ScopeDetailBars takes the donut's place instead: a plain total for exactly what's checked,
-        plus the SAME current.byCategory/byElement CategoryBars and the Pareto chart already use,
-        redrawn as two column charts (the shape the client's own reference workbook uses,
-        chart11.xml/chart12.xml). This is the generalization of the original single-scope ask
-        ("please check if it's possible to filter selecting 2 scopes, not only one") to N scopes:
-        the detail view always matches the checked subset exactly, and only degenerates back to
-        the donut at the two extremes where a subset isn't really a filter.
+        Scope + category. The donut always shows the year's FULL three-way split, including when a
+        scope filter is active: with a filter on, the KPI card above already states the filtered
+        total and names the scope, so a ring showing only the checked scope would be a second copy
+        of that same number rather than a breakdown.
+
+        It used to swap in a ScopeDetailBars card here instead, which printed current.total a
+        second time and redrew byCategory and byElement that CategoryBars and the Pareto chart
+        render on this very screen. That is the duplication the client reported on 2026-09-03
+        ("when filtering by any scope, the total carbon footprint is duplicated"), so the card is
+        gone; the filter still narrows the KPI, the categories, the gases and the Pareto.
       */}
       <div className="gap-6 grid lg:grid-cols-2">
-        {showScopeDetail ? (
-          <ScopeDetailBars
-            scopes={vm.filters.scope}
-            total={current.total}
-            byCategory={current.byCategory}
-            byElement={current.byElement}
-          />
-        ) : (
-          <ScopeDonut slices={current.byScope} total={current.yearTotal} />
-        )}
+        <ScopeDonut slices={current.byScope} total={current.yearTotal} />
         <CategoryBars slices={current.byCategory} />
       </div>
 

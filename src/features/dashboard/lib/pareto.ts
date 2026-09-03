@@ -29,3 +29,31 @@ export function buildParetoSeries(
     };
   });
 }
+
+/**
+ * The share of the footprint that counts as the "vital few" in a Pareto reading. The client's own
+ * Excel highlights exactly this set (see the chart in their 2026-09-03 feedback).
+ */
+export const PARETO_HIGHLIGHT_PCT = 85;
+
+/**
+ * How many of the leading elements to highlight: every element whose cumulative share is still
+ * below the threshold, PLUS the one that first reaches it. The client's chart makes that inclusion
+ * explicit - their four highlighted bars run 37,60 / 69,53 / 79,42 / 86,95, so the element that
+ * crosses 85 is coloured, not the last one under it.
+ *
+ * Zero when nothing has been emitted at all, so a chart of zeroes is not painted entirely as the
+ * vital few.
+ */
+export function paretoHighlightCount(
+  series: ParetoPoint[],
+  threshold: number = PARETO_HIGHLIGHT_PCT,
+): number {
+  if (series.length === 0) return 0;
+  if (series[series.length - 1].cumulativePct <= 0) return 0;
+
+  const crossing = series.findIndex((point) => point.cumulativePct >= threshold);
+  // No element reaches the threshold (possible only with negative tonnes in the tail): treat the
+  // whole series as the vital few rather than silently highlighting none.
+  return crossing === -1 ? series.length : crossing + 1;
+}

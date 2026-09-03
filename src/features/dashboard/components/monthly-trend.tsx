@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -11,8 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonthlyPoint } from "../lib/types";
 
 // The monthly trend, which by the domain rules is Scope 2 (electricity) only: it is the one
-// thing captured month by month. A month nobody reported is a gap, not a zero, so the area
+// thing captured month by month. A month nobody reported is a gap, not a zero, so the line
 // breaks rather than implying the plant went dark.
+//
+// Line and points, not an area: client feedback 2026-09-03, "not an area graph, please use a
+// line and points chart, not a continuous line". The visible dot per reported month is what makes
+// an isolated month readable at all, since a single point with gaps either side draws no segment.
 export function MonthlyTrend({ points, year }: { points: MonthlyPoint[]; year: number }) {
   const t = useTranslations("dashboard.monthly");
   const tMonths = useTranslations("dashboard.months");
@@ -43,13 +47,7 @@ export function MonthlyTrend({ points, year }: { points: MonthlyPoint[]; year: n
             config={{ tonnes: { label: t("subtitle"), color: "var(--chart-1)" } }}
             className="aspect-16/6 w-full"
           >
-            <AreaChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
-              <defs>
-                <linearGradient id="monthlyFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-tonnes)" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="var(--color-tonnes)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <LineChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="month"
@@ -78,18 +76,18 @@ export function MonthlyTrend({ points, year }: { points: MonthlyPoint[]; year: n
                   />
                 }
               />
-              <Area
+              <Line
                 dataKey="tonnes"
-                type="monotone"
+                type="linear"
                 stroke="var(--color-tonnes)"
                 strokeWidth={2}
-                fill="url(#monthlyFill)"
+                // A gap stays a gap: never join across a month nobody reported.
                 connectNulls={false}
                 isAnimationActive={false}
-                dot={false}
-                activeDot={{ r: 4 }}
+                dot={{ r: 3, fill: "var(--color-tonnes)", strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
               />
-            </AreaChart>
+            </LineChart>
           </ChartContainer>
         ) : (
           <div className="flex aspect-16/6 items-center justify-center rounded-lg border border-dashed">
