@@ -949,6 +949,8 @@
         "co2eFactorCop": "Factor CO2e por COP",
         "co2eFactorUsd": "Factor CO2e por USD",
         "gasType": "Gas (del factor CO2e consolidado)",
+        "entryMode": "Modo de ingreso",
+        "fuelType": "Combustible del subsidio",
         "factorUnit": "Unidad del factor",
         "source": "Fuente bibliográfica",
         "gwpSet": "Fuente GWP",

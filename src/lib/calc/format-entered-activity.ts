@@ -26,11 +26,14 @@ export type EnteredActivity = {
   /** Unit for `secondaryValue`, or null when there is no second number to label. */
   secondaryUnit: string | null;
   /**
-   * How many trip rows the source carries, present ONLY when it has some. `value` is then the sum
-   * of their products and `unit` is the factor's whole unit, so the render layer labels the count
-   * with `calc.enteredActivity.trips` (a plural message taking `count`) and prints the total
-   * beside it: "3 viajes, 8.400 ton * km". Absent for every other entry, which keeps the shape
-   * unchanged for the callers that never see trips.
+   * How many routes the source carries, present ONLY when it has some.
+   *
+   * The important effect is on the OTHER fields, not on this one: with routes, `value` is already
+   * the sum of their products, so `unit` becomes the factor's WHOLE unit and `secondaryValue`
+   * becomes null. Every existing render layer therefore prints "8.400 ton * km" with no change
+   * of its own, instead of the meaningless "8.400 ton x 1 km" the count-and-distance labels would
+   * produce. This field is here for a render layer that wants to say how many routes there were;
+   * ignoring it is correct and is what the current ones do.
    */
   tripCount?: number;
 };

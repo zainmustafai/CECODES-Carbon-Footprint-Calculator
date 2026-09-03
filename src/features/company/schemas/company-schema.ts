@@ -53,16 +53,18 @@ export function companyProfileSchema(t: T) {
     // An empty string is a legitimate "no contact", not an invalid email.
     contactEmail: z.union([z.email(t("emailInvalid")), z.literal("")]).optional(),
     // The six profile fields stay strings in the form; the server null-ifies "" and coerces
-    // the count, so the input and the schema output never diverge here.
-    nit: z.string().trim().max(50),
+    // the count, so the input and the schema output never diverge here. Every length limit
+    // carries its own message: Zod's default is English prose, which would surface untranslated
+    // in a Spanish UI the moment someone pasted a long address.
+    nit: z.string().trim().max(50, t("tooLong")),
     employeeCount: z
       .string()
       .trim()
       .refine((value) => value === "" || /^\d{1,9}$/.test(value), t("employeeCountInvalid")),
-    contactName: z.string().trim().max(120),
-    contactRole: z.string().trim().max(120),
-    contactPhone: z.string().trim().max(40),
-    website: z.string().trim().max(200),
+    contactName: z.string().trim().max(120, t("tooLong")),
+    contactRole: z.string().trim().max(120, t("tooLong")),
+    contactPhone: z.string().trim().max(40, t("tooLong")),
+    website: z.string().trim().max(200, t("tooLong")),
   });
 }
 

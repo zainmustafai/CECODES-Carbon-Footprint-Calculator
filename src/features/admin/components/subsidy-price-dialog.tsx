@@ -100,6 +100,11 @@ export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
                 />
               )}
             />
+            {/* The year and the fuel are read-only while editing because together they ARE the
+                row's key. Two disabled controls with no explanation read as a bug, so say why. */}
+            {isEdit ? (
+              <p className="text-muted-foreground text-xs">{t("fuelLocked")}</p>
+            ) : null}
             <DecimalField
               label={t("price")}
               unit={t("priceUnit")}

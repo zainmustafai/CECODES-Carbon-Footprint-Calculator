@@ -949,6 +949,8 @@
         "co2eFactorCop": "CO2e factor per COP",
         "co2eFactorUsd": "CO2e factor per USD",
         "gasType": "Gas (for the pre-blended CO2e factor)",
+        "entryMode": "Entry mode",
+        "fuelType": "Subsidy fuel",
         "factorUnit": "Factor unit",
         "source": "Bibliographic source",
         "gwpSet": "GWP source",

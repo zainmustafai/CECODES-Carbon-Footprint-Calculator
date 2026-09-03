@@ -1,9 +1,10 @@
 import { z } from "zod";
 import {
-  DECIMAL_20_6,
   DECIMAL_30_10,
+  DECIMAL_MONEY_INPUT,
   isValidFactorValue,
   normalizeDecimalInput,
+  roundDecimalString,
 } from "@/lib/decimal-input";
 
 // Schemas for the admin factor library.
@@ -127,12 +128,15 @@ export const upsertSubsidyPriceInput = z
   .object({
     year: z.coerce.number().int().min(1990).max(2100),
     fuel: subsidyFuel,
-    // Decimal(20, 6). The two-decimal rule this replaced rejected the client's own national
-    // averages outright: their 2024 gasoline figure is 16046.315789473685.
+    // Decimal(20, 6) in the column, but the INPUT takes any number of decimals and is rounded
+    // here to fit. The two-decimal rule this replaced rejected CECODES's own national averages
+    // outright: their 2024 gasoline figure is 16046.315789473685, twelve decimals, and an admin
+    // has to be able to paste the number the client sent instead of truncating it by hand.
     pricePerGallonCop: z
       .string()
       .transform((value) => normalizeDecimalInput(value.trim()))
-      .refine((value) => DECIMAL_20_6.test(value), { message: "decimalInvalid" }),
+      .refine((value) => DECIMAL_MONEY_INPUT.test(value), { message: "decimalInvalid" })
+      .transform((value) => roundDecimalString(value, 6)),
     source: optionalString(200),
     mode: z.enum(["create", "edit"]).optional(),
   })
@@ -255,12 +259,14 @@ export function subsidyPriceFormSchema(t: T) {
     // Unlike `scope` in factorFormSchema this narrows safely: the Select always holds one of
     // the two values, so the form's input type never has to represent an unset "".
     fuel: subsidyFuel,
+    // Mirrors the server rule: the extra decimals are accepted here and rounded there, so
+    // pasting a spreadsheet average does not light up a validation error the admin cannot act on.
     pricePerGallonCop: z
       .string()
       .refine(
         (value) =>
           normalizeDecimalInput(value) !== "" &&
-          DECIMAL_20_6.test(normalizeDecimalInput(value)),
+          DECIMAL_MONEY_INPUT.test(normalizeDecimalInput(value)),
         t("decimalInvalid"),
       ),
     source: z.string().trim().max(200),

@@ -82,17 +82,29 @@ for (const model of MODELS) {
   for (const write of WRITES) prismaMock[model][write] = vi.fn();
 }
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: new Proxy(
-    {},
-    {
-      get: (_t, model: string) => {
-        if (model === "$transaction") return vi.fn();
-        return prismaMock[model];
-      },
+// $transaction has to be ONE stable spy that actually runs its callback, handing it the same
+// model mocks. It used to be a fresh vi.fn() per property access, which meant an action that does
+// all its writing inside a transaction (saveTransportTrips, addSource, the factor importer paths)
+// could have its guard deleted and expectNothingWritten() would still pass: the callback never
+// ran, so no write mock was ever touched and there was nothing to observe.
+const transactionMock = vi.fn(async (arg: unknown) =>
+  typeof arg === "function"
+    ? await (arg as (tx: unknown) => Promise<unknown>)(prismaProxy)
+    : // The array form resolves its operations; nothing here inspects the results.
+      await Promise.all(arg as Promise<unknown>[]),
+);
+
+const prismaProxy: unknown = new Proxy(
+  {},
+  {
+    get: (_t, model: string) => {
+      if (model === "$transaction") return transactionMock;
+      return prismaMock[model];
     },
-  ),
-}));
+  },
+);
+
+vi.mock("@/lib/prisma", () => ({ prisma: prismaProxy }));
 
 vi.mock("@/lib/auth/server", () => ({
   getAppUser: () => getAppUser(),
@@ -139,6 +151,8 @@ function allWriteMocks() {
 
 function expectNothingWritten() {
   for (const mock of allWriteMocks()) expect(mock).not.toHaveBeenCalled();
+  // An action that writes only inside a transaction must not even have opened one.
+  expect(transactionMock).not.toHaveBeenCalled();
   expect(supabaseCreateUser).not.toHaveBeenCalled();
   expect(supabaseDeleteUser).not.toHaveBeenCalled();
   expect(supabaseUpdateUserById).not.toHaveBeenCalled();
