@@ -104,6 +104,12 @@ export async function loadPreview(
         month: true,
         value: true,
         secondaryValue: true,
+        // The Resumen only needs to know a source HAS routes, but shapeEntries hands the whole
+        // TripVM to the cell, so the same shape is selected here as on the entry screen.
+        trips: {
+          select: { reference: true, count: true, distanceKm: true, note: true },
+          orderBy: { position: "asc" as const },
+        },
         emissionFactor: {
           select: {
             active: true,
@@ -179,6 +185,16 @@ export async function loadPreview(
     month: entry.month,
     value: entry.value === null ? "" : entry.value.toString(),
     secondaryValue: entry.secondaryValue === null ? "" : entry.secondaryValue.toString(),
+    // The routes behind a COUNT_TIMES_DISTANCE source. Only the COUNT is used downstream:
+    // saveTransportTrips stores the sum of their products in `value` and 1 in `secondaryValue`,
+    // so without knowing routes exist the Resumen would label the source "8.400 ton x 1 km"
+    // instead of "8.400 ton * km".
+    trips: entry.trips.map((trip) => ({
+      reference: trip.reference ?? "",
+      count: trip.count.toString(),
+      distanceKm: trip.distanceKm.toString(),
+      note: trip.note ?? "",
+    })),
     factorActive: entry.emissionFactor?.active ?? false,
     biogenic: entry.emissionFactor?.biogenic ?? false,
     entryMode: entry.emissionFactor?.entryMode ?? "QUANTITY",
@@ -278,6 +294,9 @@ export async function loadPreview(
             value: quantity,
             secondaryValue: secondaryQuantity,
             unit: source.unit,
+            // A Scope 3 source is annual, so its routes all hang off the single cell; summing is
+            // simply the shape-agnostic way to ask "how many routes does this source have".
+            tripCount: source.cells.reduce((n, cell) => n + cell.trips.length, 0),
           });
 
           return {

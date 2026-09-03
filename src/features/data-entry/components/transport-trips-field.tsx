@@ -39,7 +39,9 @@ function displayTotal(rows: TripDraft[]): number {
   let total = 0;
   for (const row of rows) {
     if (!isValidTripNumber(row.count) || !isValidTripNumber(row.distanceKm)) continue;
-    total += Number(normalizeDecimalInput(row.count)) * Number(normalizeDecimalInput(row.distanceKm));
+    const count = Number(normalizeDecimalInput(row.count));
+    const distance = Number(normalizeDecimalInput(row.distanceKm));
+    total += count * distance;
   }
   return total;
 }
@@ -75,7 +77,10 @@ export function TransportTripsField({
   );
 
   return (
-    <div className="grid gap-2 rounded-lg border bg-muted/30 p-3" aria-busy={isPending || undefined}>
+    <div
+      className="grid gap-2 rounded-lg border bg-muted/30 p-3"
+      aria-busy={isPending || undefined}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-xs font-medium text-muted-foreground">{t("title")}</h4>
         <Button size="sm" variant="outline" onClick={add} disabled={readOnly}>
@@ -104,8 +109,9 @@ export function TransportTripsField({
               const countBad = isMalformed(row.count);
               const distanceBad = isMalformed(row.distanceKm);
               // The route's own name if it has one, its position otherwise: with N rows on
-              // screen every field has to say WHICH route it belongs to out loud.
-              const routeName = row.reference.trim() || `${t("title")} ${index + 1}`;
+              // screen every field has to say WHICH route it belongs to out loud, and a screen
+              // reader landing on the fourth "Distancia" of the table needs more than the column.
+              const routeName = row.reference.trim() || `#${index + 1}`;
 
               return (
                 <TableRow key={row.key}>
@@ -186,7 +192,12 @@ export function TransportTripsField({
         <p className="text-xs text-destructive">{tv("valueFormat")}</p>
       ) : null}
 
-      <p className={cn("text-xs tabular-nums", complete.length > 0 ? "font-medium" : "text-muted-foreground")}>
+      <p
+        className={cn(
+          "text-xs tabular-nums",
+          complete.length > 0 ? "font-medium" : "text-muted-foreground",
+        )}
+      >
         {t("total", {
           count: complete.length,
           total: format.number(displayTotal(rows), { maximumFractionDigits: 2 }),

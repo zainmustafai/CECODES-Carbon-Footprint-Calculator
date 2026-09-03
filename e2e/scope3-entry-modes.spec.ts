@@ -51,13 +51,15 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
     // data correction relies on (prisma/fix-2026-08-15-scope3-entry-modes-demo-data.ts) - reading
     // it, never writing it, is the same convention fixture.ts already documents for the year's
     // real seeded grid electricity factor.
+    // Since 2026-09-03 the table holds one row per FUEL per year, so this pins the gasoline row:
+    // the demo company entry this spec drives is a gasoline subsidy.
     const priceRow = await client.query<{ pricePerGallonCop: string }>(
-      `SELECT "pricePerGallonCop" FROM transport_subsidy_prices WHERE year = $1`,
-      [E2E_YEAR],
+      `SELECT "pricePerGallonCop" FROM transport_subsidy_prices WHERE year = $1 AND fuel = $2`,
+      [E2E_YEAR, "GASOLINE"],
     );
     if (priceRow.rows.length === 0) {
       throw new Error(
-        `E2E requires a transport_subsidy_prices row for ${E2E_YEAR} (real seeded reference data); none found.`,
+        `E2E requires a GASOLINE transport_subsidy_prices row for ${E2E_YEAR} (real seeded reference data); none found.`,
       );
     }
     // Money = price x 24, so money / price always derives exactly 24 gallons, whatever the
@@ -174,9 +176,13 @@ test.describe("admin: transport-subsidy price CRUD", () => {
   test("adds, rejects a duplicate year, edits, and deletes a subsidy price", async ({ page }) => {
     await page.goto("/admin/factors?tab=subsidy");
 
-    await page.getByRole("button", { name: /agregar año/i }).click();
+    await page.getByRole("button", { name: /agregar precio/i }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel(/^año$/i).fill(String(E2E_SUBSIDY_YEAR));
+    // Radix Select, not a native <select>: click the trigger, then the option (same idiom as
+    // the sector and alcance pickers in admin-companies.spec.ts / admin-factors.spec.ts).
+    await dialog.getByRole("combobox", { name: /combustible/i }).click();
+    await page.getByRole("option", { name: "Gasolina" }).click();
     await dialog.getByLabel(/^precio$/i).fill("11000");
     // The "E2E" source prefix is what teardown sweeps this row by if this test crashes early.
     await dialog.getByLabel(/^fuente$/i).fill("E2E harness");
@@ -189,19 +195,21 @@ test.describe("admin: transport-subsidy price CRUD", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // Creating the same year again must be refused, not silently overwritten.
-    await page.getByRole("button", { name: /agregar año/i }).click();
+    await page.getByRole("button", { name: /agregar precio/i }).click();
     const duplicate = page.getByRole("dialog");
     await duplicate.getByLabel(/^año$/i).fill(String(E2E_SUBSIDY_YEAR));
+    await duplicate.getByRole("combobox", { name: /combustible/i }).click();
+    await page.getByRole("option", { name: "Gasolina" }).click();
     await duplicate.getByLabel(/^precio$/i).fill("12000");
     await duplicate.getByLabel(/^fuente$/i).fill("E2E harness duplicate");
     await duplicate.getByRole("button", { name: /guardar/i }).click();
-    await expect(duplicate.getByText(/ya existe un precio para ese año/i)).toBeVisible({
+    await expect(duplicate.getByText(/ya existe un precio para ese año y combustible/i)).toBeVisible({
       timeout: 15_000,
     });
     await page.keyboard.press("Escape");
     await expect(duplicate).toHaveCount(0);
 
-    // Edit it: the year stays read-only (it is the key), the price changes.
+    // Edit it: the year and the fuel stay read-only (together they are the key), the price changes.
     const row = page.getByRole("row", { name: new RegExp(String(E2E_SUBSIDY_YEAR)) });
     await row.getByRole("button", { name: /^editar/i }).click();
     const edit = page.getByRole("dialog");

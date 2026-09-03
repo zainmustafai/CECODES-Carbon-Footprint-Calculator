@@ -62,7 +62,8 @@ const ALIASES: Record<string, string> = {
 // and the library would stay quietly wrong. They are listed and left alone instead.
 const SUPERSEDING_MARKERS = ["correccion-km-1609"];
 
-// Only these columns are written. Any field NOT listed here keeps whatever the human decided.
+// The columns this script owns, in the order the plan prints them. Every other field, element,
+// subcategory and category above all, keeps whatever the human decided.
 const NUMERIC_FIELDS = [
   "co2Factor",
   "ch4Factor",
@@ -191,7 +192,8 @@ async function main() {
 
     if (!mapped) {
       unmatchedLines.push(
-        `  ${factor.scope} / ${factor.category} / ${factor.element} (${factor.unit})` +
+        `  ${factor.scope} / ${factor.category} / ${factor.subcategory ?? ""} / ` +
+          `${factor.element} (${factor.unit})` +
           (aliasElement ? ` [alias "${aliasElement}" did not match either]` : ""),
       );
       continue;
@@ -200,7 +202,9 @@ async function main() {
       aliasLines.push(`  "${factor.element}" <- workbook "${aliasElement}"`);
     }
 
-    const after: FactorSnapshot = {
+    // One object for both the comparison and the write, so the audit can never describe a
+    // different set of columns from the one that was actually written.
+    const values = {
       co2Factor: mapped.co2Factor,
       ch4Factor: mapped.ch4Factor,
       n2oFactor: mapped.n2oFactor,
@@ -211,7 +215,7 @@ async function main() {
       biogenic: mapped.biogenic,
       uncertaintyPct: mapped.uncertaintyPct,
     };
-    const diff = buildFactorDiff(factor, after);
+    const diff = buildFactorDiff(factor, values satisfies FactorSnapshot);
     if (isEmptyDiff(diff)) {
       unchanged += 1;
       continue;
@@ -224,20 +228,7 @@ async function main() {
 
     if (flags.apply) {
       await prisma.$transaction([
-        prisma.emissionFactor.update({
-          where: { id: factor.id },
-          data: {
-            co2Factor: mapped.co2Factor,
-            ch4Factor: mapped.ch4Factor,
-            n2oFactor: mapped.n2oFactor,
-            co2eFactor: mapped.co2eFactor,
-            gasType: mapped.gasType,
-            factorUnit: mapped.factorUnit,
-            source: mapped.source,
-            biogenic: mapped.biogenic,
-            uncertaintyPct: mapped.uncertaintyPct,
-          },
-        }),
+        prisma.emissionFactor.update({ where: { id: factor.id }, data: values }),
         prisma.emissionFactorChange.create({
           data: {
             factorId: factor.id,

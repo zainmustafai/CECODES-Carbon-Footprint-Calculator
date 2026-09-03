@@ -168,6 +168,9 @@ function buildReportFromEntries({
       factorUnit: string | null;
       quantity: number;
       secondaryQuantity: number;
+      /** How many routes the source carries, summed across its rows. Zero for every source that
+       *  is not a COUNT_TIMES_DISTANCE one, and for one entered before trip rows existed. */
+      tripCount: number;
       uncertaintyPct: string | null;
     }
   >();
@@ -183,6 +186,7 @@ function buildReportFromEntries({
     if (existing) {
       existing.quantity += quantity;
       existing.secondaryQuantity += secondaryQuantity;
+      existing.tripCount += entry.trips.length;
       continue;
     }
 
@@ -192,6 +196,7 @@ function buildReportFromEntries({
       entryMode: factor?.entryMode ?? "QUANTITY",
       quantity,
       secondaryQuantity,
+      tripCount: entry.trips.length,
       // Scope 2 is priced by the national grid factor, not by a factor on the row.
       factorValue:
         entry.scope === "SCOPE_2"
@@ -218,6 +223,10 @@ function buildReportFromEntries({
       value: m?.quantity ?? 0,
       secondaryValue: m?.secondaryQuantity ?? 0,
       unit: m?.unit ?? "",
+      // With routes, value is already the sum of their products and secondaryValue is 1, so the
+      // count-and-distance labels would print "8.400 ton x 1 km". Naming the route count makes
+      // formatEnteredActivity keep the whole unit instead.
+      tripCount: m?.tripCount ?? 0,
     });
     return {
       scope: element.scope,

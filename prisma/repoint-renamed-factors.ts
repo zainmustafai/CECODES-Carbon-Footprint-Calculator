@@ -99,13 +99,13 @@ type MovePlan = {
 // unique index on (reportingYearId, emissionFactorId) WHERE month IS NULL for the annual rows. So
 // a slot is a year plus a month, with the annual rows sharing one slot per year.
 function slotKey(reportingYearId: string, month: number | null): string {
-  return `${reportingYearId}|${month ?? "anual"}`;
+  return `${reportingYearId}|${month ?? "annual"}`;
 }
 
 function describeEntry(entry: EntryRow): string {
-  const where = entry.reportingYear.facility.name ?? "sede sin nombre";
-  const when = entry.month === null ? "anual" : `mes ${entry.month}`;
-  return `${entry.reportingYear.year} ${where} (${when}) = ${entry.value?.toString() ?? "sin dato"}`;
+  const where = entry.reportingYear.facility.name ?? "(unnamed sede)";
+  const when = entry.month === null ? "annual" : `month ${entry.month}`;
+  return `${entry.reportingYear.year} ${where} (${when}) = ${entry.value?.toString() ?? "not reported"}`;
 }
 
 async function main() {
@@ -181,12 +181,13 @@ async function printCandidates() {
   }
 
   const lines: string[] = [];
+  let candidates = 0;
   for (const group of groups.values()) {
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
         const a = group[i];
         const b = group[j];
-        if (a._count.entries > 0 === b._count.entries > 0) continue;
+        if ((a._count.entries > 0) === (b._count.entries > 0)) continue;
         const regrouped = a.element === b.element;
         if (!regrouped && !similarElements(a.element, b.element)) continue;
 
@@ -203,17 +204,15 @@ async function printCandidates() {
             `id=${current.id}  creado=${current.createdAt.toISOString().slice(0, 10)}`,
           `    { staleId: "${stale.id}", currentId: "${current.id}", why: "" },`,
         );
+        candidates += 1;
       }
     }
   }
 
-  console.log(`\n--- Candidate pairs (verify by hand, nothing here is acted on): ${lines.length / 4} ---`);
+  console.log(`\n--- Candidate pairs (verify by hand, nothing here is acted on): ${candidates} ---`);
   for (const line of lines) console.log(line);
 }
 
-// Accent- and punctuation-insensitive comparison of two element names. A rename usually keeps most
-// of the words ("Electricidad (Sistema Interconectado Nacional - SIN)" vs "SISTEMA INTERCONECTADO
-// NACIONAL - SIN"), so containment or a half-shared vocabulary is enough to make it worth a look.
 // The accents the factor library actually uses. Spelled out rather than stripped through NFD so
 // this file stays readable; anything else non-alphanumeric collapses to a space below anyway.
 const ACCENTS: Record<string, string> = {
@@ -238,6 +237,10 @@ function significantWords(text: string): Set<string> {
   return new Set(normalizeName(text).split(" ").filter((word) => word.length > 2));
 }
 
+// Accent- and punctuation-insensitive comparison of two element names. A rename usually keeps most
+// of the words ("Electricidad (Sistema Interconectado Nacional - SIN)" vs "SISTEMA INTERCONECTADO
+// NACIONAL - SIN"), so containment or a half-shared vocabulary is enough to make a pair worth a
+// look. This only decides what gets PRINTED; the operator decides what gets moved.
 function similarElements(a: string, b: string): boolean {
   const left = normalizeName(a);
   const right = normalizeName(b);
@@ -311,6 +314,17 @@ async function planPair(pair: Pair): Promise<MovePlan | null> {
   for (const entry of entries) {
     if (takenSlots.has(slotKey(entry.reportingYearId, entry.month))) conflicts.push(entry);
     else movable.push(entry);
+  }
+
+  // Idempotency: a pair already moved has nothing left to move, and re-running must not append a
+  // second audit row. A pair whose conflicts were resolved by hand since the last run DOES have
+  // entries left, so it is planned again on purpose.
+  const alreadyRepointed = await prisma.emissionFactorChange.count({
+    where: { factorId: current.id, changedByEmail: CHANGED_BY },
+  });
+  if (alreadyRepointed > 0 && movable.length === 0) {
+    console.log(`\n  SKIP (already re-pointed)  "${stale.element}" -> "${current.element}"`);
+    return null;
   }
 
   // Never downgrade a mode or a fuel someone deliberately set: only fill what the target is
@@ -443,6 +457,9 @@ async function applyPlan(plan: MovePlan) {
       },
     });
 
+    // The old row leaves the picker with its own audit row, exactly as import-factors.ts's starter
+    // and leftover cleanups do. "true"/"false" is how factor-diff's toComparable serializes a
+    // boolean, so the history renders this line like any hand edit.
     if (plan.deactivateStale) {
       await tx.emissionFactor.update({ where: { id: stale.id }, data: { active: false } });
       await tx.emissionFactorChange.create({
