@@ -4,6 +4,7 @@ import { AlertTriangle, Gauge, Info, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Scope } from "@/lib/generated/prisma/client";
+import { FACTOR_CORRECTION_APPLIED } from "@/lib/factor-correction";
 import { loadDashboard } from "../lib/dashboard-data";
 import { DashboardFilters } from "./dashboard-filters";
 import { KpiCards } from "./kpi-cards";
@@ -215,17 +216,19 @@ export async function DashboardScreen({
         </Note>
       : null}
 
-      {/* The factor library was reloaded from CECODES's official Emission Factors sheet on
-          2026-09-03, correcting 213 rows (mostly a missing division by 1.000 on the CH4 and N2O
-          columns). Totals are computed at read time, so every year restated itself the moment the
-          table changed. Anyone holding a report downloaded before that date will see different
-          numbers, so the reason is stated here rather than left to be discovered. */}
-      <Note
-        tone="muted"
-        icon={<Info className="size-4 text-muted-foreground" aria-hidden />}
-      >
-        {t("factorCorrectionNote")}
-      </Note>
+      {/* Shown only once the correction has actually been applied to the library. Totals are
+          computed at read time, so the moment the factor table changes every year restates
+          itself and anyone holding an earlier report sees different numbers; this says why.
+          Printing it BEFORE the correction has run would claim something untrue, which is why
+          it is gated on a flag rather than rendered unconditionally. */}
+      {FACTOR_CORRECTION_APPLIED ?
+        <Note
+          tone="muted"
+          icon={<Info className="size-4 text-muted-foreground" aria-hidden />}
+        >
+          {t("factorCorrectionNote")}
+        </Note>
+      : null}
     </div>
   );
 }

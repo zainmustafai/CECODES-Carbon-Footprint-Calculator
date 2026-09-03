@@ -16,6 +16,7 @@ import {
   Circle,
 } from "@react-pdf/renderer";
 import type { ReportVM, ResultRow } from "./types";
+import { FACTOR_CORRECTION_APPLIED } from "@/lib/factor-correction";
 import { formatGwpSource } from "@/lib/gwp";
 import { buildIsoGasTable } from "./iso-gas-table";
 import { buildIsoDeclaration, type IsoGasColumns } from "./iso-declaration";
@@ -984,19 +985,26 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
-        {/* Always rendered now: the factor-correction notice below has to reach every report,
-            including one for a year with no warnings of its own. Someone comparing this document
-            against an export from before 2026-09-03 needs to be told why the numbers moved. */}
+        {/* The section appears when it has something to say. The factor-correction line is one of
+            those things, but ONLY once the correction has actually been applied: printing it while
+            the library still holds the old values would tell the reader their numbers were
+            corrected when they were not. */}
+        {FACTOR_CORRECTION_APPLIED ||
+        vm.missingGridFactor ||
+        vm.biogenicCo2Tonnes > 0 ||
+        vm.unpricedCount > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle} minPresenceAhead={40}>
             Notas y advertencias
           </Text>
-          <Text style={styles.note}>
-            Los factores de emisión se corrigieron el 3 de septiembre de 2026 con la tabla oficial
-            de CECODES (hoja &quot;Emission Factors&quot;). Las cifras de todos los años se
-            recalculan con los factores corregidos, así que pueden diferir de reportes descargados
-            antes de esa fecha.
-          </Text>
+          {FACTOR_CORRECTION_APPLIED ? (
+            <Text style={styles.note}>
+              Los factores de emisión se corrigieron el 3 de septiembre de 2026 con la tabla
+              oficial de CECODES (hoja &quot;Emission Factors&quot;). Las cifras de todos los años
+              se recalculan con los factores corregidos, así que pueden diferir de reportes
+              descargados antes de esa fecha.
+            </Text>
+          ) : null}
           {vm.missingGridFactor ? (
             <Text style={styles.note}>
               Falta el factor de red eléctrica para {vm.year}: el Alcance 2 no incluye la
@@ -1017,6 +1025,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             </Text>
           ) : null}
         </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle} minPresenceAhead={130}>
