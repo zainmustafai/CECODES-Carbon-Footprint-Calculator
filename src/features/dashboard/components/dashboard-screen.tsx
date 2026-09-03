@@ -107,7 +107,7 @@ export async function DashboardScreen({
         : null}
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap justify-between items-end gap-3">
         <DashboardFilters
           basePath={basePath}
           filters={vm.filters}
@@ -157,7 +157,7 @@ export async function DashboardScreen({
         ("when filtering by any scope, the total carbon footprint is duplicated"), so the card is
         gone; the filter still narrows the KPI, the categories, the gases and the Pareto.
       */}
-      <div className="gap-6 grid lg:grid-cols-2 [&>*]:min-w-0">
+      <div className="gap-6 grid lg:grid-cols-2 *:min-w-0">
         <ScopeDonut slices={current.byScope} total={current.yearTotal} />
         <CategoryBars slices={current.byCategory} />
       </div>
@@ -168,18 +168,23 @@ export async function DashboardScreen({
 
       {/* Monthly trend is Scope 2 (electricity) only - showing it while the filter is narrowed
           to Alcance 1 and/or 3 (Scope 2 excluded) would draw a chart with nothing behind it. */}
-      {vm.filters.scope.length === 0 || vm.filters.scope.includes("SCOPE_2") ? (
+      {vm.filters.scope.length === 0 || vm.filters.scope.includes("SCOPE_2") ?
         <MonthlyTrend points={current.monthly} year={current.year} />
-      ) : null}
+      : null}
 
       {/* Emissions per sede, as in the client's Power BI reference. Only on the all-facilities
           view with at least two sedes reporting this year. */}
-      {vm.bySede.length >= 2 ? <SedeBars sedes={vm.bySede} /> : null}
+      {vm.bySede.length >= 2 ?
+        <SedeBars sedes={vm.bySede} />
+      : null}
 
       {/* Year comparison + meta */}
-      <div className="gap-6 grid lg:grid-cols-2 [&>*]:min-w-0">
+      <div className="gap-6 grid lg:grid-cols-2 *:min-w-0">
         <YearComparison totals={vm.yearComparison} currentYear={current.year} />
-        <MetaVsReal target={vm.companyTarget} companyProfileHref={companyProfileHref} />
+        <MetaVsReal
+          target={vm.companyTarget}
+          companyProfileHref={companyProfileHref}
+        />
       </div>
 
       {current.removalsTonnes !== 0 ?
