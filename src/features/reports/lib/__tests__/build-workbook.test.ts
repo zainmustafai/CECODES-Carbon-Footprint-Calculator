@@ -9,6 +9,16 @@ import type { ReportVM } from "../types";
 
 const base: ReportVM = {
   companyName: "Alimentos del Valle",
+  companyProfile: {
+    sector: null,
+    contactEmail: null,
+    nit: null,
+    employeeCount: null,
+    contactName: null,
+    contactRole: null,
+    contactPhone: null,
+    website: null,
+  },
   facilityName: "Planta Yumbo",
   year: 2024,
   gwpSet: "AR6",

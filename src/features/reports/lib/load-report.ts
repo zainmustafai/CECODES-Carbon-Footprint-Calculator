@@ -6,6 +6,22 @@ import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { ActivityRow, ReportVM, ResultRow, SedeTotal } from "./types";
 import { filterReportVM } from "./filter-report";
+import type { CompanyProfile } from "./types";
+
+/** The company header block. Only sector and contactEmail are stored today; the rest are declared
+ *  on CompanyProfile so the report renders them as soon as the columns exist. */
+function toCompanyProfile(company: { sector: string | null; contactEmail: string | null }): CompanyProfile {
+  return {
+    sector: company.sector,
+    contactEmail: company.contactEmail,
+    nit: null,
+    employeeCount: null,
+    contactName: null,
+    contactRole: null,
+    contactPhone: null,
+    website: null,
+  };
+}
 
 // Builds the export for one facility (or, when facilityId is null, an entire company) and
 // reporting year.
@@ -267,7 +283,10 @@ async function loadSingleFacilityReport(
   year: number,
 ): Promise<ReportVM | null> {
   const [company, facility, reportingYear] = await Promise.all([
-    prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true, sector: true, contactEmail: true },
+    }),
     // Scoped on companyId as well as id: never trust a facility id on its own.
     prisma.facility.findFirst({
       where: { id: facilityId, companyId },
@@ -321,6 +340,7 @@ async function loadSingleFacilityReport(
 
   return {
     companyName: company.name,
+    companyProfile: toCompanyProfile(company),
     facilityName: facility.name,
     year: reportingYear.year,
     gwpSet,
@@ -334,7 +354,10 @@ async function loadSingleFacilityReport(
 
 async function loadCompanyWideReport(companyId: string, year: number): Promise<ReportVM | null> {
   const [company, facilities, reportingYears] = await Promise.all([
-    prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true, sector: true, contactEmail: true },
+    }),
     prisma.facility.findMany({ where: { companyId }, select: { id: true, name: true } }),
     // @@unique([facilityId, year]) guarantees at most one row per facility for this year.
     prisma.reportingYear.findMany({
@@ -417,6 +440,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
 
   return {
     companyName: company.name,
+    companyProfile: toCompanyProfile(company),
     facilityName: null,
     year,
     gwpSet,

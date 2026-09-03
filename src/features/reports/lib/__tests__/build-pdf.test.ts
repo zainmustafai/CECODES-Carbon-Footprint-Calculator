@@ -30,10 +30,35 @@ const COLUMN_HEADINGS = new Set([
   "Práctica reportable",
   "Dato / Unidad",
   "Gas",
+  // The ISO 14064-1 declaration's twelve (or thirteen) columns. They are listed individually
+  // rather than matched loosely because react-pdf emits each WRAPPED line of a heading as its own
+  // text draw, so a heading that grows too wide for its column would silently start asserting
+  // against a fragment nobody wrote.
+  "Emisiones consolidadas",
+  "kg CO2",
+  "kg CH4 fósil",
+  "kg CH4 no fósil",
+  "kg N2O",
+  "kg HFCs",
+  "kg PFCs",
+  "kg SF6",
+  "kg NF3",
+  "kg s/ident.",
+  "kg CO2e",
 ]);
 
 const base: ReportVM = {
   companyName: "Alimentos del Valle",
+  companyProfile: {
+    sector: null,
+    contactEmail: null,
+    nit: null,
+    employeeCount: null,
+    contactName: null,
+    contactRole: null,
+    contactPhone: null,
+    website: null,
+  },
   facilityName: "Planta Yumbo",
   year: 2024,
   gwpSet: "AR6",
@@ -211,7 +236,6 @@ describe("buildPdf page layout", () => {
       "Emisiones por sede",
       "Emisiones por categoría",
       "Declaración consolidada GEI (ISO 14064-1)",
-      "Resumen por elemento",
       "Incertidumbre por elemento",
     ]);
 

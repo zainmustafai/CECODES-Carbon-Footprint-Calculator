@@ -97,8 +97,31 @@ export type SedeTotal = {
   incomplete: boolean;
 };
 
+/**
+ * The company's own details, printed as the report's header - client feedback 2026-09-03: the
+ * reader should see whose inventory this is before any number.
+ *
+ * Every field but the name is nullable because the company profile is optional data, and the
+ * header simply omits what has not been filled in. The fields beyond sector and contactEmail are
+ * declared here ahead of the columns that will store them, so the header renders them the moment
+ * they exist without the report having to change again.
+ */
+export type CompanyProfile = {
+  /** Sector SLUG as stored (see src/lib/sectors.ts); the report prints it verbatim, since the
+   *  export is Spanish regardless of UI locale and the slugs are already Spanish. */
+  sector: string | null;
+  contactEmail: string | null;
+  nit: string | null;
+  employeeCount: number | null;
+  contactName: string | null;
+  contactRole: string | null;
+  contactPhone: string | null;
+  website: string | null;
+};
+
 export type ReportVM = {
   companyName: string;
+  companyProfile: CompanyProfile;
   /** Null means "todas las sedes": a company-wide report, not one facility's. */
   facilityName: string | null;
   year: number;

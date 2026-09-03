@@ -18,6 +18,7 @@ import {
 import type { ReportVM, ResultRow } from "./types";
 import { formatGwpSource } from "@/lib/gwp";
 import { buildIsoGasTable } from "./iso-gas-table";
+import { buildIsoDeclaration, type IsoGasColumns } from "./iso-declaration";
 import { buildParetoSeries, paretoHighlightCount } from "@/features/dashboard/lib/pareto";
 
 // The PDF report (Requirements 10, 14.7). A human-readable summary, in Spanish to match the tool
@@ -84,6 +85,16 @@ const dateFmt = new Intl.DateTimeFormat("es-CO", {
 const t = (n: number) => `${tonnesFmt.format(n)} t CO2e`;
 
 const factorFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 6 });
+// Gas mass in kg: the declaration's own column format, matching the client's pivot (thousands
+// separated, two decimals).
+const massFmt = new Intl.NumberFormat("es-CO", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const pctFmt = new Intl.NumberFormat("es-CO", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
 const qtyFmt = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 3 });
 
 // Display-only, like build-workbook.ts's own num() helper: the Decimal string is never fed
@@ -127,6 +138,29 @@ const styles = StyleSheet.create({
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 16, fontFamily: "Helvetica-Bold", marginBottom: 8 },
   sectionSubtitle: { fontSize: 10, color: "#666", marginBottom: 8, marginTop: -4 },
+  // The ISO declaration is the one wide table in the document: 12 or 13 columns inside a 733.89pt
+  // content box, so it carries its own font size rather than inheriting the page's 13pt. react-pdf
+  // does not error on overflow, it just draws outside the box, so these numbers matter.
+  isoTh: { fontFamily: "Helvetica-Bold", fontSize: 6.5 },
+  isoLabel: { flex: 5.2, paddingRight: 4, fontSize: 6.5 },
+  isoNum: { flex: 1.45, textAlign: "right", paddingRight: 3, fontSize: 6.5 },
+  isoTotal: { flex: 1.7, textAlign: "right", paddingRight: 3, fontSize: 6.5 },
+  isoPct: { flex: 1, textAlign: "right", fontSize: 6.5 },
+  isoRow: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#eee",
+    paddingVertical: 2.5,
+    paddingHorizontal: 5,
+  },
+  companyHeader: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 5,
+    padding: 14,
+    marginBottom: 20,
+    backgroundColor: "#fafafa",
+  },
   kpiRow: { flexDirection: "row", gap: 12 },
   kpiBox: {
     flex: 1,
@@ -553,6 +587,57 @@ function DashRow({
   );
 }
 
+/**
+ * One line of the ISO declaration. The three levels read as a hierarchy through indentation and
+ * weight rather than through separate tables, exactly like the client's pivot: Alcance rows are
+ * bold and tinted, Categoría rows bold, Elemento rows plain and indented.
+ *
+ * Empty cells print "-" rather than a formatted zero, which is the client's own convention and
+ * the honest one: a refrigerant genuinely has no CO2 mass, it is not "0,00 kg of CO2".
+ */
+function IsoRow({
+  row,
+  hasUnidentified,
+}: {
+  row: { level: "scope" | "category" | "element" | "total"; label: string; gases: IsoGasColumns };
+  hasUnidentified: boolean;
+}) {
+  const isSubtotal = row.level !== "element";
+  const emphasis = isSubtotal ? { fontFamily: "Helvetica-Bold" as const } : {};
+  const background =
+    row.level === "scope" || row.level === "total" ? { backgroundColor: "#f4f5f7" } : {};
+  const indent =
+    row.level === "element" ? 16 : row.level === "category" ? 8 : 0;
+
+  const cell = (value: number) => (value === 0 ? "-" : massFmt.format(value));
+
+  const numbers = [
+    row.gases.co2Kg,
+    row.gases.ch4FossilKg,
+    row.gases.ch4NonFossilKg,
+    row.gases.n2oKg,
+    row.gases.hfcKg,
+    row.gases.pfcKg,
+    row.gases.sf6Kg,
+    row.gases.nf3Kg,
+    ...(hasUnidentified ? [row.gases.unidentifiedKg] : []),
+  ];
+
+  return (
+    <View style={[styles.isoRow, background]} wrap={false}>
+      <Text style={[styles.isoLabel, emphasis, { paddingLeft: indent }]}>{row.label}</Text>
+      {numbers.map((value, index) => (
+        <Text key={index} style={[styles.isoNum, emphasis]}>
+          {cell(value)}
+        </Text>
+      ))}
+      <Text style={[styles.isoTotal, emphasis]}>{massFmt.format(row.gases.co2eKg)}</Text>
+      <Text style={[styles.isoTotal, emphasis]}>{tonnesFmt.format(row.gases.tonnes)}</Text>
+      <Text style={[styles.isoPct, emphasis]}>{pctFmt.format(row.gases.pct)}%</Text>
+    </View>
+  );
+}
+
 function ReportDocument({ vm }: { vm: ReportVM }) {
   const facilityLabel = vm.facilityName ?? "Todas las sedes";
   const bySede = [...vm.bySede].sort((a, b) => b.tonnes - a.tonnes);
@@ -560,6 +645,9 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
   // The full (untruncated) category list, so this reconciles to totalTonnes exactly - unlike
   // `categories` above, which is capped at 14 rows for the "Emisiones por categoría" table.
   const isoGasTable = buildIsoGasTable(vm.byCategory);
+  // The ISO 14064-1 declaration, built from the element rows so it narrows with a filtered
+  // "download this view" report exactly as the rest of the numbers do.
+  const declaration = buildIsoDeclaration(vm.results);
   // The complete element-by-element reference, unlike the top-14-truncated category rollup
   // above: this table's entire purpose is being the detailed audit trail.
   const elements: ResultRow[] = [...vm.results].sort((a, b) => b.tonnes - a.tonnes);
@@ -623,6 +711,39 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           {vm.companyName} - {facilityLabel} - {vm.year}
         </Text>
 
+        {/* The company's own details lead the report - client feedback 2026-09-03: the reader
+            should see whose inventory this is before any number. */}
+        <View style={styles.companyHeader}>
+          <KeyVal k="Empresa" v={vm.companyName} />
+          {vm.companyProfile.nit ? <KeyVal k="NIT" v={vm.companyProfile.nit} /> : null}
+          {vm.companyProfile.sector ? <KeyVal k="Sector" v={vm.companyProfile.sector} /> : null}
+          <KeyVal k="Sede" v={facilityLabel} />
+          <KeyVal k="Período" v={String(vm.year)} />
+          {vm.companyProfile.employeeCount !== null ? (
+            <KeyVal k="Colaboradores" v={qtyFmt.format(vm.companyProfile.employeeCount)} />
+          ) : null}
+          {vm.companyProfile.contactName ? (
+            <KeyVal
+              k="Responsable"
+              v={
+                vm.companyProfile.contactRole
+                  ? `${vm.companyProfile.contactName} (${vm.companyProfile.contactRole})`
+                  : vm.companyProfile.contactName
+              }
+            />
+          ) : null}
+          {vm.companyProfile.contactEmail ? (
+            <KeyVal k="Correo" v={vm.companyProfile.contactEmail} />
+          ) : null}
+          {vm.companyProfile.contactPhone ? (
+            <KeyVal k="Teléfono" v={vm.companyProfile.contactPhone} />
+          ) : null}
+          {vm.companyProfile.website ? <KeyVal k="Sitio web" v={vm.companyProfile.website} /> : null}
+          <KeyVal k="Fuente GWP" v={formatGwpSource(vm.gwpSet)} />
+          <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
+          {hasAppliedFilters ? <KeyVal k="Filtros aplicados" v={appliedFiltersLabel} /> : null}
+        </View>
+
         <View style={styles.kpiRow}>
           <View style={[styles.kpiBox, { flex: 1.4, borderColor: BRAND_NAVY }]}>
             <Text style={styles.kpiLabel}>Huella total</Text>
@@ -660,17 +781,6 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
               </View>
             ))}
           </View>
-        </View>
-
-        <View style={{ marginTop: 14 }}>
-          <KeyVal k="Empresa" v={vm.companyName} />
-          <KeyVal k="Sede" v={facilityLabel} />
-          <KeyVal k="Año" v={String(vm.year)} />
-          <KeyVal k="Fuente GWP" v={formatGwpSource(vm.gwpSet)} />
-          <KeyVal k="Generado" v={dateFmt.format(vm.generatedAt)} />
-          {hasAppliedFilters ? (
-            <KeyVal k="Filtros aplicados" v={appliedFiltersLabel} />
-          ) : null}
         </View>
 
         {/* A compact visual panorama, ahead of the detailed tables below - client feedback
@@ -780,64 +890,44 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle} minPresenceAhead={100}>
+        <View style={styles.section} wrap>
+          <Text style={styles.sectionTitle} minPresenceAhead={110}>
             Declaración consolidada GEI (ISO 14064-1)
           </Text>
-          <Text style={styles.note}>
-            Resumen por gas de la misma huella reportada arriba (GHG Protocol / ISO 14064-1). No
-            es un cálculo nuevo: cada categoría ya trae su propio desglose por gas.
+          <Text style={styles.sectionSubtitle}>
+            Alcance, categoría y elemento, con la masa de cada gas. CO2, CH4 y N2O se reportan como
+            masa de gas (kg); HFCs, PFCs, SF6 y NF3 llegan de la biblioteca ya expresados en CO2e.
+            No es un cálculo nuevo: es la misma huella reportada arriba, abierta por gas.
           </Text>
           <View style={[styles.headRow, { marginTop: 6 }]} fixed>
-            <Text style={[styles.cellName, styles.th]}>Gas</Text>
-            <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
+            <Text style={[styles.isoLabel, styles.isoTh]}>Emisiones consolidadas</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg CO2</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg CH4 fósil</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg CH4 no fósil</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg N2O</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg HFCs</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg PFCs</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg SF6</Text>
+            <Text style={[styles.isoNum, styles.isoTh]}>kg NF3</Text>
+            {declaration.hasUnidentified ? (
+              <Text style={[styles.isoNum, styles.isoTh]}>kg s/ident.</Text>
+            ) : null}
+            <Text style={[styles.isoTotal, styles.isoTh]}>kg CO2e</Text>
+            <Text style={[styles.isoTotal, styles.isoTh]}>t CO2e</Text>
+            <Text style={[styles.isoPct, styles.isoTh]}>%</Text>
           </View>
-          {isoGasTable.map((row) => (
-            <View key={row.gas} style={styles.row} wrap={false}>
-              <Text style={styles.cellName}>{row.gas}</Text>
-              <Text style={styles.cellNum}>{t(row.tonnes)}</Text>
-            </View>
+          {declaration.rows.map((row, index) => (
+            <IsoRow
+              key={`${row.level}-${row.label}-${index}`}
+              row={row}
+              hasUnidentified={declaration.hasUnidentified}
+            />
           ))}
-          <View style={styles.row} wrap={false}>
-            <Text style={[styles.cellName, styles.th]}>TOTAL</Text>
-            <Text style={[styles.cellNum, styles.th]}>{t(total)}</Text>
-          </View>
+          <IsoRow
+            row={{ level: "total", label: "Total general", gases: declaration.total }}
+            hasUnidentified={declaration.hasUnidentified}
+          />
         </View>
-
-        {elements.length > 0 ? (
-          <View style={styles.section} wrap>
-            <Text style={styles.sectionTitle} minPresenceAhead={80}>
-              Resumen por elemento
-            </Text>
-            <View style={styles.headRow} fixed>
-              <Text style={[styles.resElement, styles.th]}>Elemento</Text>
-              <Text style={[styles.resCategory, styles.th]}>Categoría</Text>
-              <Text style={[styles.resScope, styles.th]}>Alcance</Text>
-              <Text style={[styles.resQty, styles.th]}>Cantidad</Text>
-              <Text style={[styles.resFactor, styles.th]}>Factor</Text>
-              <Text style={[styles.resTonnes, styles.th]}>t CO2e</Text>
-            </View>
-            {elements.map((r) => (
-              <View
-                key={`${r.scope}-${r.category}-${r.subcategory}-${r.element}`}
-                style={styles.row}
-                wrap={false}
-              >
-                <Text style={styles.resElement}>{r.element}</Text>
-                <Text style={styles.resCategory}>{r.category}</Text>
-                <Text style={styles.resScope}>{SCOPE_LABEL[r.scope]}</Text>
-                <Text style={styles.resQty}>
-                  {qtyFmt.format(r.quantity)} {r.unit}
-                  {r.secondaryQuantity !== null
-                    ? ` x ${qtyFmt.format(r.secondaryQuantity)} ${r.secondaryUnit}`
-                    : ""}
-                </Text>
-                <Text style={styles.resFactor}>{factorCell(r.factorValue, r.factorUnit)}</Text>
-                <Text style={styles.resTonnes}>{tonnesFmt.format(r.tonnes)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
 
         {vm.removals.rows.length > 0 ? (
           <View style={styles.section}>
@@ -894,36 +984,6 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle} minPresenceAhead={130}>
-            Incertidumbre por elemento
-          </Text>
-          <Text style={styles.note}>
-            Rango +/- del factor de emisión, por elemento. Un guion indica que la biblioteca no
-            registra incertidumbre para ese elemento. No se combina en un solo valor por alcance o
-            total: no existe un método acordado para hacerlo.
-          </Text>
-          <View style={[styles.headRow, { marginTop: 6 }]} fixed>
-            <Text style={[styles.cellName, styles.th]}>Elemento</Text>
-            <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
-            <Text style={[styles.cellNum, styles.th]}>Incertidumbre</Text>
-          </View>
-          {uncertainty.map((r) => (
-            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.row} wrap={false}>
-              <Text style={styles.cellName}>{r.element}</Text>
-              <Text style={styles.cellScope}>{SCOPE_LABEL[r.scope]}</Text>
-              <Text style={styles.cellNum}>
-                {r.uncertaintyPct === null ? "-" : `+/- ${r.uncertaintyPct}%`}
-              </Text>
-            </View>
-          ))}
-          {!anyUncertainty ? (
-            <Text style={styles.note}>
-              La biblioteca no registra incertidumbre para los elementos de este reporte.
-            </Text>
-          ) : null}
-        </View>
-
         {vm.missingGridFactor || vm.biogenicCo2Tonnes > 0 || vm.unpricedCount > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle} minPresenceAhead={40}>
@@ -950,6 +1010,41 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             ) : null}
           </View>
         ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} minPresenceAhead={130}>
+            Incertidumbre por elemento
+          </Text>
+          <Text style={styles.note}>
+            Rango +/- del factor de emisión, por elemento, junto al factor que lo valoró. Un guion
+            indica que la biblioteca no registra incertidumbre para ese elemento. No se combina en
+            un solo valor por alcance o total: no existe un método acordado para hacerlo.
+          </Text>
+          <View style={[styles.headRow, { marginTop: 6 }]} fixed>
+            <Text style={[styles.cellName, styles.th]}>Elemento</Text>
+            <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
+            {/* The factor lived in "Resumen por elemento" until that section was dropped
+                (client feedback 2026-09-03). It belongs beside its own uncertainty anyway, and
+                without it the report would carry no record of what priced each number. */}
+            <Text style={[styles.cellNum, styles.th]}>Factor</Text>
+            <Text style={[styles.cellNum, styles.th]}>Incertidumbre</Text>
+          </View>
+          {uncertainty.map((r) => (
+            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.row} wrap={false}>
+              <Text style={styles.cellName}>{r.element}</Text>
+              <Text style={styles.cellScope}>{SCOPE_LABEL[r.scope]}</Text>
+              <Text style={styles.cellNum}>{factorCell(r.factorValue, r.factorUnit)}</Text>
+              <Text style={styles.cellNum}>
+                {r.uncertaintyPct === null ? "-" : `+/- ${r.uncertaintyPct}%`}
+              </Text>
+            </View>
+          ))}
+          {!anyUncertainty ? (
+            <Text style={styles.note}>
+              La biblioteca no registra incertidumbre para los elementos de este reporte.
+            </Text>
+          ) : null}
+        </View>
 
         <Text
           style={styles.footer}
