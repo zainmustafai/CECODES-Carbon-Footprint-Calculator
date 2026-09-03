@@ -3,8 +3,8 @@
 **CECODES · Herramienta Huella de Carbono**
 Prepared 3 September 2026 · Source: `September-03-2026-COMMENTS.pdf`
 
-Thirteen points came out of your testing. **Twelve are working in the tool now.** One is ready
-and waiting on a date from you, because it changes stored numbers.
+Thirteen points came out of your testing. **All thirteen are working in the tool now**, including
+the emission factor correction, which was applied on 3 September 2026.
 
 ---
 
@@ -165,8 +165,7 @@ rows corrects the coefficient as well:
 The official table also moves 60 refrigerant CO₂e factors from AR5 to AR6, and divides 53 Alcance 3
 C1 spend based factors by 1.000.
 
-**This correction has not been applied yet.** It is section 3 below, and it is the one change that
-will move your totals.
+**This correction has now been applied.** Section 3 below says exactly what it changed.
 
 ### Something we should flag in your own file
 
@@ -206,46 +205,66 @@ shipping a wrong number.
 
 ---
 
-## 3. The one item still open: correcting the emission factors
+## 3. Correcting the emission factors
 
-**Status: ready to run, waiting on a date from you.**
+**Status: applied on 3 September 2026.**
 
-We will load the `Emission Factors` sheet of the DASHBOARD workbook as the official table,
-replacing what is in the tool today.
+We loaded the `Emission Factors` sheet of the DASHBOARD workbook as the official table. After the
+load, **all 1.705 importable rows match that sheet exactly.**
 
-**Good news about the effect.** Every total in the tool is calculated at the moment you open the
-screen and is never stored as a finished number. So the correction restates all past and present
-figures on its own. **Nobody has to re-enter anything.**
+Because every total in the tool is calculated at the moment you open a screen, and is never stored
+as a finished number, **all past and present figures restated themselves the moment the table
+changed. Nobody had to re-enter anything.**
 
-### Two things we found on the way, neither of them reported by you
+### What the correction did
 
-1. **A rename in the workbook silently undoes a correction.** When an element is renamed, the
-   previous load created a new factor row and left the existing entries attached to the old one.
-   That is why a correction we made earlier to the road and air travel distances (C6 Viajes
-   Terrestres and all of C7) is no longer reaching your data. This time the entries will be moved
-   across deliberately, and we will show you the list of pairs before anything moves, because a
-   wrong match would re-price real data.
+| Step | Result |
+| --- | --- |
+| Load the official table | 1.705 rows now match the sheet; 19 Alcance 2 rows compared against the grid table, of which 18 already agreed |
+| Re-apply to protected rows | 18 rows were held back because a person had edited them; 7 of those were corrected |
+| Restore the kilometre correction | 8 travel factors corrected |
 
-2. **The official sheet does not fix the kilometre and mile error.** It still carries 0,477873 for
-   "C6: Carro particular", which is 0,297 × 1,609: the value that was multiplied where it should
-   have been divided. So that correction has to be re-applied **after** the new table is loaded,
-   or loading the official sheet would quietly reintroduce the error. This is now part of the
-   sequence.
+The 7 protected rows that were corrected: the urea factor was moved from the CO₂ column to the N₂O
+column, exactly as your own sheet has it; three refrigerants had their CO₂e value corrected
+(R-407F 1.873,4 to 1.965,3; R-413A 1.108,89 to 2.182,5; R-437A 2.522,82 to 5.290,15); and four
+refrigerants had their gas family recorded as HFC, which is what lets them appear by name in the
+gas chart instead of as an unnamed value.
 
-### What to expect on the day
+### The change that moved your numbers most
 
-Some totals will fall considerably, by 100, 1.000 or more on the affected rows. **That is the
-correction working, not a new error.** From that day the Tablero and the report will carry a dated
-note saying the factor table was corrected on that date, so the change in your numbers is visible
-and can be explained in an audit. Until the correction runs, that note does not appear, because it
-would not be true yet.
+Your own sheet builds the C6 and C7 travel factors by **multiplying** a per-mile factor by 1,609
+where it must **divide**. A factor per mile becomes a factor per kilometre by dividing, because the
+emissions of one mile are spread over 1,609 kilometres. Your own change log had already flagged
+this.
 
-### What we need from you
+We had corrected that before. It had stopped applying, because a later rename in the workbook
+created a second copy of each of those elements, and your data is attached to the **new** copy,
+which still held the overstated value. So until 3 September, C6 Viajes Terrestres and every C7
+element was overstated by 1,609 squared, which is **2,588881 times**.
 
-1. **A date and time to apply it**, ideally outside working hours.
-2. **Confirmation that PRINCIPAL is the sheet the tool should reproduce**, not the pivot.
+That is now corrected. For example, "C7: Carro particular" went from 0,477873 to 0,184587 kg CO₂
+per vehículo por km. If your inventory includes employee commuting or business road travel, this is
+the figure that will have moved the most.
 
----
+### Two things we checked afterwards, and what we found
+
+1. **Your transport subsidy factors were never affected.** We were concerned that an earlier
+   correction might have wrongly divided the gasoline and diesel per-gallon factors as well. It did
+   not: they carry no record of ever having been edited. There is nothing to undo.
+2. **We did not consolidate the duplicate rows.** The renames left a second, unused copy of some
+   elements in the library. Your data sits on the current copy, and both copies now hold the same
+   corrected values, so no figure is affected. Merging them is a tidying job that needs you to
+   confirm which name is the right one, and we did not want to guess: moving data onto the wrong
+   element would re-price it. We would rather raise it than quietly decide it.
+
+### One thing we would like you to confirm
+
+Inside the DASHBOARD workbook, the `Tablas dinámicas` sheet does not agree with the `PRINCIPAL`
+sheet of the same file (see section 2). We have treated **PRINCIPAL** as the reference the tool
+must reproduce, and the tool now reproduces it. Please confirm that is what you expect.
+
+From now on the Tablero and every report carry a dated note saying the factor table was corrected
+on 3 September 2026, so anyone comparing against an earlier download can see why the numbers moved.
 
 ## 4. Summary
 
@@ -263,10 +282,14 @@ would not be true yet.
 | 10 | Report rebuilt with the ISO 14064-1 declaration | Working |
 | 11 | Yearly gasoline and diesel prices, admin maintained | Working |
 | 12 | User guide download | Working |
-| 13 | Correct the emission factors | **Ready, waiting on a date** |
+| 13 | Correct the emission factors | Working, applied 3 Sept 2026 |
 
-Nothing on this list stops you from using the tool in the meantime. Everything marked Working is
-available now, and the factor correction will restate whatever has been entered by the time we
-apply it.
+All thirteen are available now. Two things need a word from you when you have a moment, neither of
+which blocks anything:
+
+1. Confirm that **PRINCIPAL**, not the `Tablas dinámicas` sheet, is the reference the tool must
+   reproduce (section 2 and section 3).
+2. Tell us which name is the correct one for the duplicated travel elements, so we can retire the
+   unused copies (section 3).
 
 A Spanish version of this document is available on request.
