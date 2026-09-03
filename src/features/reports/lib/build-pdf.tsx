@@ -984,32 +984,39 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
           </View>
         ) : null}
 
-        {vm.missingGridFactor || vm.biogenicCo2Tonnes > 0 || vm.unpricedCount > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={40}>
-              Notas y advertencias
+        {/* Always rendered now: the factor-correction notice below has to reach every report,
+            including one for a year with no warnings of its own. Someone comparing this document
+            against an export from before 2026-09-03 needs to be told why the numbers moved. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} minPresenceAhead={40}>
+            Notas y advertencias
+          </Text>
+          <Text style={styles.note}>
+            Los factores de emisión se corrigieron el 3 de septiembre de 2026 con la tabla oficial
+            de CECODES (hoja &quot;Emission Factors&quot;). Las cifras de todos los años se
+            recalculan con los factores corregidos, así que pueden diferir de reportes descargados
+            antes de esa fecha.
+          </Text>
+          {vm.missingGridFactor ? (
+            <Text style={styles.note}>
+              Falta el factor de red eléctrica para {vm.year}: el Alcance 2 no incluye la
+              electricidad hasta que un administrador lo cargue.
             </Text>
-            {vm.missingGridFactor ? (
-              <Text style={styles.note}>
-                Falta el factor de red eléctrica para {vm.year}: el Alcance 2 no incluye la
-                electricidad hasta que un administrador lo cargue.
-              </Text>
-            ) : null}
-            {vm.biogenicCo2Tonnes > 0 ? (
-              <Text style={styles.note}>
-                Incluye {tonnesFmt.format(vm.biogenicCo2Tonnes)} t CO2 de origen biogénico
-                {vm.biogenicCo2Partial ? " (parcial)" : ""}, que el Protocolo GHG reporta por
-                separado.
-              </Text>
-            ) : null}
-            {vm.unpricedCount > 0 ? (
-              <Text style={styles.note}>
-                {vm.unpricedCount} elemento(s) con datos pero sin factor válido no se incluyen en
-                el total.
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
+          ) : null}
+          {vm.biogenicCo2Tonnes > 0 ? (
+            <Text style={styles.note}>
+              Incluye {tonnesFmt.format(vm.biogenicCo2Tonnes)} t CO2 de origen biogénico
+              {vm.biogenicCo2Partial ? " (parcial)" : ""}, que el Protocolo GHG reporta por
+              separado.
+            </Text>
+          ) : null}
+          {vm.unpricedCount > 0 ? (
+            <Text style={styles.note}>
+              {vm.unpricedCount} elemento(s) con datos pero sin factor válido no se incluyen en el
+              total.
+            </Text>
+          ) : null}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle} minPresenceAhead={130}>

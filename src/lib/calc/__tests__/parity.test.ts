@@ -120,7 +120,7 @@ describe("Excel parity (Requirements 14.1)", () => {
       const rollup = rollupYear({
         entries: toRollupEntries(fixture),
         gridFactor: fixture.gridFactor,
-        pricePerGallon: null,
+        fuelPrices: null,
         gwpSet: fixture.gwpSet,
       });
       const tolerance = fixture.toleranceTonnes;

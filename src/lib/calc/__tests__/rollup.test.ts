@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { FuelType } from "@/lib/calc/fuel";
 import { OTHER_GAS_FALLBACK, rollupYear, type RollupEntry, type RollupFactor } from "@/lib/calc/rollup";
 
 const consolidated = (
@@ -35,7 +36,7 @@ describe("rollupYear: the Requirements worked examples", () => {
       entries: [
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "Emisiones Fugitivas", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.byScope.SCOPE_1).toBeCloseTo(19.6, 6);
@@ -47,7 +48,7 @@ describe("rollupYear: the Requirements worked examples", () => {
       entries: [
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Consumo de energía eléctrica", month: 1, value: "500000", secondaryValue: null, factor: null },
       ],
-      gridFactor: "0.217", pricePerGallon: null,
+      gridFactor: "0.217", fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.byScope.SCOPE_2).toBeCloseTo(108.5, 6);
@@ -74,7 +75,7 @@ describe("rollupYear: per-gas combustion", () => {
           factor: perGas("10.149", "0.00001", "0.000006"),
         },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.byScope.SCOPE_1).toBeCloseTo(151.8285648, 6);
@@ -92,7 +93,7 @@ describe("rollupYear: aggregation", () => {
   ];
 
   it("sums per scope and overall", () => {
-    const r = rollupYear({ entries, gridFactor: "0.5", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries, gridFactor: "0.5", fuelPrices: null, gwpSet: "AR6" });
     expect(r.byScope.SCOPE_1).toBeCloseTo(3.5, 6);
     expect(r.byScope.SCOPE_2).toBeCloseTo(1.5, 6);
     expect(r.byScope.SCOPE_3).toBeCloseTo(5, 6);
@@ -100,14 +101,14 @@ describe("rollupYear: aggregation", () => {
   });
 
   it("groups by category, largest first, merging same-category rows", () => {
-    const r = rollupYear({ entries, gridFactor: "0.5", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries, gridFactor: "0.5", fuelPrices: null, gwpSet: "AR6" });
     expect(r.byCategory[0]).toMatchObject({ category: "Residuos", tonnes: 5 });
     const fijas = r.byCategory.find((c) => c.category === "Fuentes Fijas");
     expect(fijas?.tonnes).toBeCloseTo(1.5, 6); // 10 and 5 merged
   });
 
   it("places Scope 2 tonnes in the right months and leaves the rest as gaps", () => {
-    const r = rollupYear({ entries, gridFactor: "0.5", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries, gridFactor: "0.5", fuelPrices: null, gwpSet: "AR6" });
     expect(r.scope2Monthly[0].tonnes).toBeCloseTo(0.5, 6);
     expect(r.scope2Monthly[1].tonnes).toBeCloseTo(1, 6);
     // Months 3..12 were never reported: null, not 0.
@@ -126,7 +127,7 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
       entries: [
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad", month: 1, value: "1000", secondaryValue: null, factor: null },
       ],
-      gridFactor: "0.217", pricePerGallon: null,
+      gridFactor: "0.217", fuelPrices: null,
       gwpSet: "AR6",
     });
     const category = r.byCategory[0];
@@ -141,7 +142,7 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
       entries: [
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     const category = r.byCategory[0];
@@ -162,7 +163,7 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
       { scope: "SCOPE_3", category: "Residuos", subcategory: null, element: "Residuos", month: null, value: "10", secondaryValue: null, factor: consolidated("500") },
       { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad", month: 1, value: "1000", secondaryValue: null, factor: null },
     ];
-    const r = rollupYear({ entries, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
 
     for (const category of r.byCategory) {
       const sum =
@@ -185,7 +186,7 @@ describe("rollupYear: the gas breakdown reconciles with the totals it sits besid
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "Fuga de proceso", month: null, value: "100", secondaryValue: null, factor: perGas("1", "0.2", "0.05") },
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     const category = r.byCategory[0];
@@ -212,7 +213,7 @@ describe("rollupYear: the named gas-type breakdown (otherGasesByType)", () => {
       entries: [
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "SF6 puro", month: null, value: "1", secondaryValue: null, factor: consolidated("22800", false, "SF6") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     const category = r.byCategory[0];
@@ -225,7 +226,7 @@ describe("rollupYear: the named gas-type breakdown (otherGasesByType)", () => {
       entries: [
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22 (importado antes del backfill)", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     const category = r.byCategory[0];
@@ -240,7 +241,7 @@ describe("rollupYear: the named gas-type breakdown (otherGasesByType)", () => {
       { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "HFC-32", month: null, value: "5", secondaryValue: null, factor: consolidated("677", false, "HFC") }, // same gasType, merges with the HFC-134a row
       { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22 legacy", month: null, value: "10", secondaryValue: null, factor: consolidated("1960") }, // no gasType
     ];
-    const r = rollupYear({ entries, gridFactor: null, pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries, gridFactor: null, fuelPrices: null, gwpSet: "AR6" });
     const category = r.byCategory[0];
 
     const sum = Object.values(category.otherGasesByType).reduce((a, b) => a + b, 0);
@@ -256,7 +257,7 @@ describe("rollupYear: the named gas-type breakdown (otherGasesByType)", () => {
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Diesel", month: null, value: "14957.10", secondaryValue: null, factor: perGas("10.149", "0.00001", "0.000006") },
         { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "SF6 puro", month: null, value: "1", secondaryValue: null, factor: consolidated("22800", false, "SF6") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     for (const category of r.byCategory) {
@@ -282,7 +283,7 @@ describe("rollupYear: the full 7.4 hierarchy", () => {
   ];
 
   it("totals each element, largest first", () => {
-    const r = rollupYear({ entries: hierarchy, gridFactor: null, pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: hierarchy, gridFactor: null, fuelPrices: null, gwpSet: "AR6" });
 
     expect(r.byElement).toHaveLength(4);
     expect(r.byElement[0].element).toBe("Residuos ordinarios"); // 4 t
@@ -296,7 +297,7 @@ describe("rollupYear: the full 7.4 hierarchy", () => {
   });
 
   it("totals each subcategory, keeping a null subcategory as its own row", () => {
-    const r = rollupYear({ entries: hierarchy, gridFactor: null, pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: hierarchy, gridFactor: null, fuelPrices: null, gwpSet: "AR6" });
 
     const liquidos = r.bySubcategory.find(
       (s) => s.subcategory === "Combustibles Líquidos (fijos)",
@@ -319,14 +320,14 @@ describe("rollupYear: the full 7.4 hierarchy", () => {
       factor: null,
     }));
 
-    const r = rollupYear({ entries: monthly, gridFactor: "0.5", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: monthly, gridFactor: "0.5", fuelPrices: null, gwpSet: "AR6" });
 
     expect(r.byElement).toHaveLength(1);
     expect(r.byElement[0].tonnes).toBeCloseTo(6, 6); // 12 x 1000 x 0.5 kg = 6 t
   });
 
   it("RECONCILES: each level sums to its parent, which is what makes a drill-down trustworthy", () => {
-    const r = rollupYear({ entries: hierarchy, gridFactor: null, pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: hierarchy, gridFactor: null, fuelPrices: null, gwpSet: "AR6" });
     const sum = (rows: { tonnes: number }[]) => rows.reduce((t, row) => t + row.tonnes, 0);
 
     // If these ever disagree, a user drilling into a number would watch it change, which destroys
@@ -347,7 +348,7 @@ describe("rollupYear: the full 7.4 hierarchy", () => {
         ...hierarchy,
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: "Combustibles Gaseosos", element: "Gas sin factor", month: null, value: "999", secondaryValue: null, factor: null },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -363,7 +364,7 @@ describe("rollupYear: honest edge cases", () => {
       entries: [
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Consumo de energía eléctrica", month: 1, value: "500000", secondaryValue: null, factor: null },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -396,7 +397,7 @@ describe("rollupYear: honest edge cases", () => {
       entries: [
         { scope: "SCOPE_3", category: "C1: Bienes y servicios adquiridos", subcategory: null, element: "C1: Bienes y servicios adquiridos", month: null, value: "1000000", secondaryValue: null, factor: spendOnly },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -412,7 +413,7 @@ describe("rollupYear: honest edge cases", () => {
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Fuentes Fijas", month: null, value: "100", secondaryValue: null, factor: null },
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Fuentes Fijas", month: null, value: "100", secondaryValue: null, factor: consolidated("10") },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -426,7 +427,7 @@ describe("rollupYear: honest edge cases", () => {
         { scope: "SCOPE_3", category: "Residuos", subcategory: null, element: "Residuos", month: null, value: "100", secondaryValue: null, factor: consolidated("10", true) }, // 1 t, biogenic
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Fuentes Fijas", month: null, value: "100", secondaryValue: null, factor: consolidated("10") }, // 1 t, fossil
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.totalTonnes).toBeCloseTo(2, 6);
@@ -451,7 +452,7 @@ describe("rollupYear: honest edge cases", () => {
           factor: perGas("1664.92", "0.001", "0.0001", true),
         },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -472,7 +473,7 @@ describe("rollupYear: honest edge cases", () => {
       entries: [
         { scope: "SCOPE_3", category: "Residuos", subcategory: null, element: "Residuos", month: null, value: "100", secondaryValue: null, factor: consolidated("10", true) },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
 
@@ -486,7 +487,7 @@ describe("rollupYear: honest edge cases", () => {
       entries: [
         { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Fuentes Fijas", month: null, value: "100", secondaryValue: null, factor: null },
       ],
-      gridFactor: null, pricePerGallon: null,
+      gridFactor: null, fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.totalTonnes).toBe(0);
@@ -499,7 +500,7 @@ describe("rollupYear: honest edge cases", () => {
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Consumo de energía eléctrica", month: 1, value: "0", secondaryValue: null, factor: null },
         { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Consumo de energía eléctrica", month: 2, value: null, secondaryValue: null, factor: null },
       ],
-      gridFactor: "0.217", pricePerGallon: null,
+      gridFactor: "0.217", fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.scope2Monthly[0].tonnes).toBe(0); // reported zero
@@ -519,7 +520,24 @@ describe("rollupYear: MONEY_PER_GALLON (Scope 3 Subsidios de transporte)", () =>
     co2eFactor: null,
     biogenic: false,
     entryMode: "MONEY_PER_GALLON",
+    fuelType: "DIESEL",
   };
+
+  const moneyEntry = (over: {
+    element: string;
+    fuelType: FuelType;
+    value: string;
+    co2Factor: string;
+  }): RollupEntry => ({
+    scope: "SCOPE_3",
+    category: "C6: Viajes de negocios",
+    subcategory: "Subsidios de transporte",
+    element: over.element,
+    month: null,
+    value: over.value,
+    secondaryValue: null,
+    factor: { ...moneyFactor, co2Factor: over.co2Factor, fuelType: over.fuelType },
+  });
 
   it("divides the reported money by the year's price per gallon before pricing", () => {
     // 1,000,000 COP / 5,000 COP per gal = 200 gal; 200 gal * 10 kg CO2/gal = 2000 kg = 2 t.
@@ -537,7 +555,7 @@ describe("rollupYear: MONEY_PER_GALLON (Scope 3 Subsidios de transporte)", () =>
         },
       ],
       gridFactor: null,
-      pricePerGallon: "5000",
+      fuelPrices: { GASOLINE: null, DIESEL: "5000" },
       gwpSet: "AR6",
     });
     expect(r.totalTonnes).toBeCloseTo(2, 6);
@@ -560,13 +578,76 @@ describe("rollupYear: MONEY_PER_GALLON (Scope 3 Subsidios de transporte)", () =>
         },
       ],
       gridFactor: null,
-      pricePerGallon: null,
+      fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.totalTonnes).toBe(0);
     expect(r.byCategory).toEqual([]);
     expect(r.missingTransportSubsidyPrice).toBe(true);
     expect(r.unpricedCount).toBe(1);
+  });
+
+  // Client feedback 2026-09-03 (E4): one price per fuel per year. Before this, both subsidy
+  // factors divided by the single yearly price, so diesel was charged the gasoline price.
+  it("divides a diesel subsidy by the diesel price, not the gasoline price", () => {
+    // 1.000.000 COP of diesel at 9.574,157895 COP/gal is 104,4477 gal, not 62,3196.
+    const r = rollupYear({
+      entries: [
+        moneyEntry({
+          element: "C6: Diésel B10 (Mezcla comercial) - Móvil",
+          fuelType: "DIESEL",
+          value: "1000000",
+          co2Factor: "10.2765",
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: { GASOLINE: "16046.315789", DIESEL: "9574.157895" },
+      gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_3 * 1000).toBeCloseTo((1000000 / 9574.157895) * 10.2765, 4);
+    expect(r.missingTransportSubsidyPrice).toBe(false);
+  });
+
+  it("reports a missing price when only the other fuel has one", () => {
+    const r = rollupYear({
+      entries: [
+        moneyEntry({
+          element: "C6: Diésel B10 (Mezcla comercial) - Móvil",
+          fuelType: "DIESEL",
+          value: "1000000",
+          co2Factor: "10.2765",
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: { GASOLINE: "16046.315789", DIESEL: null },
+      gwpSet: "AR6",
+    });
+    // Substituting the gasoline price here is exactly the bug the fuel column exists to stop.
+    expect(r.missingTransportSubsidyPrice).toBe(true);
+    expect(r.byScope.SCOPE_3).toBe(0);
+    expect(r.unpricedCount).toBe(1);
+  });
+
+  it("treats a price of zero as missing rather than dividing by it", () => {
+    const r = rollupYear({
+      entries: [
+        moneyEntry({
+          element: "C6: Gasolina E10 (Comercial) - Móvil",
+          fuelType: "GASOLINE",
+          value: "1000000",
+          co2Factor: "7.6181",
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: { GASOLINE: "0", DIESEL: null },
+      gwpSet: "AR6",
+    });
+    // The admin form accepts "0". An Infinity or NaN total would propagate silently through
+    // every scope, category and element; a flagged exclusion does not.
+    expect(r.missingTransportSubsidyPrice).toBe(true);
+    expect(Number.isFinite(r.byScope.SCOPE_3)).toBe(true);
+    expect(Number.isFinite(r.totalTonnes)).toBe(true);
+    expect(r.byScope.SCOPE_3).toBe(0);
   });
 });
 
@@ -596,7 +677,7 @@ describe("rollupYear: COUNT_TIMES_DISTANCE (Scope 3 pasajeros*km / vehiculo*km)"
         },
       ],
       gridFactor: null,
-      pricePerGallon: null,
+      fuelPrices: null,
       gwpSet: "AR6",
     });
     expect(r.totalTonnes).toBeCloseTo(0.1, 6);
@@ -617,13 +698,93 @@ describe("rollupYear: COUNT_TIMES_DISTANCE (Scope 3 pasajeros*km / vehiculo*km)"
         },
       ],
       gridFactor: null,
-      pricePerGallon: null,
+      fuelPrices: null,
       gwpSet: "AR6",
     });
     // A real (zero) category entry, not an exclusion: this mirrors how a single missing
     // QUANTITY value already computes to 0 rather than being counted unpriced.
     expect(r.totalTonnes).toBe(0);
     expect(r.byCategory[0]?.tonnes).toBe(0);
+    expect(r.unpricedCount).toBe(0);
+  });
+
+  // Client feedback 2026-09-03 (E3): a transport source is N routes, not one. Every source had
+  // exactly one pair of numbers until trip rows existed, so these are the first cases that can
+  // tell "sum of the products" apart from "product of the sums".
+  const tripEntry = (over: {
+    element: string;
+    co2Factor: string;
+    trips: { count: string; distanceKm: string }[];
+    value?: string | null;
+    secondaryValue?: string | null;
+  }): RollupEntry => ({
+    scope: "SCOPE_3",
+    category: "C9: Transporte y distribución downstream",
+    subcategory: "Transporte terrestre",
+    element: over.element,
+    month: null,
+    value: over.value ?? null,
+    secondaryValue: over.secondaryValue ?? null,
+    trips: over.trips,
+    factor: { ...distanceFactor, co2Factor: over.co2Factor },
+  });
+
+  it("prices a source from its trip rows, summing each product", () => {
+    // 12 ton over 340 km plus 5 ton over 1.200 km is 10.080 ton*km. Multiplying the sums would
+    // give 17 x 1.540 = 26.180, which is what the preview used to compute.
+    const r = rollupYear({
+      entries: [
+        tripEntry({
+          element: "C9: Transporte terrestre de carga (camiones de servicio medianos y pesados)",
+          co2Factor: "0.127",
+          trips: [
+            { count: "12", distanceKm: "340" },
+            { count: "5", distanceKm: "1200" },
+          ],
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: null,
+      gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_3 * 1000).toBeCloseTo((12 * 340 + 5 * 1200) * 0.127, 6);
+  });
+
+  it("falls back to value times secondaryValue when a source has no trip rows", () => {
+    // A source entered before trip rows existed, and any loader that does not read them.
+    const r = rollupYear({
+      entries: [
+        tripEntry({
+          element: "C7: Carro particular",
+          co2Factor: "0.1845",
+          trips: [],
+          value: "3",
+          secondaryValue: "80",
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: null,
+      gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_3 * 1000).toBeCloseTo(3 * 80 * 0.1845, 6);
+  });
+
+  it("treats a source with no trips and no value as not reported, contributing zero", () => {
+    const r = rollupYear({
+      entries: [
+        tripEntry({
+          element: "C7: Carro particular",
+          co2Factor: "0.1845",
+          trips: [],
+          value: null,
+          secondaryValue: null,
+        }),
+      ],
+      gridFactor: null,
+      fuelPrices: null,
+      gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_3).toBe(0);
     expect(r.unpricedCount).toBe(0);
   });
 });
@@ -658,7 +819,7 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
   ];
 
   it("every element's gas columns reconcile to its own CO2e total", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
 
     expect(r.byElement.length).toBeGreaterThan(0);
     for (const element of r.byElement) {
@@ -667,7 +828,7 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
   });
 
   it("reports gas MASS, not CO2e, in the mass columns", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const diesel = r.byElement.find((e) => e.element === "Diesel")!;
 
     // 14957.10 gal x 0.00001 kg CH4/gal = 0.1495710 kg of methane, NOT 4.457 kg CO2e.
@@ -677,7 +838,7 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
   });
 
   it("routes a biogenic element's CH4 to the non-fossil column and a fossil one to fossil", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const biomasa = r.byElement.find((e) => e.element === "Biomasa")!;
     const diesel = r.byElement.find((e) => e.element === "Diesel")!;
 
@@ -688,7 +849,7 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
   });
 
   it("keeps a pre-blended element as CO2e under its own gas name, with no mass claimed", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const r22 = r.byElement.find((e) => e.element === "R-22")!;
 
     expect(r22.gases.preBlendedCo2eKgByType).toEqual({ HFC: 19600 });
@@ -698,26 +859,26 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
   });
 
   it("falls back to the unidentified bucket when a pre-blended factor carries no gasType", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const carton = r.byElement.find((e) => e.element === "Cartón")!;
     expect(carton.gases.preBlendedCo2eKgByType).toEqual({ [OTHER_GAS_FALLBACK]: 5000 });
   });
 
   it("treats Scope 2 electricity as pure CO2 mass", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const power = r.byElement.find((e) => e.element === "Electricidad")!;
     expect(power.gases.co2MassKg).toBeCloseTo(217, 9);
     expect(power.gases.preBlendedCo2eKgByType).toEqual({});
   });
 
   it("summing every element's gas columns reconciles to the grand total", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
     const totalKg = r.byElement.reduce((sum, e) => sum + co2eKgOf(e.gases), 0);
     expect(totalKg / 1000).toBeCloseTo(r.totalTonnes, 9);
   });
 
   it("splits CH4 fossil and non-fossil at category level, still summing to ch4Tonnes", () => {
-    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6" });
 
     for (const category of r.byCategory) {
       expect(category.ch4FossilTonnes + category.ch4NonFossilTonnes).toBeCloseTo(

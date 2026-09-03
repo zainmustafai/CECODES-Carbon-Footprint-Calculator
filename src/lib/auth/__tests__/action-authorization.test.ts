@@ -19,6 +19,7 @@ const COMPANY_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const FACILITY_B = "ffffffff-bbbb-4bbb-8bbb-ffffffffffff";
 const YEAR_B = "eeeeeeee-bbbb-4bbb-8bbb-eeeeeeeeeeee";
 const USER_B = "dddddddd-bbbb-4bbb-8bbb-dddddddddddd";
+const ENTRY_B = "cdcdcdcd-bbbb-4bbb-8bbb-cdcdcdcdcdcd";
 const FACTOR_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 // Company A's OWN rows, used to prove a DEACTIVATED user is refused even on their own data.
@@ -26,6 +27,7 @@ const FACTOR_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 // malformed id would return "invalidValue" and the test would never reach the boundary at all.
 const FACILITY_A = "ffffffff-aaaa-4aaa-8aaa-ffffffffffff";
 const YEAR_A = "eeeeeeee-aaaa-4aaa-8aaa-eeeeeeeeeeee";
+const ENTRY_A = "cdcdcdcd-aaaa-4aaa-8aaa-cdcdcdcdcdcd";
 
 const USER_A = {
   id: "user-a",
@@ -64,6 +66,7 @@ const MODELS = [
   "emissionFactorVersion",
   "gridElectricityFactor",
   "transportSubsidyPrice",
+  "transportTrip",
 ] as const;
 
 type PrismaMock = Record<string, Record<string, ReturnType<typeof vi.fn>>>;
@@ -124,6 +127,7 @@ const { saveCompanyTarget } = await import(
 );
 const cleanTech = await import("@/features/data-entry/actions/clean-tech");
 const { deleteReportingYear } = await import("@/features/data-entry/actions/reporting-years");
+const { saveTransportTrips } = await import("@/features/data-entry/actions/trips");
 const adminCompanies = await import("@/features/admin/actions/company-actions");
 const adminUsers = await import("@/features/admin/actions/user-actions");
 const adminFactors = await import("@/features/admin/actions/factor-actions");
@@ -224,6 +228,20 @@ describe("a company user cannot reach another company's REPORTING YEARS", () => 
 
     expectNothingWritten();
   });
+
+  it("refuses saveTransportTrips on a foreign year", async () => {
+    // The trip rows hang off an activity entry, but the company is still read off the
+    // reporting year, so pairing an own companyId with company B's year buys nothing. An
+    // empty list is the wipe case: a refusal here must delete nothing either.
+    const result = await saveTransportTrips({
+      reportingYearId: YEAR_B,
+      entryId: ENTRY_B,
+      trips: [],
+    });
+
+    expect(result).toEqual({ error: "forbidden" });
+    expectNothingWritten();
+  });
 });
 
 describe("a company user cannot edit another company's PROFILE", () => {
@@ -311,14 +329,16 @@ describe("a company user cannot reach ANY admin action", () => {
     });
     // Same reasoning as the grid factor above: the transport-subsidy price is also global
     // reference data (client feedback 2026-08-15), so it gets the same admin-only guard.
+    // Keyed by year AND fuel since 2026-09-03, so both halves of the key travel here.
     expect(
       await adminFactors.upsertSubsidyPrice({
         year: 2024,
+        fuel: "DIESEL",
         pricePerGallonCop: "0.01",
         source: "hack",
       }),
     ).toEqual({ error: "forbidden" });
-    expect(await adminFactors.deleteSubsidyPrice({ year: 2024 })).toEqual({
+    expect(await adminFactors.deleteSubsidyPrice({ year: 2024, fuel: "DIESEL" })).toEqual({
       error: "forbidden",
     });
 
@@ -370,6 +390,17 @@ describe("a DEACTIVATED user is refused everywhere, even on their OWN company", 
 
   it("cannot delete their own facility", async () => {
     const result = await deleteFacility({ facilityId: FACILITY_A });
+
+    expect(result).toEqual({ error: "forbidden" });
+    expectNothingWritten();
+  });
+
+  it("cannot save transport trips on their own year", async () => {
+    const result = await saveTransportTrips({
+      reportingYearId: YEAR_A,
+      entryId: ENTRY_A,
+      trips: [],
+    });
 
     expect(result).toEqual({ error: "forbidden" });
     expectNothingWritten();

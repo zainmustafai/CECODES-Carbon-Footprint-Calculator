@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DECIMAL_20_6,
   DECIMAL_30_10,
   isValidFactorValue,
   normalizeDecimalInput,
@@ -115,22 +116,33 @@ export const deleteGridFactorInput = z
   .object({ year: z.coerce.number().int().min(1990).max(2100) })
   .strict();
 
-// Average price per gallon (COP), by year - Scope 3 Cat 6 "Subsidios de transporte"
+// Which fuel a price is for. A year carries one gasoline price and one diesel price, and the
+// engine divides a reported amount by the price of the fuel its factor names (client feedback
+// 2026-09-03). The fuel is half the key, so it is required on the write AND on the delete.
+const subsidyFuel = z.enum(["GASOLINE", "DIESEL"]);
+
+// Average price per gallon (COP), by year and fuel - Scope 3 Cat 6 "Subsidios de transporte"
 // (client feedback 2026-08-15). Same shape and same create/edit convention as the grid factor.
 export const upsertSubsidyPriceInput = z
   .object({
     year: z.coerce.number().int().min(1990).max(2100),
+    fuel: subsidyFuel,
+    // Decimal(20, 6). The two-decimal rule this replaced rejected the client's own national
+    // averages outright: their 2024 gasoline figure is 16046.315789473685.
     pricePerGallonCop: z
       .string()
       .transform((value) => normalizeDecimalInput(value.trim()))
-      .refine((value) => /^\d{1,18}(\.\d{1,2})?$/.test(value), { message: "decimalInvalid" }),
+      .refine((value) => DECIMAL_20_6.test(value), { message: "decimalInvalid" }),
     source: optionalString(200),
     mode: z.enum(["create", "edit"]).optional(),
   })
   .strict();
 
 export const deleteSubsidyPriceInput = z
-  .object({ year: z.coerce.number().int().min(1990).max(2100) })
+  .object({
+    year: z.coerce.number().int().min(1990).max(2100),
+    fuel: subsidyFuel,
+  })
   .strict();
 
 // ---------------------------------------------------------------------------
@@ -240,12 +252,15 @@ export function subsidyPriceFormSchema(t: T) {
         const year = Number(value);
         return year >= 1990 && year <= 2100;
       }, t("yearInvalid")),
+    // Unlike `scope` in factorFormSchema this narrows safely: the Select always holds one of
+    // the two values, so the form's input type never has to represent an unset "".
+    fuel: subsidyFuel,
     pricePerGallonCop: z
       .string()
       .refine(
         (value) =>
           normalizeDecimalInput(value) !== "" &&
-          /^\d{1,18}(\.\d{1,2})?$/.test(normalizeDecimalInput(value)),
+          DECIMAL_20_6.test(normalizeDecimalInput(value)),
         t("decimalInvalid"),
       ),
     source: z.string().trim().max(200),

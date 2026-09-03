@@ -236,6 +236,11 @@ describe("buildPdf page layout", () => {
       "Emisiones por sede",
       "Emisiones por categoría",
       "Declaración consolidada GEI (ISO 14064-1)",
+      "Remociones o absorciones de carbono",
+      "Datos sobre tecnologías más limpias y buenas prácticas",
+      // Always rendered since 2026-09-03: it carries the factor-correction notice, so unlike the
+      // other conditional sections it can now legitimately open a page in any report.
+      "Notas y advertencias",
       "Incertidumbre por elemento",
     ]);
 

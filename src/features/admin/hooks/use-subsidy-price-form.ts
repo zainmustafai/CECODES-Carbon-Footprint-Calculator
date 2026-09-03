@@ -14,10 +14,18 @@ import {
   type SubsidyPriceFormValues,
 } from "../schemas/factor-schemas";
 
-type SubsidyPriceDefaults = { year: string; pricePerGallonCop: string; source: string };
+/** Gasoline or diesel. Half the key, so the dialog locks it while editing an existing row. */
+export type SubsidyFuel = SubsidyPriceFormValues["fuel"];
 
-// Average price per gallon (COP) by year - Scope 3 Cat 6 "Subsidios de transporte" (client
-// feedback 2026-08-15). Same upsert-by-year dialog shape as useGridFactorForm.
+type SubsidyPriceDefaults = {
+  year: string;
+  fuel: SubsidyFuel;
+  pricePerGallonCop: string;
+  source: string;
+};
+
+// Average price per gallon (COP) by year and fuel - Scope 3 Cat 6 "Subsidios de transporte"
+// (client feedback 2026-08-15). Same upsert dialog shape as useGridFactorForm.
 export function useSubsidyPriceForm({
   subsidyPrice,
   onDone,
@@ -36,6 +44,7 @@ export function useSubsidyPriceForm({
     resolver,
     defaultValues: {
       year: subsidyPrice?.year ?? "",
+      fuel: subsidyPrice?.fuel ?? "GASOLINE",
       pricePerGallonCop: subsidyPrice?.pricePerGallonCop ?? "",
       source: subsidyPrice?.source ?? "",
     },
@@ -52,7 +61,11 @@ export function useSubsidyPriceForm({
       return;
     }
     toast.success(tt("subsidySaved"));
-    form.reset(subsidyPrice ? values : { year: "", pricePerGallonCop: "", source: "" });
+    form.reset(
+      subsidyPrice
+        ? values
+        : { year: "", fuel: "GASOLINE", pricePerGallonCop: "", source: "" },
+    );
     onDone?.();
     router.refresh();
   });
@@ -65,8 +78,8 @@ export function useSubsidyPriceDelete() {
   const te = useTranslations("admin.factors.errors");
   const { isPending, run } = useToastAction();
 
-  const remove = (year: number) =>
-    run(() => deleteSubsidyPrice({ year }), {
+  const remove = (year: number, fuel: SubsidyFuel) =>
+    run(() => deleteSubsidyPrice({ year, fuel }), {
       loading: tt("subsidyDeleting"),
       success: tt("subsidyDeleted"),
       errorMessage: (key) => te(key),

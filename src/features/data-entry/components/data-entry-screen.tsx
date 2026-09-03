@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { CalendarRange, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { toFuelPrices } from "@/lib/calc/fuel";
 import { getActiveFactorsForPicker } from "@/features/admin/lib/factor-library-cache";
 import { groupFactors } from "../lib/group-factors";
 import { shapeEntries, type EntryRow } from "../lib/shape-entries";
@@ -101,7 +102,7 @@ export async function DataEntryScreen({
     );
   }
 
-  const [entries, applicability, factors, gridFactor, subsidyPrice, cleanTech] =
+  const [entries, applicability, factors, gridFactor, subsidyPrices, cleanTech] =
     await Promise.all([
       prisma.activityEntry.findMany({
         where: { reportingYearId: selectedYear.id, companyId },
@@ -117,6 +118,12 @@ export async function DataEntryScreen({
           month: true,
           value: true,
           secondaryValue: true,
+          // The routes of a COUNT_TIMES_DISTANCE source. Empty for every other entry, so this
+          // costs one indexed join and nothing else.
+          trips: {
+            select: { reference: true, count: true, distanceKm: true, note: true },
+            orderBy: { position: "asc" },
+          },
           emissionFactor: {
             select: {
               active: true,
@@ -130,6 +137,7 @@ export async function DataEntryScreen({
               source: true,
               entryMode: true,
               gasType: true,
+              fuelType: true,
             },
           },
         },
@@ -146,9 +154,11 @@ export async function DataEntryScreen({
         where: { year: selectedYear.year },
         select: { factor: true, source: true },
       }),
-      prisma.transportSubsidyPrice.findUnique({
+      // One row per fuel per year since 2026-09-03 (E4), so this is a findMany: the gasoline
+      // and the diesel subsidy factors each divide by their own price.
+      prisma.transportSubsidyPrice.findMany({
         where: { year: selectedYear.year },
-        select: { pricePerGallonCop: true, source: true },
+        select: { fuel: true, pricePerGallonCop: true, source: true },
       }),
       prisma.cleanTechEntry.findMany({
         where: { reportingYearId: selectedYear.id, companyId },
@@ -177,6 +187,12 @@ export async function DataEntryScreen({
     month: entry.month,
     value: entry.value === null ? "" : entry.value.toString(),
     secondaryValue: entry.secondaryValue === null ? "" : entry.secondaryValue.toString(),
+    trips: entry.trips.map((trip) => ({
+      reference: trip.reference ?? "",
+      count: trip.count.toString(),
+      distanceKm: trip.distanceKm.toString(),
+      note: trip.note ?? "",
+    })),
     factorActive: entry.emissionFactor?.active ?? false,
     biogenic: entry.emissionFactor?.biogenic ?? false,
     entryMode: entry.emissionFactor?.entryMode ?? "QUANTITY",
@@ -191,6 +207,7 @@ export async function DataEntryScreen({
           source: entry.emissionFactor.source,
           entryMode: entry.emissionFactor.entryMode,
           gasType: entry.emissionFactor.gasType,
+          fuelType: entry.emissionFactor.fuelType,
         }
       : null,
   }));
@@ -199,7 +216,9 @@ export async function DataEntryScreen({
   const scopes = shapeEntries(entryRows, applicability, grouped);
   // A COUNT_TIMES_DISTANCE row's distance half hydrates under a synthetic "<id>:secondary"
   // key (see data-entry-provider.tsx) so the store never needs its own concept of a second
-  // field per entry.
+  // field per entry. No input writes to that pair any more: the trip table owns those sources
+  // and saveTransportTrips keeps value and secondaryValue in step with the routes. They stay
+  // hydrated because the live estimate on the row still reads them.
   const initialValues: Record<string, string> = {};
   for (const e of entryRows) {
     initialValues[e.id] = e.value;
@@ -209,9 +228,12 @@ export async function DataEntryScreen({
   const gridFactorVM = gridFactor
     ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
     : null;
-  const pricePerGallonVM = subsidyPrice
-    ? { pricePerGallonCop: subsidyPrice.pricePerGallonCop.toString(), source: subsidyPrice.source }
-    : null;
+  // Both of the year's prices, keyed by fuel. Null when the year has none at all, which the
+  // engine reports as a missing price rather than pricing a subsidy at a guess.
+  const pricePerGallonVM =
+    subsidyPrices.length > 0
+      ? { prices: toFuelPrices(subsidyPrices), source: subsidyPrices[0].source }
+      : null;
 
   return (
     <div className="space-y-8">

@@ -32,7 +32,9 @@ const prismaMock = {
   reportingYear: { findFirst: vi.fn(), findMany: vi.fn() },
   activityEntry: { findMany: vi.fn() },
   gridElectricityFactor: { findUnique: vi.fn() },
-  transportSubsidyPrice: { findUnique: vi.fn() },
+  // One row per fuel per year since 2026-09-03: the loader reads the year's rows, it no longer
+  // looks a single price up.
+  transportSubsidyPrice: { findMany: vi.fn() },
   cleanTechEntry: { findMany: vi.fn() },
 };
 
@@ -54,13 +56,28 @@ beforeEach(() => {
   getAppUser.mockResolvedValue(USER_A);
   getUser.mockResolvedValue({ id: USER_A.id, email: USER_A.email });
 
-  prismaMock.company.findUnique.mockResolvedValue({ id: COMPANY_A, name: "Empresa A", active: true });
+  // Company-scope reads id/name/active; loadReport reads the profile columns the report header
+  // prints. One mock answers both, with the profile left empty as a company that never filled
+  // it in would be.
+  prismaMock.company.findUnique.mockResolvedValue({
+    id: COMPANY_A,
+    name: "Empresa A",
+    active: true,
+    sector: null,
+    contactEmail: null,
+    nit: null,
+    employeeCount: null,
+    contactName: null,
+    contactRole: null,
+    contactPhone: null,
+    website: null,
+  });
   prismaMock.reportingYear.findFirst.mockResolvedValue({ id: "ry", year: 2024, gwpSet: "AR6" });
   prismaMock.reportingYear.findMany.mockResolvedValue([]);
   prismaMock.facility.findMany.mockResolvedValue([]);
   prismaMock.activityEntry.findMany.mockResolvedValue([]);
   prismaMock.gridElectricityFactor.findUnique.mockResolvedValue(null);
-  prismaMock.transportSubsidyPrice.findUnique.mockResolvedValue(null);
+  prismaMock.transportSubsidyPrice.findMany.mockResolvedValue([]);
   prismaMock.cleanTechEntry.findMany.mockResolvedValue([]);
 
   // findFirst is scoped on { id, companyId } in loadReport, so it only matches when the facility

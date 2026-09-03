@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveGwpSet } from "@/lib/gwp";
 import { rollupYear, type YearRollup } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
+import { toFuelPrices, type FuelPrices } from "@/lib/calc/fuel";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { GAS_KEYS } from "./types";
 import type {
@@ -112,6 +113,12 @@ export async function loadDashboard(
         value: true,
         secondaryValue: true,
         updatedAt: true,
+        // The routes of a COUNT_TIMES_DISTANCE source. The engine sums each row's own product,
+        // so they have to be loaded here rather than re-derived from value x secondaryValue.
+        trips: {
+          select: { count: true, distanceKm: true },
+          orderBy: { position: "asc" },
+        },
         emissionFactor: {
           select: {
             co2Factor: true,
@@ -121,6 +128,9 @@ export async function loadDashboard(
             biogenic: true,
             entryMode: true,
             gasType: true,
+            // Which of the year's two average prices a transport subsidy divides by. Omitting it
+            // would report every C6 subsidy as missing a price instead of pricing it.
+            fuelType: true,
           },
         },
       },
@@ -131,7 +141,7 @@ export async function loadDashboard(
     }),
     prisma.transportSubsidyPrice.findMany({
       where: { year: { in: years } },
-      select: { year: true, pricePerGallonCop: true },
+      select: { year: true, fuel: true, pricePerGallonCop: true },
     }),
     prisma.companyTarget.findUnique({
       where: { companyId },
@@ -140,7 +150,12 @@ export async function loadDashboard(
   ]);
 
   const gridByYear = new Map(gridFactors.map((g) => [g.year, g.factor.toString()]));
-  const priceByYear = new Map(subsidyPrices.map((p) => [p.year, p.pricePerGallonCop.toString()]));
+  // One price per fuel per year since 2026-09-03, so a year's rows are grouped and then folded
+  // into the engine's two-slot shape. A year with no row for a fuel keeps null there, which the
+  // engine reports as a missing price rather than substituting the other fuel's number.
+  const pricesByYear = new Map<number, FuelPrices>(
+    years.map((y) => [y, toFuelPrices(subsidyPrices.filter((p) => p.year === y))]),
+  );
   const gwpByYear = new Map(scopedYears.map((ry) => [ry.year, ry.gwpSet]));
 
   const entriesByReportingYear = new Map<string, typeof entries>();
@@ -157,7 +172,7 @@ export async function loadDashboard(
     return rollupYear({
       entries: toRollupEntries(rows),
       gridFactor: gridByYear.get(targetYear) ?? null,
-      pricePerGallon: priceByYear.get(targetYear) ?? null,
+      fuelPrices: pricesByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     });
   }
@@ -397,6 +412,10 @@ async function loadCompanyTargetProgress(
         month: true,
         value: true,
         secondaryValue: true,
+        trips: {
+          select: { count: true, distanceKm: true },
+          orderBy: { position: "asc" },
+        },
         emissionFactor: {
           select: {
             co2Factor: true,
@@ -405,6 +424,7 @@ async function loadCompanyTargetProgress(
             co2eFactor: true,
             biogenic: true,
             entryMode: true,
+            fuelType: true,
           },
         },
       },
@@ -415,19 +435,24 @@ async function loadCompanyTargetProgress(
     }),
     prisma.transportSubsidyPrice.findMany({
       where: { year: { in: [baselineYear, selectedYear] } },
-      select: { year: true, pricePerGallonCop: true },
+      select: { year: true, fuel: true, pricePerGallonCop: true },
     }),
   ]);
 
   const gridByYear = new Map(gridFactors.map((g) => [g.year, g.factor.toString()]));
-  const priceByYear = new Map(subsidyPrices.map((p) => [p.year, p.pricePerGallonCop.toString()]));
+  const pricesByYear = new Map<number, FuelPrices>(
+    [baselineYear, selectedYear].map((y) => [
+      y,
+      toFuelPrices(subsidyPrices.filter((p) => p.year === y)),
+    ]),
+  );
   const gwpByYear = new Map(allReportingYears.map((ry) => [ry.year, ry.gwpSet]));
 
   const rollFor = (ids: string[], targetYear: number) =>
     rollupYear({
       entries: toRollupEntries(entries.filter((e) => ids.includes(e.reportingYearId))),
       gridFactor: gridByYear.get(targetYear) ?? null,
-      pricePerGallon: priceByYear.get(targetYear) ?? null,
+      fuelPrices: pricesByYear.get(targetYear) ?? null,
       gwpSet: (gwpByYear.get(targetYear) ?? resolveGwpSet(targetYear)) as GwpSet,
     }).totalTonnes;
 

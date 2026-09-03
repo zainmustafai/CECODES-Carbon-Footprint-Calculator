@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Controller } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,17 +16,31 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
 import { DecimalField } from "@/components/form/decimal-field";
-import { useSubsidyPriceForm } from "../hooks/use-subsidy-price-form";
+import { SelectField } from "@/components/form/select-field";
+import { useSubsidyPriceForm, type SubsidyFuel } from "../hooks/use-subsidy-price-form";
 
 type SubsidyPriceDialogProps = {
-  // Present in edit mode. The year is the key, so it is read-only there.
-  subsidyPrice?: { year: string; pricePerGallonCop: string; source: string };
+  // Present in edit mode. Year and fuel are the key together, so both are read-only there.
+  subsidyPrice?: {
+    year: string;
+    fuel: SubsidyFuel;
+    pricePerGallonCop: string;
+    source: string;
+  };
 };
 
 export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
   const t = useTranslations("admin.factors.subsidy");
   const [open, setOpen] = useState(false);
   const isEdit = Boolean(subsidyPrice);
+  const fuelOptions = [
+    { value: "GASOLINE", label: t("fuelGasoline") },
+    { value: "DIESEL", label: t("fuelDiesel") },
+  ];
+  // Two rows now share a year, so the trigger's accessible name has to name the fuel too.
+  const editedFuel = subsidyPrice
+    ? t(subsidyPrice.fuel === "GASOLINE" ? "fuelGasoline" : "fuelDiesel")
+    : "";
 
   const { form, onSubmit, isSubmitting, serverError } = useSubsidyPriceForm({
     subsidyPrice,
@@ -40,7 +55,7 @@ export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`${t("edit")}: ${subsidyPrice?.year}`}
+            aria-label={`${t("edit")}: ${editedFuel} ${subsidyPrice?.year}`}
           >
             <Pencil className="size-4 text-muted-foreground" aria-hidden />
           </Button>
@@ -67,6 +82,23 @@ export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
               readOnly={isEdit}
               {...form.register("year")}
               error={errors.year?.message}
+            />
+            <Controller
+              control={form.control}
+              name="fuel"
+              render={({ field }) => (
+                <SelectField
+                  id="subsidy-fuel"
+                  label={t("fuel")}
+                  options={fuelOptions}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  // The fuel is half the key: switching it would address a different row, so
+                  // that is a create, not an edit.
+                  disabled={isEdit}
+                  error={errors.fuel?.message}
+                />
+              )}
             />
             <DecimalField
               label={t("price")}

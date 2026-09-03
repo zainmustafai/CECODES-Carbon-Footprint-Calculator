@@ -1,6 +1,16 @@
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { PreviewFactor } from "@/lib/calc/preview";
 
+// One route of a COUNT_TIMES_DISTANCE source: a count and a distance, multiplied (client
+// feedback 2026-09-03, E3). Every field is a display string, "" where the column is null, so
+// nothing here is ever a JS number.
+export type TripVM = {
+  reference: string;
+  count: string;
+  distanceKm: string;
+  note: string;
+};
+
 // One editable value. `value` is a display string; "" means "not reported yet" (null in
 // the database). Decimals never become JS numbers anywhere in this feature.
 export type EntryCell = {
@@ -8,8 +18,13 @@ export type EntryCell = {
   month: number | null;
   value: string;
   /** Only meaningful when the source's entryMode is COUNT_TIMES_DISTANCE: distance in km,
-   *  paired with `value` holding the passenger/vehicle count (client feedback 2026-08-15). */
+   *  paired with `value` holding the passenger/vehicle count (client feedback 2026-08-15).
+   *  Since trip rows arrived this pair is derived, not typed: the save action writes the sum of
+   *  the products into `value` and 1 into `secondaryValue`. */
   secondaryValue: string;
+  /** The routes behind a COUNT_TIMES_DISTANCE source, in display order. Empty for every other
+   *  source, and empty for a transport source entered before trip rows existed. */
+  trips: TripVM[];
 };
 
 export type SourceVM = {

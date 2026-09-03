@@ -38,6 +38,16 @@ enum EntryMode {
   COUNT_TIMES_DISTANCE // value is a passenger/vehicle count, secondaryValue is distance in km; multiply
 }
 
+// Which fuel a MONEY_PER_GALLON factor buys, so the engine divides the reported money by the
+// right yearly average price - client feedback 2026-09-03 (E4): "gas and diesel prices table,
+// but again I need to be able to add them from admin user". Before this, transport_subsidy_prices
+// held ONE price per year and both C6 subsidy factors divided by it, so diesel was charged the
+// gasoline price. Null on every factor that is not a transport subsidy.
+enum FuelType {
+  GASOLINE // C6: Gasolina E10 (Comercial) - Móvil
+  DIESEL // C6: Diésel B10 (Mezcla comercial) - Móvil
+}
+
 enum Role {
   COMPANY_USER // Usuario Empresa - sees only their own company
   CECODES_ADMIN // Administrador CECODES - the seeded admin; manages factor library + all companies
@@ -96,6 +106,19 @@ model Company {
   name         String // Empresa
   sector       String? // optional; slug from src/lib/sectors.ts, free text for legacy rows
   contactEmail String? // optional; shown on reports
+  // The identifying details the report header prints - client feedback 2026-09-03 (D5), "the
+  // first thing the user will visualize is their information". build-pdf.tsx has had rendering
+  // branches for all six since that round; until now toCompanyProfile hardcoded them to null
+  // because the columns did not exist.
+  //
+  // `nit` is the Colombian tax id. Deliberately NOT unique: legacy rows may repeat or omit it,
+  // and a plain unique index would treat two NULLs as distinct anyway (IMPLEMENTATION.md §11).
+  nit           String?
+  employeeCount Int? // Colaboradores
+  contactName   String?
+  contactRole   String?
+  contactPhone  String?
+  website       String?
   // A deactivated company blocks its own users. Admins may still open it to fix and
   // reactivate it, which is why resolveCompanyScope checks this only on the company-user path.
   active       Boolean    @default(true)
@@ -185,9 +208,16 @@ model ActivityEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // One row per route for a COUNT_TIMES_DISTANCE source (C4/C6/C7/C9). Empty for every other
+  // entry, and empty for a transport source entered before trip rows existed.
+  trips TransportTrip[]
+
   // Dedupes the 12 Scope-2 month rows. Postgres treats NULLs as distinct, so the annual
   // (month IS NULL) rows are deduped by a partial unique index in the migration instead.
   @@unique([reportingYearId, emissionFactorId, month])
+  // Backs the composite foreign key from transport_trips, exactly as ReportingYear's
+  // @@unique([id, companyId]) backs the one from activity_entries.
+  @@unique([id, companyId])
   @@index([reportingYearId, scope])
   @@index([reportingYearId, companyId])
   @@index([companyId])
@@ -327,6 +357,10 @@ model EmissionFactor {
   // gallons; Cat 6/7 distance categories (unit "pasajeros * km" / "vehiculo * km") are reported
   // as a count and a distance, multiplied. Default QUANTITY changes nothing for any other factor.
   entryMode      EntryMode @default(QUANTITY)
+  // Only meaningful when entryMode = MONEY_PER_GALLON: which of the yearly average prices the
+  // reported money is divided by. Derived from the workbook row by src/lib/calc/fuel.ts on every
+  // import, never typed by hand, so a renamed element cannot lose it.
+  fuelType       FuelType?
 
   version   EmissionFactorVersion? @relation(fields: [versionId], references: [id])
   versionId String?
@@ -429,15 +463,61 @@ model GridElectricityFactor {
 // price to get gallons, then prices the gallons with the normal per-gallon factor. Same shape and
 // history convention as GridElectricityFactor: the year rows are themselves the history.
 model TransportSubsidyPrice {
-  id                String   @id @default(uuid())
-  year              Int      @unique
-  pricePerGallonCop Decimal  @db.Decimal(20, 2) // COP / gal
+  id   String @id @default(uuid())
+  year Int
+  // One row per fuel per year - client feedback 2026-09-03 (E4). Before this there was a single
+  // price per year and the diesel factor divided by the gasoline price.
+  fuel FuelType
+  // Decimal(20,6), not (20,2): CECODES's own averages carry twelve decimal places
+  // (16046.315789473685 for 2024 gasoline, from "C6 - Viajes de negocios.xlsx"), and the old
+  // scale made the admin form reject their number outright. Six decimals is far past materiality
+  // for a COP price and matches the activity-value scale used everywhere else.
+  pricePerGallonCop Decimal  @db.Decimal(20, 6) // COP / gal
   source            String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
   updatedByEmail    String?
 
+  @@unique([year, fuel])
   @@map("transport_subsidy_prices")
+}
+
+// One route of a transport source: a count and a distance, multiplied. Client feedback
+// 2026-09-03 (E3): C4, C6, C7 and C9 need "a way to register pasajero*km and vehículo*km", and
+// the four templates CECODES sent are one row per route, with a reference name and observations.
+//
+// A CHILD table rather than more ActivityEntry rows: activity_entries is uniquely keyed by
+// (reportingYearId, emissionFactorId, month) plus a partial unique index for the annual rows, so
+// N sibling rows per source are physically impossible there.
+//
+// The composite FK binds companyId to the entry, so a child row cannot claim one company while
+// its entry belongs to another. That, plus src/lib/auth/company-scope.ts, is the isolation:
+// RLS is inert through Prisma, which connects as the table owner.
+model TransportTrip {
+  id String @id @default(uuid())
+
+  entry           ActivityEntry @relation(fields: [activityEntryId, companyId], references: [id, companyId], onDelete: Cascade)
+  activityEntryId String
+  companyId       String // denormalized for RLS
+
+  // Display order, 0-based. saveTransportTrips rewrites the whole set, so positions stay dense.
+  position Int
+  // "Nombre de referencia - Fuente de emisión" in CECODES's templates: the route or trip name.
+  reference String?
+  // Passengers, vehicles or tonnes, per the first half of the factor's unit.
+  count Decimal @db.Decimal(20, 6)
+  // Distance in km, the second half of the unit.
+  distanceKm Decimal @db.Decimal(20, 6)
+  // "Observaciones".
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityEntryId, position])
+  @@index([activityEntryId])
+  @@index([companyId])
+  @@map("transport_trips")
 }
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 import { estimateSourceTonnes, type SourceEstimate } from "@/lib/calc/preview";
 import { REMOVALS_CATEGORY, rollupYear } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
+import { toFuelPrices } from "@/lib/calc/fuel";
 import { formatEnteredActivity } from "@/lib/calc/format-entered-activity";
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { shapeEntries, type EntryRow } from "@/features/data-entry/lib/shape-entries";
@@ -88,7 +89,7 @@ export async function loadPreview(
   const selectedYear =
     reportingYears.find((y) => y.year === requested.year) ?? reportingYears[0];
 
-  const [entries, gridFactor, subsidyPrice, cleanTechRows] = await Promise.all([
+  const [entries, gridFactor, subsidyPrices, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -115,6 +116,9 @@ export async function loadPreview(
             source: true,
             entryMode: true,
             gasType: true,
+            // Which of the year's two average prices a transport subsidy divides by; without it
+            // every C6 subsidy would show as missing a price.
+            fuelType: true,
           },
         },
       },
@@ -123,9 +127,9 @@ export async function loadPreview(
       where: { year: selectedYear.year },
       select: { factor: true, source: true },
     }),
-    prisma.transportSubsidyPrice.findUnique({
+    prisma.transportSubsidyPrice.findMany({
       where: { year: selectedYear.year },
-      select: { pricePerGallonCop: true, source: true },
+      select: { fuel: true, pricePerGallonCop: true, source: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: selectedYear.id, companyId },
@@ -188,6 +192,7 @@ export async function loadPreview(
           factorUnit: entry.emissionFactor.factorUnit,
           source: entry.emissionFactor.source,
           entryMode: entry.emissionFactor.entryMode,
+          fuelType: entry.emissionFactor.fuelType,
         }
       : null,
   }));
@@ -195,9 +200,13 @@ export async function loadPreview(
   const gridFactorVM = gridFactor
     ? { factor: gridFactor.factor.toString(), source: gridFactor.source }
     : null;
-  const pricePerGallonVM = subsidyPrice
-    ? { pricePerGallonCop: subsidyPrice.pricePerGallonCop.toString(), source: subsidyPrice.source }
-    : null;
+  // Both of the year's average prices, folded into the two-slot shape the estimate takes: a
+  // gasoline subsidy divides by the gasoline price and a diesel one by the diesel price. The
+  // provenance line is the first row's, since both averages come from the same published table.
+  const pricePerGallonVM =
+    subsidyPrices.length > 0
+      ? { prices: toFuelPrices(subsidyPrices), source: subsidyPrices[0].source }
+      : null;
   const gwpSet = selectedYear.gwpSet as GwpSet;
 
   const shaped = shapeEntries(entryRows, [], NO_LIBRARY);
@@ -411,7 +420,7 @@ export async function loadCompanyWidePreview(
   // of them is representative.
   const gwpSet = yearRows[0].gwpSet as GwpSet;
 
-  const [entries, gridFactor, subsidyPrice, cleanTechRows] = await Promise.all([
+  const [entries, gridFactor, subsidyPrices, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
       orderBy: [{ category: "asc" }, { element: "asc" }, { month: "asc" }],
@@ -425,6 +434,11 @@ export async function loadCompanyWidePreview(
         month: true,
         value: true,
         secondaryValue: true,
+        // The routes of a COUNT_TIMES_DISTANCE source: rollupYear sums each row's own product.
+        trips: {
+          select: { count: true, distanceKm: true },
+          orderBy: { position: "asc" },
+        },
         emissionFactor: {
           select: {
             active: true,
@@ -436,6 +450,7 @@ export async function loadCompanyWidePreview(
             factorUnit: true,
             entryMode: true,
             gasType: true,
+            fuelType: true,
           },
         },
       },
@@ -444,9 +459,9 @@ export async function loadCompanyWidePreview(
       where: { year: selectedYear },
       select: { factor: true },
     }),
-    prisma.transportSubsidyPrice.findUnique({
+    prisma.transportSubsidyPrice.findMany({
       where: { year: selectedYear },
-      select: { pricePerGallonCop: true },
+      select: { fuel: true, pricePerGallonCop: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
@@ -468,12 +483,12 @@ export async function loadCompanyWidePreview(
   }
 
   const gridFactorStr = gridFactor ? gridFactor.factor.toString() : null;
-  const pricePerGallonStr = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
+  const fuelPrices = toFuelPrices(subsidyPrices);
 
   const rollup = rollupYear({
     entries: toRollupEntries(entries),
     gridFactor: gridFactorStr,
-    pricePerGallon: pricePerGallonStr,
+    fuelPrices,
     gwpSet,
   });
 
@@ -651,7 +666,7 @@ export async function loadCompanyWidePreview(
       const facilityRollup = rollupYear({
         entries: toRollupEntries(facilityEntries),
         gridFactor: gridFactorStr,
-        pricePerGallon: pricePerGallonStr,
+        fuelPrices,
         gwpSet,
       });
       return {

@@ -24,7 +24,18 @@ export async function CompanyScreen({ companyId, basePath }: CompanyScreenProps)
   const [company, target, firstReportedYear] = await Promise.all([
     prisma.company.findUnique({
       where: { id: companyId },
-      select: { id: true, name: true, sector: true, contactEmail: true },
+      select: {
+        id: true,
+        name: true,
+        sector: true,
+        contactEmail: true,
+        nit: true,
+        employeeCount: true,
+        contactName: true,
+        contactRole: true,
+        contactPhone: true,
+        website: true,
+      },
     }),
     prisma.companyTarget.findUnique({
       where: { companyId },
@@ -46,6 +57,12 @@ export async function CompanyScreen({ companyId, basePath }: CompanyScreenProps)
         name={company.name}
         sector={company.sector}
         contactEmail={company.contactEmail}
+        nit={company.nit}
+        employeeCount={company.employeeCount}
+        contactName={company.contactName}
+        contactRole={company.contactRole}
+        contactPhone={company.contactPhone}
+        website={company.website}
       />
 
       <CompanyTargetForm

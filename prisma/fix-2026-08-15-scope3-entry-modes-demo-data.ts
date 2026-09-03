@@ -91,10 +91,14 @@ async function main() {
     const price = DEMO_SUBSIDY_PRICES[year];
     console.log(`  PRICE  ${year}: ${price} COP/gal (demo reference)`);
     if (APPLY) {
+      // Since 2026-09-03 the table holds one price per FUEL per year. This demo seed predates
+      // that and only ever meant the gasoline price, which is what its single figure was; it is
+      // written under GASOLINE and leaves diesel to the real reference data.
       await prisma.transportSubsidyPrice.upsert({
-        where: { year },
+        where: { year_fuel: { year, fuel: "GASOLINE" } },
         create: {
           year,
+          fuel: "GASOLINE",
           pricePerGallonCop: price,
           source: "Precio promedio de referencia (demo)",
           updatedByEmail: CHANGED_BY,

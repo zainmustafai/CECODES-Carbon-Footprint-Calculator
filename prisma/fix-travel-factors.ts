@@ -30,6 +30,14 @@
 // as an admin edit would, so the correction shows up in the factor's history in the UI with a
 // from -> to for each column.
 //
+// SCOPE, CORRECTED 2026-09-03: until this date the where clause selected EVERY Scope 3 C6 and C7
+// factor, which included the two unit-"gal" transport subsidies (C6: Gasolina E10 (Comercial) -
+// Móvil and C6: Diésel B10 (Mezcla comercial) - Móvil). Those are per-gallon combustion factors
+// that were never derived from a per-mile source, so a run before that date divided them by
+// 2.588881 and understated them by the same. Anyone auditing the factor library should check
+// those two rows for a "correccion-km-1609" change row and undo it if it is there; the run of
+// 2026-09-03 is the only one whose scope is known to be right.
+//
 // SIDE EFFECT, AND IT IS THE ONE WE WANT: writing a non-IMPORTED change row marks these factors as
 // human-edited, so prisma/import-factors.ts will never overwrite them from the (still wrong)
 // workbook. If CECODES later sends a corrected sheet, delete the change rows or re-run the
@@ -61,6 +69,13 @@ async function main() {
     // same sheet with the same broken formula.
     where: {
       scope: "SCOPE_3",
+      // ONLY the rows the workbook built from a per-mile source, which are the per-distance ones.
+      // The two "gal" transport-subsidy factors (C6: Gasolina E10 (Comercial) - Móvil and
+      // C6: Diésel B10 (Mezcla comercial) - Móvil) sit in the same C6 category but are
+      // per-gallon combustion factors that were never converted from miles. Dividing them here
+      // would understate them by 1.609^2 = 2.588881, and mark them human-edited so the importer
+      // could never put them back.
+      unit: { in: ["vehículo * km", "pasajeros * km"] },
       OR: [{ category: { startsWith: "C6" } }, { category: { startsWith: "C7" } }],
     },
     select: {
@@ -84,7 +99,10 @@ async function main() {
   console.log(
     `${APPLY ? "APPLYING" : "DRY RUN (nothing will be written; pass --apply to write)"}\n`,
   );
-  console.log(`Found ${factors.length} Scope 3 travel/commuting factors.`);
+  console.log(
+    `Found ${factors.length} Scope 3 travel/commuting factors priced per distance ` +
+      `(vehículo * km, pasajeros * km).`,
+  );
   console.log(`Dividing every factor column by 1.609^2 = ${OVERSTATEMENT.toString()}\n`);
 
   let corrected = 0;

@@ -5,6 +5,7 @@ import {
   type GasBreakdownKg,
 } from "@/lib/calc/engine";
 import { isFuelCategory } from "@/lib/calc/ch4-rule";
+import { gallonsFromMoney, type FuelPrices, type FuelType } from "@/lib/calc/fuel";
 import { kgToTonnes } from "@/lib/gwp";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 
@@ -34,6 +35,13 @@ export type RollupFactor = {
    * defaults to QUANTITY above. Meaningless for a per-gas factor (co2Factor/ch4Factor/n2oFactor).
    */
   gasType?: string | null;
+  /**
+   * Only meaningful when entryMode is MONEY_PER_GALLON: which of the year's average prices the
+   * reported money is divided by. Optional and defaulted to null by every caller that predates
+   * 2026-09-03, exactly like `gasType` above. A money-per-gallon factor with no fuel is reported
+   * as missing a price rather than priced against a guess.
+   */
+  fuelType?: FuelType | null;
 };
 
 export type RollupEntry = {
@@ -49,6 +57,14 @@ export type RollupEntry = {
   value: string | null;
   /** Only meaningful for COUNT_TIMES_DISTANCE entries: distance in km. Null otherwise. */
   secondaryValue: string | null;
+  /**
+   * One row per route for a COUNT_TIMES_DISTANCE source (client feedback 2026-09-03, E3). When
+   * present these ARE the activity: the engine sums each row's product. `value` is kept in step
+   * with that sum by saveTransportTrips, so the legacy value x secondaryValue path below can
+   * never disagree with this one; the fallback exists for a source entered before trip rows and
+   * for callers that do not load them.
+   */
+  trips?: { count: string; distanceKm: string }[];
   /** null when the factor row was removed (onDelete SetNull); Scope 2 never has one. */
   factor: RollupFactor | null;
 };
@@ -288,15 +304,16 @@ function toFactorInput(factor: RollupFactor, category: string): FactorInput {
 export function rollupYear({
   entries,
   gridFactor,
-  pricePerGallon,
+  fuelPrices,
   gwpSet,
 }: {
   entries: RollupEntry[];
   /** kg CO2 per kWh for the reporting year, or null when it has not been loaded. */
   gridFactor: string | null;
-  /** COP per gallon for the reporting year, or null when it has not been loaded. Only consulted
-   *  for MONEY_PER_GALLON entries (Scope 3 Cat 6 "Subsidios de transporte"). */
-  pricePerGallon: string | null;
+  /** COP per gallon for the reporting year, one price per fuel, or null when they have not been
+   *  loaded. Only consulted for MONEY_PER_GALLON entries (Scope 3 Cat 6 "Subsidios de
+   *  transporte"), which divide by the price of the fuel their own factor names. */
+  fuelPrices: FuelPrices | null;
   gwpSet: GwpSet;
 }): YearRollup {
   let unpricedCount = 0;
@@ -314,7 +331,6 @@ export function rollupYear({
   let missingTransportSubsidyPrice = false;
 
   const grid = gridFactor !== null ? Number(gridFactor) : null;
-  const price = pricePerGallon !== null ? Number(pricePerGallon) : null;
 
   let removalsTonnes = 0;
   let removalsUnpriced = 0;
@@ -326,17 +342,32 @@ export function rollupYear({
     let activity: number;
     if (entryMode === "MONEY_PER_GALLON") {
       // Reference data, not user input: like a missing grid factor, this excludes the entry and
-      // flags the year as incomplete rather than dividing by a fabricated price.
-      if (price === null) {
+      // flags the year as incomplete rather than dividing by a fabricated price. The price is
+      // the one for THIS factor's own fuel, so a diesel subsidy is never charged the gasoline
+      // price; an unusable price (absent, zero, unparseable) is reported the same way.
+      const gallons = gallonsFromMoney(
+        parseActivity(entry.value),
+        fuelPrices,
+        entry.factor?.fuelType ?? null,
+      );
+      if (gallons === null) {
         missingTransportSubsidyPrice = true;
         unpricedCount += 1;
         continue;
       }
-      activity = parseActivity(entry.value) / price;
+      activity = gallons;
     } else if (entryMode === "COUNT_TIMES_DISTANCE") {
-      // Either half missing means "not fully reported yet", the same honest 0 a single missing
-      // QUANTITY value already produces - not a pricing failure, so not excluded/flagged.
-      activity = parseActivity(entry.value) * parseActivity(entry.secondaryValue);
+      // Sum each route's PRODUCT, never the product of the sums. Either half missing means "not
+      // fully reported yet", the same honest 0 a single missing QUANTITY value already produces,
+      // not a pricing failure, so it is not excluded or flagged.
+      const trips = entry.trips ?? [];
+      activity =
+        trips.length > 0
+          ? trips.reduce(
+              (sum, trip) => sum + parseActivity(trip.count) * parseActivity(trip.distanceKm),
+              0,
+            )
+          : parseActivity(entry.value) * parseActivity(entry.secondaryValue);
     } else {
       activity = parseActivity(entry.value);
     }

@@ -41,6 +41,12 @@ export function useCompanyProfileForm({
       name: values.name,
       sector: values.sector,
       contactEmail: values.contactEmail,
+      nit: values.nit,
+      employeeCount: values.employeeCount,
+      contactName: values.contactName,
+      contactRole: values.contactRole,
+      contactPhone: values.contactPhone,
+      website: values.website,
     });
 
     if (error) {

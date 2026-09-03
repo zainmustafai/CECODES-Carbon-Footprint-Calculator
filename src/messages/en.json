@@ -177,6 +177,18 @@
     "sectorPlaceholder": "Select a sector",
     "contactEmail": "Contact (optional)",
     "contactEmailPlaceholder": "sustainability@company.com",
+    "nit": "NIT (optional)",
+    "nitPlaceholder": "900123456-7",
+    "employeeCount": "Employees (optional)",
+    "employeeCountPlaceholder": "240",
+    "contactName": "Contact person (optional)",
+    "contactNamePlaceholder": "First and last name",
+    "contactRole": "Role (optional)",
+    "contactRolePlaceholder": "HSEQ Manager",
+    "contactPhone": "Phone (optional)",
+    "contactPhonePlaceholder": "+57 300 000 0000",
+    "website": "Website (optional)",
+    "websitePlaceholder": "https://mycompany.com",
     "save": "Save changes",
     "sectors": {
       "agroindustria-alimentos": "Agribusiness and food",
@@ -196,7 +208,9 @@
     },
     "validation": {
       "nameRequired": "Company name is required.",
-      "emailInvalid": "Enter a valid email."
+      "emailInvalid": "Enter a valid email.",
+      "employeeCountInvalid": "Enter a whole number of employees.",
+      "tooLong": "That text is too long."
     },
     "errors": {
       "forbidden": "You do not have access to this company.",
@@ -346,6 +360,7 @@
       "cta": "Set a target",
       "baselineCaption": "Target: reduce {pct}% vs. {year} ({tonnes} tCO2e)"
     },
+    "factorCorrectionNote": "The emission factors were corrected on 3 September 2026 using the official CECODES table. Figures for every year are recalculated with the corrected factors, so they may differ from reports downloaded before that date.",
     "biogenic": "Includes {tonnes} tCO2e biogenic.",
     "removalsNote": "Carbon removals: {tonnes} tCO2e, reported separately (never subtracted from the emissions total). Details are on the Summary.",
     "missingGridFactor": "The grid electricity factor for {year} is missing: Scope 2 shows zero until an administrator loads it.",
@@ -476,6 +491,22 @@
       "count": "Count",
       "km": "km",
       "distance": "Distance"
+    },
+    "trips": {
+      "title": "Trips",
+      "subtitle": "Record one line per route or trip. The tool multiplies each line and adds the results.",
+      "reference": "Reference",
+      "referencePlaceholder": "e.g. Bogotá to Cali",
+      "count": "Quantity ({unit})",
+      "distance": "Distance (km)",
+      "note": "Notes",
+      "add": "Add trip",
+      "remove": "Remove trip",
+      "empty": "No trips recorded yet.",
+      "total": "{count, plural, one {# trip} other {# trips}}: {total} {unit}",
+      "saving": "Saving trips...",
+      "saved": "Trips saved.",
+      "error": "The trips could not be saved."
     },
     "summary": {
       "title": "Element summary",
@@ -1008,11 +1039,15 @@
       },
       "subsidy": {
         "title": "Transport subsidy price per gallon",
-        "subtitle": "Average price by year, in COP. Alcance 3 - Categoria 6 (transport subsidies) uses it to convert the reported amount into gallons.",
-        "add": "Add year",
+        "subtitle": "Average price by year and by fuel, in COP. Alcance 3 - Categoria 6 (transport subsidies) uses it to convert the reported amount into gallons. Each fuel uses its own price.",
+        "add": "Add price",
         "addTitle": "Add subsidy price",
         "editTitle": "Edit subsidy price",
-        "dialogSubtitle": "Average price per gallon, in COP.",
+        "dialogSubtitle": "Average price per gallon, in COP, for that year and fuel.",
+        "fuel": "Fuel",
+        "fuelGasoline": "Gasoline",
+        "fuelDiesel": "Diesel",
+        "fuelLocked": "The fuel is part of the record's key. To change it, add a new price.",
         "year": "Year",
         "price": "Price",
         "priceUnit": "COP/gal",
@@ -1026,8 +1061,8 @@
         "edit": "Edit",
         "delete": "Delete",
         "deleteDialog": {
-          "title": "Delete the {year} price?",
-          "body": "Transport subsidy sources for that year will show the missing-price notice again until you load it back.",
+          "title": "Delete the {fuel} price for {year}?",
+          "body": "Transport subsidy sources for that year and fuel will show the missing-price notice again until you load it back.",
           "confirm": "Delete",
           "cancel": "Cancel"
         }
@@ -1048,7 +1083,7 @@
         "factorExists": "A factor with that alcance, category, element and unit already exists.",
         "versionExists": "A version with that name already exists.",
         "gridYearExists": "A factor for that year already exists.",
-        "subsidyYearExists": "A price for that year already exists.",
+        "subsidyYearExists": "A price for that year and fuel already exists.",
         "notFound": "The factor no longer exists.",
         "generic": "Something went wrong. Please try again."
       },

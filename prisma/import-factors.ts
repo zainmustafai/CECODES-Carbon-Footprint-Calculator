@@ -1,6 +1,10 @@
 // Excel emission-factor importer.
 //
 //   bun prisma/import-factors.ts [--dry-run] [--file <path>] [--apply-grid]
+//                                [--deactivate-leftovers]
+//
+// An unrecognized argument is refused rather than ignored: `--dryrun` used to parse as nothing
+// at all, so the run wrote while its author believed it was a rehearsal.
 //
 // Reads the authoritative per-gas table of CECODES's factor workbook and reconciles it into
 // emission_factors. Two sheets qualify, with an identical column layout: "Jerarquia nueva
@@ -22,6 +26,11 @@
 //     express CH4/N2O only in the kg columns map to no-factor and are reported, not imported.
 //   - It never hard-deletes a factor that has activity entries: it deactivates it instead.
 //
+// What it derives rather than reads: entryMode and fuelType are computed from the row's unit,
+// subcategory and element (src/lib/factor-import/derive-modes.ts and src/lib/calc/fuel.ts) and
+// written on every run, so a renamed factor cannot come back as a plain QUANTITY. An UPDATE
+// never lowers a mode that is already richer than QUANTITY: see the derivation in main().
+//
 // Bootstrap mirrors prisma/seed.ts. A plain `bun prisma/import-factors.ts` does not read
 // .env.local by itself, so loadEnvConfig runs first, exactly as playwright.config.ts does.
 
@@ -37,6 +46,8 @@ import {
   Prisma,
   Scope,
   FactorChangeAction,
+  type EntryMode,
+  type FuelType,
 } from "../src/lib/generated/prisma/client";
 import {
   buildCreationDiff,
@@ -45,6 +56,8 @@ import {
   type FactorSnapshot,
 } from "../src/features/admin/lib/factor-diff";
 import { mapRow, cellText, type RawRowCells } from "../src/lib/factor-import/map-row";
+import { deriveEntryMode } from "../src/lib/factor-import/derive-modes";
+import { deriveFuelType } from "../src/lib/calc/fuel";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
@@ -56,6 +69,10 @@ const IMPORTER_EMAIL = "importador";
 // The Scope-2 element the data-entry source picker depends on. Never removed by cleanup.
 const GRID_PICKER_ELEMENT = "SISTEMA INTERCONECTADO NACIONAL - SIN";
 const STARTER_SUFFIX = "(starter)";
+
+const USAGE =
+  "usage: bun prisma/import-factors.ts [--dry-run] [--file <path.xlsx>] [--apply-grid] " +
+  "[--deactivate-leftovers]";
 
 type Flags = {
   dryRun: boolean;
@@ -74,9 +91,23 @@ function parseFlags(argv: string[]): Flags {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--dry-run") flags.dryRun = true;
-    else if (arg === "--file") flags.file = argv[++i] ?? null;
     else if (arg === "--apply-grid") flags.applyGrid = true;
     else if (arg === "--deactivate-leftovers") flags.deactivateLeftovers = true;
+    else if (arg === "--file") {
+      // A bare `--file`, or `--file --dry-run`, used to fall through to null, and the run then
+      // silently imported the workbook in docs/reference instead of the one that was asked for.
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("--")) {
+        throw new Error("--file needs a path, e.g. --file docs/sample-data/DASHBOARD.xlsx");
+      }
+      flags.file = value;
+    } else if (arg.startsWith("--")) {
+      // A typo like --dryrun was ignored, which means the run WROTE while its author believed
+      // they were rehearsing. Nothing here is worth guessing at.
+      throw new Error(`Unknown flag: ${arg}\n${USAGE}`);
+    } else {
+      throw new Error(`Unexpected argument: ${arg}\n${USAGE}`);
+    }
   }
   return flags;
 }
@@ -84,7 +115,17 @@ function parseFlags(argv: string[]): Flags {
 // The single .xlsx in docs/reference. Its real name contains an accented "emision", so it is
 // resolved by extension rather than by a hardcoded name.
 function resolveWorkbookPath(override: string | null): string {
-  if (override) return override;
+  if (override) {
+    // Resolved against the caller's cwd, then checked here rather than left to exceljs: a
+    // mistyped path surfaced as a raw ENOENT from deep inside the library, and a wrong-format
+    // file as an unrelated zip error, neither of which names the flag that caused it.
+    const resolved = path.resolve(process.cwd(), override);
+    if (!fs.existsSync(resolved)) throw new Error(`Workbook not found: ${resolved}`);
+    if (!resolved.toLowerCase().endsWith(".xlsx")) {
+      throw new Error(`Not an .xlsx workbook: ${resolved}`);
+    }
+    return resolved;
+  }
   const candidates = fs
     .readdirSync(REFERENCE_DIR)
     .filter((name) => name.toLowerCase().endsWith(".xlsx"));
@@ -126,6 +167,11 @@ function snapshotFromFactor(f: {
   source: string | null;
   biogenic: boolean;
   uncertaintyPct: string | null;
+  // The two derived columns, passed in rather than read off the mapped row: on an update they
+  // may be the stored value the derivation declined to overwrite, and the diff has to record
+  // what is actually written.
+  entryMode: EntryMode;
+  fuelType: FuelType | null;
 }): FactorSnapshot {
   return {
     scope: f.scope,
@@ -142,6 +188,8 @@ function snapshotFromFactor(f: {
     source: f.source,
     biogenic: f.biogenic,
     uncertaintyPct: f.uncertaintyPct,
+    entryMode: f.entryMode,
+    fuelType: f.fuelType,
   };
 }
 
@@ -331,6 +379,27 @@ async function main() {
       }
     }
 
+    // Both derived columns are written on EVERY run. Without them a created factor takes the
+    // column default, QUANTITY, so a renamed "pasajeros * km" row comes back asking for one
+    // pre-multiplied number instead of a count and a distance, with nothing to say it changed.
+    const derivedEntryMode = deriveEntryMode({ unit: f.unit, subcategory: f.subcategory });
+    // On an UPDATE the derivation may raise a mode but never lower one. The modes set by
+    // migrations 20260815120000 and 20260903120200 leave no EmissionFactorChange row, so the
+    // "never touch a human-edited factor" guard above does not cover them: a workbook revision
+    // that dropped the accent from "vehículo * km" would otherwise quietly undo the backfill.
+    const entryMode: EntryMode =
+      existing && derivedEntryMode === "QUANTITY" && existing.entryMode !== "QUANTITY"
+        ? existing.entryMode
+        : derivedEntryMode;
+    // Derived from the mode that is actually being written, so a kept MONEY_PER_GALLON still
+    // gets its fuel. The stored value is the fallback for the same reason as above (the
+    // 20260903120100 backfill left no change row), but only while the mode still calls for one:
+    // a fuelType outliving its mode would be a stale column nothing reads.
+    const fuelType: FuelType | null =
+      entryMode === "MONEY_PER_GALLON"
+        ? (deriveFuelType({ entryMode, element: f.element }) ?? existing?.fuelType ?? null)
+        : null;
+
     const writeData = {
       co2Factor: f.co2Factor,
       ch4Factor: f.ch4Factor,
@@ -341,6 +410,8 @@ async function main() {
       source: f.source,
       biogenic: f.biogenic,
       uncertaintyPct: f.uncertaintyPct,
+      entryMode,
+      fuelType,
       versionId: latestVersionId,
     };
 
@@ -386,7 +457,7 @@ async function main() {
 
     const diff = buildFactorDiff(
       existing as unknown as FactorSnapshot,
-      snapshotFromFactor(f),
+      snapshotFromFactor({ ...f, entryMode, fuelType }),
     );
     if (isEmptyDiff(diff)) {
       counts.unchanged++;

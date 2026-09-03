@@ -223,22 +223,56 @@ describe("estimateSourceTonnes: MONEY_PER_GALLON", () => {
     const result = estimateSourceTonnes({
       values: ["1000000"],
       scope: "SCOPE_3",
-      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON" }),
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON", fuelType: "GASOLINE" }),
       gridFactor: null,
-      pricePerGallon: { pricePerGallonCop: "5000", source: null },
+      pricePerGallon: { prices: { GASOLINE: "5000", DIESEL: null }, source: null },
       gwpSet: "AR6",
     });
 
     expect(result).toMatchObject({ kind: "ok", tonnes: 2, derivedGallons: 200 });
   });
 
+  // Client feedback 2026-09-03 (E4): the popover has to divide by the same price the official
+  // rollup will, or the estimate the user reads while typing disagrees with the stored total.
+  it("divides a diesel subsidy by the diesel price, not the gasoline price", () => {
+    const result = estimateSourceTonnes({
+      values: ["1000000"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON", fuelType: "DIESEL" }),
+      gridFactor: null,
+      pricePerGallon: {
+        prices: { GASOLINE: "16046.315789", DIESEL: "9574.157895" },
+        source: null,
+      },
+      gwpSet: "AR6",
+    });
+
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.derivedGallons).toBeCloseTo(1000000 / 9574.157895, 9);
+    expect(result.tonnes).toBeCloseTo(((1000000 / 9574.157895) * 10) / 1000, 10);
+  });
+
   it("reports missingTransportSubsidyPrice instead of computing zero", () => {
     const result = estimateSourceTonnes({
       values: ["1000000"],
       scope: "SCOPE_3",
-      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON" }),
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON", fuelType: "GASOLINE" }),
       gridFactor: null,
       pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toEqual({ kind: "missingTransportSubsidyPrice" });
+  });
+
+  it("reports missingTransportSubsidyPrice when only the other fuel has a price", () => {
+    const result = estimateSourceTonnes({
+      values: ["1000000"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "10", entryMode: "MONEY_PER_GALLON", fuelType: "DIESEL" }),
+      gridFactor: null,
+      pricePerGallon: { prices: { GASOLINE: "16046.315789", DIESEL: null }, source: null },
       gwpSet: "AR6",
     });
 
@@ -272,6 +306,58 @@ describe("estimateSourceTonnes: COUNT_TIMES_DISTANCE", () => {
       gwpSet: "AR6",
     });
 
+    expect(result).toMatchObject({ kind: "ok", tonnes: 0, hasValues: false });
+  });
+
+  // Client feedback 2026-09-03 (E3): trip rows make N cells possible, and only then do "sum of
+  // the products" and "product of the sums" disagree. Every source had exactly one cell before,
+  // so no existing test could have caught this.
+  it("adds the product of each trip, not the product of the sums", () => {
+    const result = estimateSourceTonnes({
+      values: ["4", "6"],
+      secondaryValues: ["250", "100"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "0.1", entryMode: "COUNT_TIMES_DISTANCE" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    // 4 x 250 plus 6 x 100 is 1.600 pasajeros*km, not (4 + 6) x (250 + 100) = 3.500.
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.tonnes).toBeCloseTo((4 * 250 + 6 * 100) * 0.1 * 0.001, 10);
+  });
+
+  it("pairs a missing secondary value as empty rather than reading past the end", () => {
+    const result = estimateSourceTonnes({
+      values: ["4", "6"],
+      secondaryValues: ["250"],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "0.1", entryMode: "COUNT_TIMES_DISTANCE" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    // The second trip has no distance, so it contributes nothing; the first still counts.
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.tonnes).toBeCloseTo(4 * 250 * 0.1 * 0.001, 10);
+  });
+
+  it("still treats counts with no distance anywhere as not reported", () => {
+    const result = estimateSourceTonnes({
+      values: ["4", "6"],
+      secondaryValues: [],
+      scope: "SCOPE_3",
+      factor: factor({ co2Factor: "0.1", entryMode: "COUNT_TIMES_DISTANCE" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    // Half an entry is unfinished, not a measured zero: the rule this mode has always applied.
     expect(result).toMatchObject({ kind: "ok", tonnes: 0, hasValues: false });
   });
 });

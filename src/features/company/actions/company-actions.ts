@@ -15,6 +15,12 @@ export async function updateCompanyProfile(input: {
   name: string;
   sector?: string;
   contactEmail?: string;
+  nit?: string;
+  employeeCount?: string;
+  contactName?: string;
+  contactRole?: string;
+  contactPhone?: string;
+  website?: string;
 }): Promise<{ error?: string }> {
   const parsed = updateCompanyProfileInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
@@ -30,6 +36,15 @@ export async function updateCompanyProfile(input: {
         // An empty field means "not set". Storing "" would render as a blank sector chip.
         sector: sector && sector.length > 0 ? sector : null,
         contactEmail: contactEmail && contactEmail.length > 0 ? contactEmail : null,
+        // The six report-header fields need no ternary: the schema already turned "" into null
+        // and the count into a number, and an omitted field stays undefined, which Prisma reads
+        // as "leave this column alone".
+        nit: parsed.data.nit,
+        employeeCount: parsed.data.employeeCount,
+        contactName: parsed.data.contactName,
+        contactRole: parsed.data.contactRole,
+        contactPhone: parsed.data.contactPhone,
+        website: parsed.data.website,
       },
     });
     // updateMany returns { count: 0 } rather than throwing, so an unchecked count would

@@ -13,10 +13,11 @@ import {
 } from "@/components/ui/table";
 import { ConfirmActionDialog } from "@/components/feedback/confirm-action-dialog";
 import { SubsidyPriceDialog } from "./subsidy-price-dialog";
-import { useSubsidyPriceDelete } from "../hooks/use-subsidy-price-form";
+import { useSubsidyPriceDelete, type SubsidyFuel } from "../hooks/use-subsidy-price-form";
 
 export type SubsidyPriceRow = {
   year: number;
+  fuel: SubsidyFuel;
   pricePerGallonCop: string;
   source: string | null;
   updatedByEmail: string | null;
@@ -28,6 +29,9 @@ export function SubsidyPricesTable({ subsidyPrices }: { subsidyPrices: SubsidyPr
   const tc = useTranslations("common");
   const format = useFormatter();
   const { isPending, remove } = useSubsidyPriceDelete();
+
+  const fuelLabel = (fuel: SubsidyFuel) =>
+    t(fuel === "GASOLINE" ? "fuelGasoline" : "fuelDiesel");
 
   if (subsidyPrices.length === 0) {
     return (
@@ -43,6 +47,7 @@ export function SubsidyPricesTable({ subsidyPrices }: { subsidyPrices: SubsidyPr
         <TableHeader>
           <TableRow>
             <TableHead>{t("year")}</TableHead>
+            <TableHead>{t("fuel")}</TableHead>
             <TableHead>{t("price")}</TableHead>
             <TableHead>{t("source")}</TableHead>
             <TableHead>{t("updatedBy")}</TableHead>
@@ -54,8 +59,10 @@ export function SubsidyPricesTable({ subsidyPrices }: { subsidyPrices: SubsidyPr
         </TableHeader>
         <TableBody>
           {subsidyPrices.map((row) => (
-            <TableRow key={row.year}>
+            // A year holds one row per fuel, so the year alone no longer identifies a row.
+            <TableRow key={`${row.year}-${row.fuel}`}>
               <TableCell className="font-medium tabular-nums">{row.year}</TableCell>
+              <TableCell>{fuelLabel(row.fuel)}</TableCell>
               <TableCell className="font-mono whitespace-nowrap">
                 {row.pricePerGallonCop}
                 <span className="ml-1 text-xs text-muted-foreground">{t("priceUnit")}</span>
@@ -74,6 +81,7 @@ export function SubsidyPricesTable({ subsidyPrices }: { subsidyPrices: SubsidyPr
                   <SubsidyPriceDialog
                     subsidyPrice={{
                       year: String(row.year),
+                      fuel: row.fuel,
                       pricePerGallonCop: row.pricePerGallonCop,
                       source: row.source ?? "",
                     }}
@@ -83,17 +91,20 @@ export function SubsidyPricesTable({ subsidyPrices }: { subsidyPrices: SubsidyPr
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`${t("delete")}: ${row.year}`}
+                        aria-label={`${t("delete")}: ${fuelLabel(row.fuel)} ${row.year}`}
                       >
                         <Trash2 className="size-4 text-muted-foreground" aria-hidden />
                       </Button>
                     }
-                    title={t("deleteDialog.title", { year: String(row.year) })}
+                    title={t("deleteDialog.title", {
+                      year: String(row.year),
+                      fuel: fuelLabel(row.fuel),
+                    })}
                     description={t("deleteDialog.body")}
                     cancelLabel={t("deleteDialog.cancel")}
                     confirmLabel={t("deleteDialog.confirm")}
                     pending={isPending}
-                    onConfirm={() => remove(row.year)}
+                    onConfirm={() => remove(row.year, row.fuel)}
                   />
                 </div>
               </TableCell>

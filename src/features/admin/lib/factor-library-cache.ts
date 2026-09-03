@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { Prisma, type EntryMode, type Scope } from "@/lib/generated/prisma/client";
+import { Prisma, type EntryMode, type FuelType, type Scope } from "@/lib/generated/prisma/client";
 import { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG, SUBSIDY_PRICES_TAG } from "./factor-cache-tags";
 
 export { FACTOR_LIBRARY_TAG, GRID_FACTORS_TAG, SUBSIDY_PRICES_TAG };
@@ -72,6 +72,8 @@ export type CachedGridFactor = {
 
 export type CachedSubsidyPrice = {
   year: number;
+  /** Half the key: a year carries one gasoline price and one diesel price. */
+  fuel: FuelType;
   pricePerGallonCop: string;
   source: string | null;
   updatedByEmail: string | null;
@@ -228,9 +230,22 @@ export const getGridFactors = unstable_cache(
 
 export const getSubsidyPrices = unstable_cache(
   async (): Promise<CachedSubsidyPrice[]> => {
-    const rows = await prisma.transportSubsidyPrice.findMany({ orderBy: { year: "desc" } });
+    const rows = await prisma.transportSubsidyPrice.findMany({
+      // Newest year first, and within a year the two fuels always in the same order, so the
+      // table does not reshuffle when one of the pair is edited.
+      orderBy: [{ year: "desc" }, { fuel: "asc" }],
+      select: {
+        year: true,
+        fuel: true,
+        pricePerGallonCop: true,
+        source: true,
+        updatedByEmail: true,
+        updatedAt: true,
+      },
+    });
     return rows.map((row) => ({
       year: row.year,
+      fuel: row.fuel,
       pricePerGallonCop: row.pricePerGallonCop.toString(),
       source: row.source,
       updatedByEmail: row.updatedByEmail,

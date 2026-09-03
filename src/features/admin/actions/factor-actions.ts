@@ -285,27 +285,28 @@ export async function deleteGridFactor(input: unknown): Promise<{ error?: string
   }
 }
 
-// Average price per gallon (COP) by year - Scope 3 Cat 6 "Subsidios de transporte" (client
-// feedback 2026-08-15). Same upsert-by-year shape as the grid factor above.
+// Average price per gallon (COP) by year AND fuel - Scope 3 Cat 6 "Subsidios de transporte"
+// (client feedback 2026-08-15, one price per fuel since 2026-09-03). Same upsert shape as the
+// grid factor above, against the composite (year, fuel) unique.
 export async function upsertSubsidyPrice(input: unknown): Promise<{ error?: string }> {
   const parsed = upsertSubsidyPriceInput.safeParse(input);
   if (!parsed.success) return { error: "generic" };
 
   try {
     const scope = await resolveAdminScope();
-    const { year, pricePerGallonCop, source, mode } = parsed.data;
+    const { year, fuel, pricePerGallonCop, source, mode } = parsed.data;
 
     if (mode === "create") {
       const existing = await prisma.transportSubsidyPrice.findUnique({
-        where: { year },
+        where: { year_fuel: { year, fuel } },
         select: { year: true },
       });
       if (existing) return { error: "subsidyYearExists" };
     }
 
     await prisma.transportSubsidyPrice.upsert({
-      where: { year },
-      create: { year, pricePerGallonCop, source, updatedByEmail: scope.appUser.email },
+      where: { year_fuel: { year, fuel } },
+      create: { year, fuel, pricePerGallonCop, source, updatedByEmail: scope.appUser.email },
       update: { pricePerGallonCop, source, updatedByEmail: scope.appUser.email },
     });
 
@@ -326,7 +327,7 @@ export async function deleteSubsidyPrice(input: unknown): Promise<{ error?: stri
     await resolveAdminScope();
 
     const result = await prisma.transportSubsidyPrice.deleteMany({
-      where: { year: parsed.data.year },
+      where: { year: parsed.data.year, fuel: parsed.data.fuel },
     });
     if (result.count !== 1) throw new ScopeError("not-found");
 

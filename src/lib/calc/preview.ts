@@ -1,6 +1,7 @@
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import { computeCo2eKg } from "@/lib/calc/engine";
 import { isFuelCategory } from "@/lib/calc/ch4-rule";
+import { gallonsFromMoney, type FuelPrices, type FuelType } from "@/lib/calc/fuel";
 import { kgToTonnes } from "@/lib/gwp";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 
@@ -28,6 +29,9 @@ export type PreviewFactor = {
   /** Which gas a PRE-BLENDED factor is ("HFC", "PFC", "SF6", "NF3"), so the summary can name it
    *  rather than showing an anonymous CO2e number. Null for a per-gas factor. */
   gasType?: string | null;
+  /** Only meaningful for MONEY_PER_GALLON: which of the year's average prices to divide by, so a
+   *  diesel subsidy is never charged the gasoline price. Null for every other factor. */
+  fuelType?: FuelType | null;
 };
 
 /** One gas a factor carries, for the data-entry summary. Client feedback 2026-09-03: "when
@@ -35,7 +39,9 @@ export type PreviewFactor = {
 export type FactorGas = { gas: string; value: string; unit: string | null };
 
 export type PreviewGridFactor = { factor: string; source: string | null };
-export type PreviewSubsidyPrice = { pricePerGallonCop: string; source: string | null };
+/** Both of the year's average prices per gallon. A fuel with no price for that year stays null,
+ *  which is reported as missing rather than substituted with the other fuel's number. */
+export type PreviewSubsidyPrice = { prices: FuelPrices; source: string | null };
 
 export type SourceEstimate =
   | {
@@ -153,15 +159,36 @@ export function estimateSourceTonnes({
   if (entryMode === "MONEY_PER_GALLON") {
     const money = sumActivity(values);
     hasValues = money.hasValues;
-    const price = toNumber(pricePerGallon?.pricePerGallonCop ?? null);
-    if (price === null) return { kind: "missingTransportSubsidyPrice" };
-    activity = money.total / price;
+    // The price of THIS factor's own fuel. An absent, zero or unparseable price is reported as
+    // missing rather than divided by: dividing by zero would render Infinity tonnes on screen.
+    const gallons = gallonsFromMoney(
+      money.total,
+      pricePerGallon?.prices ?? null,
+      factor?.fuelType ?? null,
+    );
+    if (gallons === null) return { kind: "missingTransportSubsidyPrice" };
+    activity = gallons;
     derivedGallons = activity;
   } else if (entryMode === "COUNT_TIMES_DISTANCE") {
-    const count = sumActivity(values);
-    const distance = sumActivity(secondaryValues);
-    hasValues = count.hasValues && distance.hasValues;
-    activity = count.total * distance.total;
+    // Sum each route's PRODUCT, never the product of the sums. The two agree only while a source
+    // has exactly one cell, which is why this went unnoticed until the trip table (client
+    // feedback 2026-09-03, E3) made N routes possible: 4 x 250 plus 6 x 100 is 1.600 pasajeros
+    // por km, not (4 + 6) x (250 + 100) = 3.500.
+    let total = 0;
+    let sawCount = false;
+    let sawDistance = false;
+    for (let i = 0; i < values.length; i++) {
+      const count = sumActivity([values[i] ?? ""]);
+      const distance = sumActivity([secondaryValues[i] ?? ""]);
+      if (count.hasValues) sawCount = true;
+      if (distance.hasValues) sawDistance = true;
+      if (!count.hasValues || !distance.hasValues) continue;
+      total += count.total * distance.total;
+    }
+    // Both halves must have been reported somewhere. A count with no distance anywhere is an
+    // unfinished entry, not a zero, which is the rule this mode has applied since it existed.
+    hasValues = sawCount && sawDistance;
+    activity = total;
   } else {
     const quantity = sumActivity(values);
     hasValues = quantity.hasValues;

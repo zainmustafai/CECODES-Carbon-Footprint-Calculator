@@ -2,7 +2,7 @@
 
 import { Controller } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { Mail } from "lucide-react";
+import { Globe, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectField, type SelectFieldOption } from "@/components/form/select-field";
@@ -15,11 +15,23 @@ export function CompanyProfileForm({
   name,
   sector,
   contactEmail,
+  nit,
+  employeeCount,
+  contactName,
+  contactRole,
+  contactPhone,
+  website,
 }: {
   companyId: string;
   name: string;
   sector: string | null;
   contactEmail: string | null;
+  nit: string | null;
+  employeeCount: number | null;
+  contactName: string | null;
+  contactRole: string | null;
+  contactPhone: string | null;
+  website: string | null;
 }) {
   const t = useTranslations("company");
   const tSectors = useTranslations("company.sectors");
@@ -30,6 +42,13 @@ export function CompanyProfileForm({
       name,
       sector: sector ?? "",
       contactEmail: contactEmail ?? "",
+      nit: nit ?? "",
+      // An Int column, so a genuine 0 must survive as "0"; only a null column is an empty input.
+      employeeCount: employeeCount === null ? "" : String(employeeCount),
+      contactName: contactName ?? "",
+      contactRole: contactRole ?? "",
+      contactPhone: contactPhone ?? "",
+      website: website ?? "",
     },
   });
 
@@ -86,6 +105,54 @@ export function CompanyProfileForm({
               startIcon={<Mail />}
               error={form.formState.errors.contactEmail?.message}
               {...form.register("contactEmail")}
+            />
+
+            <TextField
+              label={t("nit")}
+              error={form.formState.errors.nit?.message}
+              {...form.register("nit")}
+            />
+
+            {/* type="text" with a numeric keypad, not type="number": the schema validates the
+                digits itself, and a number input would let the browser accept "1e3". */}
+            <TextField
+              label={t("employeeCount")}
+              inputMode="numeric"
+              error={form.formState.errors.employeeCount?.message}
+              {...form.register("employeeCount")}
+            />
+
+            <TextField
+              label={t("contactName")}
+              autoComplete="name"
+              error={form.formState.errors.contactName?.message}
+              {...form.register("contactName")}
+            />
+
+            <TextField
+              label={t("contactRole")}
+              autoComplete="organization-title"
+              error={form.formState.errors.contactRole?.message}
+              {...form.register("contactRole")}
+            />
+
+            <TextField
+              label={t("contactPhone")}
+              type="tel"
+              autoComplete="tel"
+              startIcon={<Phone />}
+              error={form.formState.errors.contactPhone?.message}
+              {...form.register("contactPhone")}
+            />
+
+            {/* Not type="url": native constraint validation would block the submit on
+                "empresa.com", and the header prints whatever the company writes. */}
+            <TextField
+              label={t("website")}
+              autoComplete="url"
+              startIcon={<Globe />}
+              error={form.formState.errors.website?.message}
+              {...form.register("website")}
             />
           </div>
 

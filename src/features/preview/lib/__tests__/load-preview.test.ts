@@ -12,7 +12,7 @@ const findManyFacility = vi.fn();
 const findManyReportingYear = vi.fn();
 const findManyActivityEntry = vi.fn();
 const findUniqueGridFactor = vi.fn();
-const findUniqueSubsidyPrice = vi.fn();
+const findManySubsidyPrice = vi.fn();
 const findManyCleanTech = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
@@ -21,7 +21,9 @@ vi.mock("@/lib/prisma", () => ({
     reportingYear: { findMany: (...args: unknown[]) => findManyReportingYear(...args) },
     activityEntry: { findMany: (...args: unknown[]) => findManyActivityEntry(...args) },
     gridElectricityFactor: { findUnique: (...args: unknown[]) => findUniqueGridFactor(...args) },
-    transportSubsidyPrice: { findUnique: (...args: unknown[]) => findUniqueSubsidyPrice(...args) },
+    // One row per fuel per year since 2026-09-03, so the loader reads them all rather than
+    // looking one up by year.
+    transportSubsidyPrice: { findMany: (...args: unknown[]) => findManySubsidyPrice(...args) },
     cleanTechEntry: { findMany: (...args: unknown[]) => findManyCleanTech(...args) },
   },
 }));
@@ -111,7 +113,7 @@ function setup() {
   ]);
   findManyActivityEntry.mockResolvedValue(ENTRIES);
   findUniqueGridFactor.mockResolvedValue({ factor: "0.2" }); // kg CO2/kWh
-  findUniqueSubsidyPrice.mockResolvedValue(null);
+  findManySubsidyPrice.mockResolvedValue([]);
   findManyCleanTech.mockResolvedValue([]);
 }
 
@@ -220,6 +222,14 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
     co2eFactor: null,
     factorUnit: "kg CO2/gal",
     entryMode: "MONEY_PER_GALLON" as const,
+    fuelType: "GASOLINE" as const,
+  };
+  // The other half of the C6 subsidy pair. Its own price is far below gasoline's, so a run that
+  // divided by the wrong one is impossible to mistake for a rounding difference.
+  const DIESEL_MONEY_FACTOR = {
+    ...MONEY_FACTOR,
+    co2Factor: "10.2765",
+    fuelType: "DIESEL" as const,
   };
   const DISTANCE_FACTOR = {
     active: true,
@@ -232,7 +242,12 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
     entryMode: "COUNT_TIMES_DISTANCE" as const,
   };
 
-  function setupEntryMode(entries: unknown[], subsidyPrice: string | null) {
+  // The year's prices arrive as one row per fuel, exactly as the table now stores them: a test
+  // that passed a single number could no longer say which fuel it meant.
+  function setupEntryMode(
+    entries: unknown[],
+    subsidyPrices: { fuel: "GASOLINE" | "DIESEL"; pricePerGallonCop: string }[],
+  ) {
     vi.clearAllMocks();
     findManyFacility.mockResolvedValue([{ id: FACILITY_A, name: "Planta A" }]);
     findManyReportingYear.mockResolvedValue([
@@ -240,9 +255,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
     ]);
     findManyActivityEntry.mockResolvedValue(entries);
     findUniqueGridFactor.mockResolvedValue(null);
-    findUniqueSubsidyPrice.mockResolvedValue(
-      subsidyPrice === null ? null : { pricePerGallonCop: subsidyPrice },
-    );
+    findManySubsidyPrice.mockResolvedValue(subsidyPrices);
     findManyCleanTech.mockResolvedValue([]);
   }
 
@@ -262,7 +275,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           emissionFactor: MONEY_FACTOR,
         },
       ],
-      "13800", // COP/gal -> 1 gallon derived
+      [{ fuel: "GASOLINE", pricePerGallonCop: "13800" }], // COP/gal -> 1 gallon derived
     );
     const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
     const source = vm.scopes.find((s) => s.scope === "SCOPE_3")!.categories[0].sources[0];
@@ -293,7 +306,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           emissionFactor: DISTANCE_FACTOR,
         },
       ],
-      null,
+      [],
     );
     const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
     const source = vm.scopes.find((s) => s.scope === "SCOPE_3")!.categories[0].sources[0];
@@ -334,7 +347,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           },
         },
       ],
-      null,
+      [],
     );
     const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
     const source = vm.scopes.find((s) => s.scope === "SCOPE_1")!.categories[0].sources[0];
@@ -342,5 +355,44 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
     expect(source.unit).toBe("Gal");
     expect(source.secondaryQuantity).toBeNull();
     expect(source.secondaryUnit).toBeNull();
+  });
+
+  // Until 2026-09-03 the year held ONE price and both C6 subsidy factors divided by it, so diesel
+  // was charged the gasoline price and reported roughly 40% of its real emissions. The two prices
+  // below are the client's own national averages, and the assertion is deliberately two-sided:
+  // reading the right number is only half of it, reading the other fuel's must fail.
+  it("divides a DIESEL subsidy by the diesel price while the gasoline price is also loaded", async () => {
+    setupEntryMode(
+      [
+        {
+          reportingYearId: RY_A,
+          scope: "SCOPE_3",
+          category: "C6: Viajes de negocios",
+          subcategory: "Subsidios de transporte",
+          element: "C6: Diésel B10 (Mezcla comercial) - Móvil",
+          unit: "gal",
+          month: null,
+          value: "1000000", // COP
+          secondaryValue: null,
+          emissionFactor: DIESEL_MONEY_FACTOR,
+        },
+      ],
+      [
+        { fuel: "GASOLINE", pricePerGallonCop: "16046.315789" },
+        { fuel: "DIESEL", pricePerGallonCop: "9574.157895" },
+      ],
+    );
+    const vm = await loadCompanyWidePreview(COMPANY_ID, { year: YEAR });
+    const source = vm.scopes.find((s) => s.scope === "SCOPE_3")!.categories[0].sources[0];
+
+    expect(vm.missingTransportSubsidyPrice).toBe(false);
+    expect(source.estimate.kind).toBe("ok");
+    if (source.estimate.kind !== "ok") return;
+    // 1.000.000 COP / 9.574,157895 COP-per-gal = 104,4477 gal; x 10,2765 kg CO2/gal = 1,0733 t.
+    expect(source.estimate.tonnes).toBeCloseTo((1000000 / 9574.157895) * 10.2765 * 0.001, 9);
+    expect(source.estimate.tonnes).not.toBeCloseTo(
+      (1000000 / 16046.315789) * 10.2765 * 0.001,
+      6,
+    );
   });
 });

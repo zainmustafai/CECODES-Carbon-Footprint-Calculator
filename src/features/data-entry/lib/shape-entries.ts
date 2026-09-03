@@ -1,6 +1,6 @@
 import type { EntryMode, Scope } from "@/lib/generated/prisma/client";
 import type { PreviewFactor } from "@/lib/calc/preview";
-import type { CategoryVM, GroupedFactors, ScopeVM, SourceVM } from "./types";
+import type { CategoryVM, GroupedFactors, ScopeVM, SourceVM, TripVM } from "./types";
 
 // Entries arrive with Decimal already serialized to a string by the screen. Nothing in this
 // module ever sees a Decimal or a number.
@@ -20,6 +20,9 @@ export type EntryRow = {
   entryMode: EntryMode;
   /** Optional: only the screen supplies it, for the estimated-emissions summary. */
   factor?: PreviewFactor | null;
+  /** Optional for the same reason: only the screen loads the routes of a COUNT_TIMES_DISTANCE
+   *  source. Absent is the same as none. */
+  trips?: TripVM[];
 };
 
 export type ApplicabilityRow = { scope: Scope; category: string; applies: boolean };
@@ -90,6 +93,7 @@ function buildSources(entries: EntryRow[]): SourceVM[] {
       month: entry.month,
       value: entry.value,
       secondaryValue: entry.secondaryValue,
+      trips: entry.trips ?? [],
     });
   }
 

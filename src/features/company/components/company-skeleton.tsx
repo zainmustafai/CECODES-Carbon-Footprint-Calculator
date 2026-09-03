@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Matches the consolidated company page: header, the profile card (three fields in a row),
-// then the Sedes section header plus a card grid. Mirrors the real layout so the page does
-// not jump when it arrives.
+// Matches the consolidated company page: header, the profile card (nine fields in the same
+// grid the form uses), then the Sedes section header plus a card grid. Mirrors the real layout
+// so the page does not jump when it arrives.
 export function CompanySkeleton() {
   return (
     <div className="space-y-8">
@@ -18,9 +18,9 @@ export function CompanySkeleton() {
           <Skeleton className="h-4 w-72 max-w-full" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Skeleton className="h-16 rounded-md" />
-          <Skeleton className="h-16 rounded-md" />
-          <Skeleton className="h-16 rounded-md" />
+          {Array.from({ length: 9 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-md" />
+          ))}
         </div>
         <div className="flex justify-end">
           <Skeleton className="h-9 w-28" />

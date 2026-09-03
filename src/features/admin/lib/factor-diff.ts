@@ -13,6 +13,10 @@ export const FACTOR_FIELDS = [
   "subcategory",
   "element",
   "unit",
+  // Derived by the importer, not typed by anyone, which is exactly why a change to either has to
+  // be visible: they decide what the data-entry screen asks the user for.
+  "entryMode",
+  "fuelType",
   "co2Factor",
   "ch4Factor",
   "n2oFactor",

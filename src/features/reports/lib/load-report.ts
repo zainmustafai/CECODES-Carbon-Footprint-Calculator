@@ -3,23 +3,34 @@ import { rollupYear, type RollupEntry } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import { formatEnteredActivity } from "@/lib/calc/format-entered-activity";
 import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
+import { toFuelPrices, type FuelPrices, type FuelType } from "@/lib/calc/fuel";
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import type { ActivityRow, ReportVM, ResultRow, SedeTotal } from "./types";
 import { filterReportVM } from "./filter-report";
 import type { CompanyProfile } from "./types";
 
-/** The company header block. Only sector and contactEmail are stored today; the rest are declared
- *  on CompanyProfile so the report renders them as soon as the columns exist. */
-function toCompanyProfile(company: { sector: string | null; contactEmail: string | null }): CompanyProfile {
+/** The company header block, straight off the Company row. Every field is optional: the header
+ *  prints only the ones the company filled in (client feedback 2026-09-03, D5). employeeCount is
+ *  an Int, not a Decimal, so it crosses as a number and a genuine 0 still renders. */
+function toCompanyProfile(company: {
+  sector: string | null;
+  contactEmail: string | null;
+  nit: string | null;
+  employeeCount: number | null;
+  contactName: string | null;
+  contactRole: string | null;
+  contactPhone: string | null;
+  website: string | null;
+}): CompanyProfile {
   return {
     sector: company.sector,
     contactEmail: company.contactEmail,
-    nit: null,
-    employeeCount: null,
-    contactName: null,
-    contactRole: null,
-    contactPhone: null,
-    website: null,
+    nit: company.nit,
+    employeeCount: company.employeeCount,
+    contactName: company.contactName,
+    contactRole: company.contactRole,
+    contactPhone: company.contactPhone,
+    website: company.website,
   };
 }
 
@@ -48,6 +59,9 @@ type EntryRow = {
   month: number | null;
   value: Decimalish | null;
   secondaryValue: Decimalish | null;
+  /** The routes of a COUNT_TIMES_DISTANCE source; toRollupEntries turns them into the strings
+   *  rollupYear sums. Empty for every other source and for one entered before trip rows existed. */
+  trips: { count: Decimalish; distanceKm: Decimalish }[];
   emissionFactor: {
     co2Factor: Decimalish | null;
     ch4Factor: Decimalish | null;
@@ -58,6 +72,7 @@ type EntryRow = {
     uncertaintyPct: Decimalish | null;
     entryMode: EntryMode;
     gasType: string | null;
+    fuelType: FuelType | null;
   } | null;
 };
 
@@ -83,13 +98,15 @@ function buildReportFromEntries({
   entries,
   cleanTechRows,
   gridFactor,
-  pricePerGallon,
+  fuelPrices,
   gwpSet,
 }: {
   entries: EntryRow[];
   cleanTechRows: CleanTechRow[];
   gridFactor: string | null;
-  pricePerGallon: string | null;
+  /** Both of the year's average prices per gallon: a transport subsidy divides by the one its
+   *  own factor names. */
+  fuelPrices: FuelPrices | null;
   gwpSet: GwpSet;
 }): Pick<
   ReportVM,
@@ -109,7 +126,7 @@ function buildReportFromEntries({
   | "monthly"
 > {
   const rollupEntries: RollupEntry[] = toRollupEntries(entries);
-  const rollup = rollupYear({ entries: rollupEntries, gridFactor, pricePerGallon, gwpSet });
+  const rollup = rollupYear({ entries: rollupEntries, gridFactor, fuelPrices, gwpSet });
 
   // What the company entered. No arithmetic - formatEnteredActivity only relabels the unit and
   // surfaces secondaryValue; it never touches the Decimal strings themselves (rollupYear does the
@@ -259,6 +276,12 @@ const ENTRY_SELECT = {
   month: true,
   value: true,
   secondaryValue: true,
+  // One row per route for a COUNT_TIMES_DISTANCE source: the engine sums each row's own product,
+  // so a report that did not load them would fall back to the pre-trip approximation.
+  trips: {
+    select: { count: true, distanceKm: true },
+    orderBy: { position: "asc" },
+  },
   emissionFactor: {
     select: {
       co2Factor: true,
@@ -273,6 +296,9 @@ const ENTRY_SELECT = {
       // identificar" while the dashboard, whose query does select it, names the same gases: one
       // dataset, two answers. It is also what the ISO 14064-1 declaration keys its columns on.
       gasType: true,
+      // Same class of bug for the C6 subsidies: without the fuel the engine cannot tell which of
+      // the year's two prices to divide by, and reports the whole subsidy as unpriced.
+      fuelType: true,
     },
   },
 } as const;
@@ -285,7 +311,17 @@ async function loadSingleFacilityReport(
   const [company, facility, reportingYear] = await Promise.all([
     prisma.company.findUnique({
       where: { id: companyId },
-      select: { name: true, sector: true, contactEmail: true },
+      select: {
+        name: true,
+        sector: true,
+        contactEmail: true,
+        nit: true,
+        employeeCount: true,
+        contactName: true,
+        contactRole: true,
+        contactPhone: true,
+        website: true,
+      },
     }),
     // Scoped on companyId as well as id: never trust a facility id on its own.
     prisma.facility.findFirst({
@@ -300,7 +336,7 @@ async function loadSingleFacilityReport(
 
   if (!company || !facility || !reportingYear) return null;
 
-  const [entries, grid, subsidyPrice, cleanTechRows] = await Promise.all([
+  const [entries, grid, subsidyPrices, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: reportingYear.id, companyId },
       orderBy: [
@@ -316,9 +352,9 @@ async function loadSingleFacilityReport(
       where: { year: reportingYear.year },
       select: { factor: true },
     }),
-    prisma.transportSubsidyPrice.findUnique({
+    prisma.transportSubsidyPrice.findMany({
       where: { year: reportingYear.year },
-      select: { pricePerGallonCop: true },
+      select: { fuel: true, pricePerGallonCop: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: reportingYear.id, companyId },
@@ -333,10 +369,10 @@ async function loadSingleFacilityReport(
   ]);
 
   const gridFactor = grid ? grid.factor.toString() : null;
-  const pricePerGallon = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
+  const fuelPrices = toFuelPrices(subsidyPrices);
   const gwpSet = reportingYear.gwpSet as GwpSet;
 
-  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, pricePerGallon, gwpSet });
+  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, fuelPrices, gwpSet });
 
   return {
     companyName: company.name,
@@ -356,7 +392,17 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
   const [company, facilities, reportingYears] = await Promise.all([
     prisma.company.findUnique({
       where: { id: companyId },
-      select: { name: true, sector: true, contactEmail: true },
+      select: {
+        name: true,
+        sector: true,
+        contactEmail: true,
+        nit: true,
+        employeeCount: true,
+        contactName: true,
+        contactRole: true,
+        contactPhone: true,
+        website: true,
+      },
     }),
     prisma.facility.findMany({ where: { companyId }, select: { id: true, name: true } }),
     // @@unique([facilityId, year]) guarantees at most one row per facility for this year.
@@ -375,7 +421,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
   // choice), so any one of them is representative.
   const gwpSet = reportingYears[0].gwpSet as GwpSet;
 
-  const [entries, grid, subsidyPrice, cleanTechRows] = await Promise.all([
+  const [entries, grid, subsidyPrices, cleanTechRows] = await Promise.all([
     prisma.activityEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
       orderBy: [
@@ -391,9 +437,9 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
       where: { year },
       select: { factor: true },
     }),
-    prisma.transportSubsidyPrice.findUnique({
+    prisma.transportSubsidyPrice.findMany({
       where: { year },
-      select: { pricePerGallonCop: true },
+      select: { fuel: true, pricePerGallonCop: true },
     }),
     prisma.cleanTechEntry.findMany({
       where: { reportingYearId: { in: reportingYearIds }, companyId },
@@ -408,9 +454,9 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
   ]);
 
   const gridFactor = grid ? grid.factor.toString() : null;
-  const pricePerGallon = subsidyPrice ? subsidyPrice.pricePerGallonCop.toString() : null;
+  const fuelPrices = toFuelPrices(subsidyPrices);
 
-  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, pricePerGallon, gwpSet });
+  const built = buildReportFromEntries({ entries, cleanTechRows, gridFactor, fuelPrices, gwpSet });
 
   // Per-sede subtotal: the same rollup, scoped to one facility's own entries, mirroring
   // dashboard-data.ts's own per-facility rollupForIds usage.
@@ -426,7 +472,7 @@ async function loadCompanyWideReport(companyId: string, year: number): Promise<R
       const rollup = rollupYear({
         entries: toRollupEntries(facilityEntries),
         gridFactor,
-        pricePerGallon,
+        fuelPrices,
         gwpSet,
       });
       return {

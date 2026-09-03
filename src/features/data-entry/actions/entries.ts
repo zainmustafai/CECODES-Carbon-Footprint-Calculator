@@ -1,13 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   ScopeError,
   resolveReportingYearScope,
   scopeErrorKey,
-  type ReportingYearScope,
 } from "@/lib/auth/company-scope";
 import { monthsForScope } from "../lib/months";
 import {
@@ -16,6 +14,7 @@ import {
   removeSourceInput,
   saveEntryValuesInput,
 } from "../schemas/entry-schemas";
+import { auditKey, revalidate } from "./shared";
 
 // Server Actions are public POST endpoints and never run a layout, so each of these
 // authorizes itself. The company is always derived from the reporting-year row, never from
@@ -29,23 +28,6 @@ function isUniqueViolation(error: unknown): boolean {
     "code" in error &&
     (error as { code?: string }).code === "P2002"
   );
-}
-
-function revalidate(scope: ReportingYearScope) {
-  revalidatePath("/data-entry");
-  revalidatePath(`/admin/companies/${scope.companyId}/data-entry`);
-}
-
-// The columns every audit row shares: which year, which company, and who did it. The actor is
-// taken from the resolved scope (scope.appUser), never from the client, and the email is
-// denormalized so the row still names them after the account is deleted.
-function auditKey(scope: ReportingYearScope, reportingYearId: string) {
-  return {
-    reportingYearId,
-    companyId: scope.companyId,
-    changedById: scope.appUser.id,
-    changedByEmail: scope.appUser.email,
-  } as const;
 }
 
 // Adding a source materializes its rows straight away, with value = null. The rows are what
