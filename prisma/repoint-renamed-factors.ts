@@ -77,7 +77,12 @@ type EntryRow = {
   reportingYearId: string;
   companyId: string;
   scope: Scope;
+  // The labels the entry snapshotted at entry time. They move with the row when it is re-pointed,
+  // because rollupYear groups by these columns and not by the factor's.
+  category: string;
+  subcategory: string | null;
   element: string;
+  unit: string;
   month: number | null;
   value: Prisma.Decimal | null;
   reportingYear: { year: number; facility: { name: string | null } };
@@ -292,7 +297,12 @@ async function planPair(pair: Pair): Promise<MovePlan | null> {
       reportingYearId: true,
       companyId: true,
       scope: true,
+      // The denormalized labels the entry snapshotted. They move with the row, so the audit can
+      // record what each one was before.
+      category: true,
+      subcategory: true,
       element: true,
+      unit: true,
       month: true,
       value: true,
       reportingYear: { select: { year: true, facility: { select: { name: true } } } },
@@ -407,9 +417,25 @@ async function applyPlan(plan: MovePlan) {
     if (movable.length > 0) {
       // updateMany reports { count } instead of throwing, so a row that moved out from under this
       // run (or an emissionFactorId that no longer matches) would otherwise pass silently.
+      // The snapshotted labels move WITH the entry, not just the foreign key.
+      //
+      // activity_entries denormalizes scope/category/subcategory/element/unit at entry time so a
+      // row stays legible after its factor is renamed or removed, and rollupYear groups by THOSE
+      // columns, not by the factor's. Leaving them behind would price the entry from the corrected
+      // factor (which is the point of this script) while still filing it under the old element and
+      // the old subcategory on the dashboard, the Pareto and the ISO declaration. Since a listed
+      // pair asserts these two rows are the same source, the current factor's labels are the
+      // correct ones; the from -> to for each is recorded in the audit row below.
       const moved = await tx.activityEntry.updateMany({
         where: { id: { in: movable.map((entry) => entry.id) }, emissionFactorId: stale.id },
-        data: { emissionFactorId: current.id },
+        data: {
+          emissionFactorId: current.id,
+          scope: current.scope,
+          category: current.category,
+          subcategory: current.subcategory,
+          element: current.element,
+          unit: current.unit,
+        },
       });
       if (moved.count !== movable.length) {
         throw new Error(
@@ -434,7 +460,10 @@ async function applyPlan(plan: MovePlan) {
           action: "SOURCE_ADDED" as const,
           changes: {
             emissionFactorId: { from: stale.id, to: current.id },
-            element: { from: stale.element, to: current.element },
+            element: { from: entry.element, to: current.element },
+            category: { from: entry.category, to: current.category },
+            subcategory: { from: entry.subcategory, to: current.subcategory },
+            unit: { from: entry.unit, to: current.unit },
           },
         })),
       });
