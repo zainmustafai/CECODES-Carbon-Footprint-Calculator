@@ -247,9 +247,14 @@
     },
     "gasNames": {
       "CO2": "CO2",
-      "CH4": "CH4",
+      "CH4_NON_FOSSIL": "CH4 (non-fossil)",
+      "CH4_FOSSIL": "CH4 (fossil)",
       "N2O": "N2O",
-      "OTHER": "Other gases (already CO2e)"
+      "HFC": "HFCs",
+      "PFC": "PFCs",
+      "SF6": "SF6",
+      "NF3": "NF3",
+      "UNIDENTIFIED": "Unidentified"
     },
     "filters": {
       "label": "Filter",
@@ -302,9 +307,12 @@
       "empty": "No categories with data for this filter."
     },
     "byGas": {
-      "title": "Emissions by GHG gas",
+      "title": "Share by greenhouse gas in the total inventory",
+      "subtitle": "Each greenhouse gas as a share of the filtered total.",
+      "share": "% share",
+      "gasColumn": "Gas",
       "empty": "No gas data for this filter.",
-      "otherNote": "{tonnes} tCO2e ({pct}%) cannot be split by gas: {count, plural, one {# source} other {# sources}} whose emission factor already arrives as CO2e (refrigerants, SF6/PFC, or spend/distance-based Scope 3)."
+      "preBlendedNote": "{count, plural, one {# source arrives} other {# sources arrive}} with the factor already expressed as CO2e (refrigerants, SF6/PFC/NF3, or spend or distance based Scope 3), so they count under their own gas and contribute no CO2, CH4 or N2O mass."
     },
     "pareto": {
       "title": "Prioritizing emission sources",

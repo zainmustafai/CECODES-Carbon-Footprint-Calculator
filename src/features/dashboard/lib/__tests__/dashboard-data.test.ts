@@ -194,3 +194,56 @@ describe("loadDashboard: multi-scope filter", () => {
     expect(messy.current!.total).toBeCloseTo(clean.current!.total, 6);
   });
 });
+
+// The client reported on 2026-09-03 that the gas figures were wrong and asked for every gas to be
+// shown separately, with fossil and non-fossil CH4 apart. The property that makes the chart
+// trustworthy is not any individual number but the reconciliation: whatever the filter, the gas
+// slices must sum to the very total the KPI card prints, and the columns must be a fixed set so a
+// gas reading zero still appears instead of silently vanishing.
+describe("loadDashboard: the gas breakdown", () => {
+  it("always exposes the client's eight gases, in their order", async () => {
+    const vm = await loadDashboard(COMPANY_ID, {});
+    // Every fixture factor is pre-blended with no gasType captured, so this run also carries the
+    // unidentified bucket - which belongs at the end, after the eight named gases.
+    expect(vm.current!.byGas.slices.map((s) => s.gas)).toEqual([
+      "CO2",
+      "CH4_NON_FOSSIL",
+      "CH4_FOSSIL",
+      "N2O",
+      "HFC",
+      "PFC",
+      "SF6",
+      "NF3",
+      "UNIDENTIFIED",
+    ]);
+  });
+
+  it("keeps a named gas visible at zero rather than dropping the column", async () => {
+    const vm = await loadDashboard(COMPANY_ID, {});
+    const sf6 = vm.current!.byGas.slices.find((s) => s.gas === "SF6");
+    expect(sf6).toEqual({ gas: "SF6", tonnes: 0, pct: 0 });
+  });
+
+  it("sums to the same total the KPI card shows, unfiltered and filtered alike", async () => {
+    for (const filters of [{}, { scope: ["SCOPE_1" as const] }, { scope: ["SCOPE_1" as const, "SCOPE_3" as const] }]) {
+      const vm = await loadDashboard(COMPANY_ID, filters);
+      const summed = vm.current!.byGas.slices.reduce((sum, s) => sum + s.tonnes, 0);
+      expect(summed).toBeCloseTo(vm.current!.total, 9);
+    }
+  });
+
+  it("keeps the percentages on the same base as the total, so they add to 100", async () => {
+    const vm = await loadDashboard(COMPANY_ID, {});
+    const pct = vm.current!.byGas.slices.reduce((sum, s) => sum + s.pct, 0);
+    expect(pct).toBeCloseTo(100, 6);
+  });
+
+  it("discloses the unidentified bucket rather than folding it into a named gas", async () => {
+    // Every fixture entry is pre-blended with no gasType captured, so all of its tonnes are
+    // genuinely unattributed. Hiding that would silently attribute them to a gas they may not be.
+    const vm = await loadDashboard(COMPANY_ID, { scope: ["SCOPE_1"] });
+    const unidentified = vm.current!.byGas.slices.find((s) => s.gas === "UNIDENTIFIED");
+    expect(unidentified?.tonnes).toBeCloseTo(vm.current!.total, 9);
+    expect(unidentified?.pct).toBeCloseTo(100, 6);
+  });
+});

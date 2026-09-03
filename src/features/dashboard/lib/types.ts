@@ -11,35 +11,46 @@ export type ScopeSlice = { scope: Scope; tonnes: number; pct: number };
 
 export type CategorySlice = { scope: Scope; category: string; tonnes: number; pct: number };
 
-export type GasBucket = "CO2" | "CH4" | "N2O";
+/**
+ * The gases the declaration reports, in the client's own order (their "Participación por GEI en el
+ * inventario total" chart, 2026-09-03): CO2, CH4 non-fossil, CH4 fossil, N2O, HFCs, PFCs, SF6, NF3.
+ *
+ * The CH4 split is not cosmetic: biogenic sources are priced at the non-fossil GWP (27 under AR6)
+ * and everything else at the fossil one (29.8), so the two are genuinely different numbers and the
+ * client asked to see them apart. UNIDENTIFIED is ours, not theirs: a pre-blended factor whose gas
+ * the library never captured has to land somewhere, and silently folding it into a named gas would
+ * be a lie. It is only ever shown when it is non-zero.
+ */
+export const GAS_KEYS = [
+  "CO2",
+  "CH4_NON_FOSSIL",
+  "CH4_FOSSIL",
+  "N2O",
+  "HFC",
+  "PFC",
+  "SF6",
+  "NF3",
+  "UNIDENTIFIED",
+] as const;
 
-export type GasSlice = { gas: GasBucket; tonnes: number; pct: number };
+export type GasKey = (typeof GAS_KEYS)[number];
 
-// One named "other" gas row (client feedback 2026-08-15: "please include all of the gases
-// separately... specify those 'other' such SF6, NF3, etc."). gasType is either a value the
-// importer captured from the factor library (see map-row.ts: "HFC", "PFC", "SF6", "NF3") -
-// rendered raw, like every other factor-library name in this app - or rollup.ts's
-// OTHER_GAS_FALLBACK sentinel for a pre-blended factor with no captured gas identity, flagged by
-// isFallback so the (client-side) UI can show a translated label instead of the raw sentinel
-// without needing to import the calc engine just to compare against its constant.
-export type OtherGasSlice = { gasType: string; tonnes: number; pct: number; isFallback: boolean };
+export type GasSlice = { gas: GasKey; tonnes: number; pct: number };
 
-// Emissions split by gas instead of by scope/category, for the sources whose factor actually
-// retains a per-gas split. otherGases is a real, honestly-disclosed breakdown, not an error:
-// refrigerants, SF6/PFC/HFC/NF3, and spend/distance-based Scope 3 factors arrive already
-// expressed as CO2e, with no underlying CO2/CH4/N2O mass retained to split - only WHICH gas they
-// are (when captured) survives. See rollup.ts's CategoryTotal comment - slices plus otherGases
-// always sum to the SAME total this screen's other cards already show, for whatever
-// scope/category filter is currently active.
+// Emissions split by gas instead of by scope/category. Two kinds of number live here and the
+// distinction is real: CO2/CH4/N2O come from factors that retain a per-gas split, while HFCs,
+// PFCs, SF6 and NF3 arrive from the library already expressed as CO2e, with no underlying mass to
+// split - only WHICH gas they are survives. Either way every slice is tonnes CO2e, so the slices
+// always sum to the SAME total this screen's other cards show, for whatever filter is active.
 export type GasBreakdown = {
-  /** Always CO2, CH4, N2O in that fixed order (matches the GWP sheet's own row order). */
+  /** One entry per GAS_KEYS member, in that order, always present so the chart's columns are
+   *  fixed rather than appearing and disappearing with the data. The exception is UNIDENTIFIED,
+   *  which is omitted entirely when zero. */
   slices: GasSlice[];
-  /** One row per gasType found among the filtered categories' otherGasesByType, largest first,
-   *  with the fallback bucket (if present) always last. Sums to otherPct's underlying tonnes. */
-  otherGases: OtherGasSlice[];
-  otherPct: number;
-  otherEntries: number;
+  /** Priced entries whose factor carried a real per-gas split. */
   gasResolvedEntries: number;
+  /** Priced entries that arrived already expressed as CO2e. */
+  otherEntries: number;
 };
 
 // The company's single reduction goal (set on the Empresa screen) vs. its actual progress.

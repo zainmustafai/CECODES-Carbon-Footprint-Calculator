@@ -247,9 +247,14 @@
     },
     "gasNames": {
       "CO2": "CO2",
-      "CH4": "CH4",
+      "CH4_NON_FOSSIL": "CH4 (no fósil)",
+      "CH4_FOSSIL": "CH4 (fósil)",
       "N2O": "N2O",
-      "OTHER": "Otros gases (ya en CO2e)"
+      "HFC": "HFCs",
+      "PFC": "PFCs",
+      "SF6": "SF6",
+      "NF3": "NF3",
+      "UNIDENTIFIED": "Sin identificar"
     },
     "filters": {
       "label": "Filtrar",
@@ -302,9 +307,12 @@
       "empty": "Sin categorías con datos para este filtro."
     },
     "byGas": {
-      "title": "Emisiones por gas GEI",
+      "title": "Participación por GEI en el inventario total",
+      "subtitle": "Participación de cada gas de efecto invernadero, sobre el total filtrado.",
+      "share": "% participación",
+      "gasColumn": "Gas",
       "empty": "Sin datos de gases para este filtro.",
-      "otherNote": "{tonnes} tCO2e ({pct}%) no se pueden desglosar por gas: {count, plural, one {# fuente} other {# fuentes}} cuyo factor de emisión ya viene expresado en CO2e (refrigerantes, SF6/PFC, o Alcance 3 por gasto o distancia)."
+      "preBlendedNote": "{count, plural, one {# fuente llega} other {# fuentes llegan}} con el factor ya expresado en CO2e (refrigerantes, SF6/PFC/NF3, o Alcance 3 por gasto o distancia), por lo que se cuentan bajo su propio gas y no aportan masa de CO2, CH4 ni N2O."
     },
     "pareto": {
       "title": "Priorización de fuentes de emisión",

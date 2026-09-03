@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { resolveGwpSet } from "@/lib/gwp";
-import { rollupYear, OTHER_GAS_FALLBACK, type YearRollup } from "@/lib/calc/rollup";
+import { rollupYear, type YearRollup } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
+import { GAS_KEYS } from "./types";
 import type {
   CategorySlice,
   CompanyTargetProgress,
@@ -10,7 +11,8 @@ import type {
   DashboardFilters,
   DashboardVM,
   GasBreakdown,
-  OtherGasSlice,
+  GasKey,
+  GasSlice,
   ScopeSlice,
   SedeTotal,
   YearTotal,
@@ -228,55 +230,58 @@ export async function loadDashboard(
   // the exact number the KPI card already shows - the reconciliation is undeniable in the code
   // itself, not just true in theory.
   const gasSource = category ? scopedCategories.filter((c) => c.category === category) : scopedCategories;
-  const gasTotals = gasSource.reduce(
-    (acc, c) => ({
-      co2: acc.co2 + c.co2Tonnes,
-      ch4: acc.ch4 + c.ch4Tonnes,
-      n2o: acc.n2o + c.n2oTonnes,
-      other: acc.other + c.otherGasesTonnes,
-      gasResolvedEntries: acc.gasResolvedEntries + c.gasResolvedEntries,
-      otherEntries: acc.otherEntries + c.otherGasesEntries,
-    }),
-    { co2: 0, ch4: 0, n2o: 0, other: 0, gasResolvedEntries: 0, otherEntries: 0 },
-  );
   const gasPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
 
-  // Client feedback 2026-08-15: name each pre-blended gas (SF6, PFC, HFC, NF3, ...) instead of
-  // one lump OTHER bucket. Summed across the SAME scope/category-filtered categories as
-  // gasTotals.other above, so otherGases always sums back to it exactly - rollup.ts defines
-  // otherGasesByType to sum to otherGasesTonnes per category, so the sum over categories holds
-  // the same way byScope/byCategory already reconcile to totalTonnes.
-  const otherByType = new Map<string, number>();
+  // The eight gases the client's own "Participación por GEI" chart names, always in their order
+  // and always present, so the chart's columns do not appear and disappear with the data. CO2,
+  // CH4 (split fossil / non-fossil by the GWP that priced it) and N2O come from factors carrying a
+  // real per-gas split; HFCs, PFCs, SF6 and NF3 arrive already expressed as CO2e and are keyed by
+  // the gasType the importer captured.
+  const tonnesByGas: Record<GasKey, number> = {
+    CO2: 0,
+    CH4_NON_FOSSIL: 0,
+    CH4_FOSSIL: 0,
+    N2O: 0,
+    HFC: 0,
+    PFC: 0,
+    SF6: 0,
+    NF3: 0,
+    UNIDENTIFIED: 0,
+  };
+  let gasResolvedEntries = 0;
+  let otherEntries = 0;
+
   for (const c of gasSource) {
+    tonnesByGas.CO2 += c.co2Tonnes;
+    tonnesByGas.CH4_NON_FOSSIL += c.ch4NonFossilTonnes;
+    tonnesByGas.CH4_FOSSIL += c.ch4FossilTonnes;
+    tonnesByGas.N2O += c.n2oTonnes;
+    gasResolvedEntries += c.gasResolvedEntries;
+    otherEntries += c.otherGasesEntries;
+
     for (const [gasType, tonnes] of Object.entries(c.otherGasesByType)) {
-      otherByType.set(gasType, (otherByType.get(gasType) ?? 0) + tonnes);
+      // Anything the library did not identify as one of the four named gases lands in
+      // UNIDENTIFIED rather than being folded into a gas it might not be.
+      const key: GasKey =
+        gasType === "HFC" || gasType === "PFC" || gasType === "SF6" || gasType === "NF3"
+          ? gasType
+          : "UNIDENTIFIED";
+      tonnesByGas[key] += tonnes;
     }
   }
-  const otherGases: OtherGasSlice[] = [...otherByType.entries()]
-    .map(([gasType, tonnes]) => ({
-      gasType,
-      tonnes,
-      pct: gasPct(tonnes),
-      isFallback: gasType === OTHER_GAS_FALLBACK,
-    }))
-    // Largest first, but the fallback bucket always sorts last: it is "everything else", not a
-    // named gas competing for rank with SF6/PFC/HFC/NF3.
-    .sort((a, b) => {
-      if (a.isFallback) return 1;
-      if (b.isFallback) return -1;
-      return b.tonnes - a.tonnes;
-    });
 
   const byGas: GasBreakdown = {
-    slices: [
-      { gas: "CO2", tonnes: gasTotals.co2, pct: gasPct(gasTotals.co2) },
-      { gas: "CH4", tonnes: gasTotals.ch4, pct: gasPct(gasTotals.ch4) },
-      { gas: "N2O", tonnes: gasTotals.n2o, pct: gasPct(gasTotals.n2o) },
-    ],
-    otherGases,
-    otherPct: gasPct(gasTotals.other),
-    otherEntries: gasTotals.otherEntries,
-    gasResolvedEntries: gasTotals.gasResolvedEntries,
+    slices: GAS_KEYS.filter(
+      // The unidentified bucket is ours, not the client's: show it only when it holds something,
+      // and never hide it when it does.
+      (gas) => gas !== "UNIDENTIFIED" || tonnesByGas.UNIDENTIFIED !== 0,
+    ).map<GasSlice>((gas) => ({
+      gas,
+      tonnes: tonnesByGas[gas],
+      pct: gasPct(tonnesByGas[gas]),
+    })),
+    gasResolvedEntries,
+    otherEntries,
   };
 
   const lastUpdated = entries.reduce<string | null>((latest, e) => {
