@@ -61,6 +61,7 @@ const ENTRIES = [
     month: null,
     value: "100",
     secondaryValue: null,
+    trips: [],
     emissionFactor: DIESEL_FACTOR,
   },
   {
@@ -73,6 +74,7 @@ const ENTRIES = [
     month: null,
     value: "50",
     secondaryValue: null,
+    trips: [],
     emissionFactor: DIESEL_FACTOR,
   },
   {
@@ -85,6 +87,7 @@ const ENTRIES = [
     month: 1,
     value: "100",
     secondaryValue: null,
+    trips: [],
     emissionFactor: null,
   },
   {
@@ -97,6 +100,7 @@ const ENTRIES = [
     month: 1,
     value: "50",
     secondaryValue: null,
+    trips: [],
     emissionFactor: null,
   },
 ];
@@ -272,6 +276,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           month: null,
           value: "13800", // COP, not gallons
           secondaryValue: null,
+          trips: [],
           emissionFactor: MONEY_FACTOR,
         },
       ],
@@ -303,6 +308,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           month: null,
           value: "5600", // passengers, not the full activity quantity
           secondaryValue: "1", // km
+          trips: [],
           emissionFactor: DISTANCE_FACTOR,
         },
       ],
@@ -335,6 +341,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           month: null,
           value: "100",
           secondaryValue: null,
+          trips: [],
           emissionFactor: {
             active: true,
             biogenic: false,
@@ -374,6 +381,7 @@ describe("loadCompanyWidePreview - entry-mode display (money-per-gallon, count-t
           month: null,
           value: "1000000", // COP
           secondaryValue: null,
+          trips: [],
           emissionFactor: DIESEL_MONEY_FACTOR,
         },
       ],

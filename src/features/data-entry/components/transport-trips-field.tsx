@@ -121,6 +121,9 @@ export function TransportTripsField({
                       autoComplete="off"
                       disabled={readOnly}
                       aria-label={`${t("reference")}: ${element}, ${routeName}`}
+                      // Same caps the server schema enforces, so a long paste is stopped at the
+                      // keyboard rather than silently rejected on blur with no field to point at.
+                      maxLength={200}
                       value={row.reference}
                       onChange={(event) => update(row.key, "reference", event.target.value)}
                       onBlur={flush}
@@ -160,6 +163,7 @@ export function TransportTripsField({
                       autoComplete="off"
                       disabled={readOnly}
                       aria-label={`${t("note")}: ${element}, ${routeName}`}
+                      maxLength={500}
                       value={row.note}
                       onChange={(event) => update(row.key, "note", event.target.value)}
                       onBlur={flush}

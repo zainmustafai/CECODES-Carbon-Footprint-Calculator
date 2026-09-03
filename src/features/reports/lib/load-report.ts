@@ -133,7 +133,18 @@ function buildReportFromEntries({
   // actual division/multiplication for entry modes that reinterpret the stored number).
   const activity: ActivityRow[] = entries.map((entry) => {
     const entryMode = entry.emissionFactor?.entryMode ?? "QUANTITY";
-    const labels = formatEnteredActivity({ entryMode, value: null, secondaryValue: null, unit: entry.unit });
+    // A source with routes stores the sum of their products in `value` and 1 in `secondaryValue`,
+    // so the count-and-distance labels would print a meaningless "1 km" beside it here too. The
+    // route count makes formatEnteredActivity keep the factor's whole unit and drop the second
+    // column, which is what the as-entered sheet should show for that source.
+    const tripCount = entry.trips.length;
+    const labels = formatEnteredActivity({
+      entryMode,
+      value: null,
+      secondaryValue: null,
+      unit: entry.unit,
+      tripCount,
+    });
     return {
       scope: entry.scope,
       category: entry.category,
@@ -143,7 +154,7 @@ function buildReportFromEntries({
       month: entry.month,
       value: entry.value === null ? null : entry.value.toString(),
       secondaryValue:
-        entryMode === "COUNT_TIMES_DISTANCE" && entry.secondaryValue !== null
+        entryMode === "COUNT_TIMES_DISTANCE" && tripCount === 0 && entry.secondaryValue !== null
           ? entry.secondaryValue.toString()
           : null,
       secondaryUnit: labels.secondaryUnit,
