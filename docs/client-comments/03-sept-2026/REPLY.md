@@ -259,8 +259,8 @@ They are **C8** (Activos arrendados aguas arriba), **C10** (Procesamiento de pro
 **C11** (Uso de productos vendidos), **C12** (Tratamiento final de productos vendidos), **C13**
 (Activos arrendados aguas abajo), **C14** (Franquicias) and **C15** (Inversiones).
 
-Nothing was lost, but those seven categories cannot be calculated until you supply their factors.
-Send them whenever phase 2 concludes and they load like any other row.
+Nothing was lost. The tool already handles those categories; the rows simply have no numbers in
+them yet, in the workbook or anywhere else. When phase 2 concludes they load like any other row.
 
 ### Two things we checked afterwards, and what we found
 
@@ -296,10 +296,10 @@ on 3 September 2026, so anyone comparing against an earlier download can see why
 | 12 | User guide download | Working |
 | 13 | Correct the emission factors | Working, applied 3 Sept 2026 |
 
-All thirteen are available now, and nothing is waiting on a decision from you.
+All thirteen are available now. Nothing is waiting on you, and nothing needs a decision from us.
 
-The one thing we would still like from you is the emission factors for the seven Alcance 3
-categories your own sheet marks as pending phase 2 (section 3). Until those arrive, those seven
-categories cannot be calculated by anyone, in the tool or in Excel.
+One note for the record: the seven Alcance 3 categories your own sheet marks as pending phase 2
+(section 3) are already wired into the tool. The moment those factors exist in the workbook they
+load like any other row, with no further work on our side.
 
 A Spanish version of this document is available on request.
