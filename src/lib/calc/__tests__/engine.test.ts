@@ -195,3 +195,96 @@ describe("computeCo2eBreakdownKg: reconciles with computeCo2eKg", () => {
     expect(b.n2oKg).toBeCloseTo(10 * 0.1 * GWP.AR6.n2o, 9);
   });
 });
+
+// Gas MASS, and the fossil / non-fossil CH4 split.
+//
+// The client's "Declaración consolidada GEI (ISO 14064-1)" reports CO2, CH4 and N2O as gas MASS
+// in kg, and the pre-blended gases (HFCs/PFCs/SF6/NF3) as CO2e. Their own pivot proves it: the
+// row "C9: Transporte terrestre de carga" lists CO2 4.929.185,89 + CH4 fósil 38,81 + N2O 155,25
+// against a Total kg CO2e of 4.972.725,73, which is 4929185.89 + 38.81*29.8 + 155.25*273. Every
+// pre-existing field on this breakdown is CO2e, so reading them for that table would have been
+// wrong by 29.8x and 273x while the CO2e total still reconciled perfectly. The mass fields exist
+// so that mistake cannot be made silently.
+describe("computeCo2eBreakdownKg: gas mass and the CH4 fossil split", () => {
+  it("reports gas mass unweighted by GWP, alongside the CO2e it already returned", () => {
+    const b = computeCo2eBreakdownKg(10, { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1 }, "AR6");
+
+    expect(b.co2MassKg).toBeCloseTo(20, 9);
+    expect(b.ch4FossilMassKg).toBeCloseTo(5, 9);
+    expect(b.n2oMassKg).toBeCloseTo(1, 9);
+
+    // ... and the CO2e values are those masses times their GWP.
+    expect(b.co2Kg).toBeCloseTo(b.co2MassKg * GWP.AR6.co2, 9);
+    expect(b.ch4Kg).toBeCloseTo(b.ch4FossilMassKg * GWP.AR6.ch4Fossil, 9);
+    expect(b.n2oKg).toBeCloseTo(b.n2oMassKg * GWP.AR6.n2o, 9);
+  });
+
+  it("puts CH4 in the fossil bucket for a non-biogenic factor, and nothing in non-fossil", () => {
+    const b = computeCo2eBreakdownKg(10, { ch4Factor: 0.5 }, "AR6");
+    expect(b.ch4FossilMassKg).toBeCloseTo(5, 9);
+    expect(b.ch4NonFossilMassKg).toBe(0);
+    expect(b.ch4FossilKg).toBeCloseTo(5 * 29.8, 9);
+    expect(b.ch4NonFossilKg).toBe(0);
+  });
+
+  it("puts CH4 in the non-fossil bucket for a biogenic factor, at the non-fossil GWP", () => {
+    const b = computeCo2eBreakdownKg(10, { ch4Factor: 0.5, biogenic: true }, "AR6");
+    expect(b.ch4NonFossilMassKg).toBeCloseTo(5, 9);
+    expect(b.ch4FossilMassKg).toBe(0);
+    expect(b.ch4NonFossilKg).toBeCloseTo(5 * 27, 9);
+    expect(b.ch4FossilKg).toBe(0);
+  });
+
+  it("keeps ch4Kg as the sum of the two CH4 buckets, for every factor shape", () => {
+    const shapes: Array<Parameters<typeof computeCo2eKg>[1]> = [
+      { ch4Factor: 0.5 },
+      { ch4Factor: 0.5, biogenic: true },
+      { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1 },
+      { co2eFactor: 1960 },
+      {},
+    ];
+    for (const factor of shapes) {
+      const b = computeCo2eBreakdownKg(100, factor, "AR6");
+      expect(b.ch4Kg).toBeCloseTo(b.ch4FossilKg + b.ch4NonFossilKg, 9);
+    }
+  });
+
+  it("retains no gas mass for a pre-blended factor, because the mass was never known", () => {
+    const b = computeCo2eBreakdownKg(10, { co2eFactor: 500, co2Factor: 999, ch4Factor: 999 }, "AR6");
+    expect(b.co2MassKg).toBe(0);
+    expect(b.ch4FossilMassKg).toBe(0);
+    expect(b.ch4NonFossilMassKg).toBe(0);
+    expect(b.n2oMassKg).toBe(0);
+    expect(b.otherKg).toBe(5000);
+  });
+
+  it("still reconciles to computeCo2eKg once CH4 is split in two", () => {
+    const shapes: Array<Parameters<typeof computeCo2eKg>[1]> = [
+      { co2Factor: 10.149 },
+      { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1 },
+      { co2Factor: 2, ch4Factor: 0.5, n2oFactor: 0.1, biogenic: true },
+      { co2eFactor: 1960 },
+      {},
+    ];
+    for (const factor of shapes) {
+      const total = computeCo2eKg(100, factor, "AR6");
+      const b = computeCo2eBreakdownKg(100, factor, "AR6");
+      expect(b.co2Kg + b.ch4FossilKg + b.ch4NonFossilKg + b.n2oKg + b.otherKg).toBeCloseTo(total, 9);
+    }
+  });
+
+  it("reproduces the client's own ISO pivot arithmetic for a real row", () => {
+    // "C9: Transporte terrestre de carga (camiones de servicio medianos y pesados)" from the
+    // client's Declaración consolidada: CO2 4.929.185,89 kg, CH4 fósil 38,81 kg, N2O 155,25 kg,
+    // Total kg CO2e 4.972.725,73. Modelled here as one activity unit carrying those masses.
+    const b = computeCo2eBreakdownKg(
+      1,
+      { co2Factor: 4929185.89, ch4Factor: 38.81, n2oFactor: 155.25 },
+      "AR6",
+    );
+    expect(b.co2MassKg).toBeCloseTo(4929185.89, 2);
+    expect(b.ch4FossilMassKg).toBeCloseTo(38.81, 2);
+    expect(b.n2oMassKg).toBeCloseTo(155.25, 2);
+    expect(b.co2Kg + b.ch4Kg + b.n2oKg).toBeCloseTo(4972725.6, 0);
+  });
+});

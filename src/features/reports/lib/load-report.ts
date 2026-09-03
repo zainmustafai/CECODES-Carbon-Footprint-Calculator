@@ -41,6 +41,7 @@ type EntryRow = {
     biogenic: boolean;
     uncertaintyPct: Decimalish | null;
     entryMode: EntryMode;
+    gasType: string | null;
   } | null;
 };
 
@@ -197,6 +198,7 @@ function buildReportFromEntries({
       factorValue: m?.factorValue ?? null,
       factorUnit: m?.factorUnit ?? null,
       tonnes: element.tonnes,
+      gases: element.gases,
       uncertaintyPct: m?.uncertaintyPct ?? null,
     };
   };
@@ -251,6 +253,10 @@ const ENTRY_SELECT = {
       biogenic: true,
       uncertaintyPct: true,
       entryMode: true,
+      // Without this the report buckets every pre-blended HFC/PFC/SF6/NF3 as "Otros gases sin
+      // identificar" while the dashboard, whose query does select it, names the same gases: one
+      // dataset, two answers. It is also what the ISO 14064-1 declaration keys its columns on.
+      gasType: true,
     },
   },
 } as const;

@@ -627,3 +627,108 @@ describe("rollupYear: COUNT_TIMES_DISTANCE (Scope 3 pasajeros*km / vehiculo*km)"
     expect(r.unpricedCount).toBe(0);
   });
 });
+
+// The ISO 14064-1 declaration the client asked for reports, per ELEMENT, the mass of each gas
+// alongside the CO2e total. Nothing below category level carried a gas breakdown before, and the
+// mass was never computed at all, so these are the invariants that make that table trustworthy:
+// the per-gas columns must reconcile to the CO2e column, element by element, using the same GWPs
+// the headline total was built from.
+describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", () => {
+  const AR6 = { co2: 1, ch4Fossil: 29.8, ch4NonFossil: 27, n2o: 273 };
+
+  const co2eKgOf = (g: {
+    co2MassKg: number;
+    ch4FossilMassKg: number;
+    ch4NonFossilMassKg: number;
+    n2oMassKg: number;
+    preBlendedCo2eKgByType: Record<string, number>;
+  }) =>
+    g.co2MassKg * AR6.co2 +
+    g.ch4FossilMassKg * AR6.ch4Fossil +
+    g.ch4NonFossilMassKg * AR6.ch4NonFossil +
+    g.n2oMassKg * AR6.n2o +
+    Object.values(g.preBlendedCo2eKgByType).reduce((s, v) => s + v, 0);
+
+  const mixed: RollupEntry[] = [
+    { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Diesel", month: null, value: "14957.10", secondaryValue: null, factor: perGas("10.149", "0.00001", "0.000006") },
+    { scope: "SCOPE_1", category: "Fuentes Fijas", subcategory: null, element: "Biomasa", month: null, value: "1000", secondaryValue: null, factor: perGas("2", "0.5", "0.1", true) },
+    { scope: "SCOPE_1", category: "Emisiones Fugitivas", subcategory: null, element: "R-22", month: null, value: "10", secondaryValue: null, factor: consolidated("1960", false, "HFC") },
+    { scope: "SCOPE_3", category: "C1: Bienes", subcategory: null, element: "Cartón", month: null, value: "10", secondaryValue: null, factor: consolidated("500") },
+    { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "Electricidad", month: 1, value: "1000", secondaryValue: null, factor: null },
+  ];
+
+  it("every element's gas columns reconcile to its own CO2e total", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+
+    expect(r.byElement.length).toBeGreaterThan(0);
+    for (const element of r.byElement) {
+      expect(co2eKgOf(element.gases) / 1000).toBeCloseTo(element.tonnes, 9);
+    }
+  });
+
+  it("reports gas MASS, not CO2e, in the mass columns", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const diesel = r.byElement.find((e) => e.element === "Diesel")!;
+
+    // 14957.10 gal x 0.00001 kg CH4/gal = 0.1495710 kg of methane, NOT 4.457 kg CO2e.
+    expect(diesel.gases.ch4FossilMassKg).toBeCloseTo(0.149571, 9);
+    expect(diesel.gases.co2MassKg).toBeCloseTo(14957.1 * 10.149, 6);
+    expect(diesel.gases.n2oMassKg).toBeCloseTo(14957.1 * 0.000006, 9);
+  });
+
+  it("routes a biogenic element's CH4 to the non-fossil column and a fossil one to fossil", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const biomasa = r.byElement.find((e) => e.element === "Biomasa")!;
+    const diesel = r.byElement.find((e) => e.element === "Diesel")!;
+
+    expect(biomasa.gases.ch4NonFossilMassKg).toBeCloseTo(500, 9);
+    expect(biomasa.gases.ch4FossilMassKg).toBe(0);
+    expect(diesel.gases.ch4FossilMassKg).toBeGreaterThan(0);
+    expect(diesel.gases.ch4NonFossilMassKg).toBe(0);
+  });
+
+  it("keeps a pre-blended element as CO2e under its own gas name, with no mass claimed", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const r22 = r.byElement.find((e) => e.element === "R-22")!;
+
+    expect(r22.gases.preBlendedCo2eKgByType).toEqual({ HFC: 19600 });
+    expect(r22.gases.co2MassKg).toBe(0);
+    expect(r22.gases.ch4FossilMassKg).toBe(0);
+    expect(r22.gases.n2oMassKg).toBe(0);
+  });
+
+  it("falls back to the unidentified bucket when a pre-blended factor carries no gasType", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const carton = r.byElement.find((e) => e.element === "Cartón")!;
+    expect(carton.gases.preBlendedCo2eKgByType).toEqual({ [OTHER_GAS_FALLBACK]: 5000 });
+  });
+
+  it("treats Scope 2 electricity as pure CO2 mass", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const power = r.byElement.find((e) => e.element === "Electricidad")!;
+    expect(power.gases.co2MassKg).toBeCloseTo(217, 9);
+    expect(power.gases.preBlendedCo2eKgByType).toEqual({});
+  });
+
+  it("summing every element's gas columns reconciles to the grand total", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+    const totalKg = r.byElement.reduce((sum, e) => sum + co2eKgOf(e.gases), 0);
+    expect(totalKg / 1000).toBeCloseTo(r.totalTonnes, 9);
+  });
+
+  it("splits CH4 fossil and non-fossil at category level, still summing to ch4Tonnes", () => {
+    const r = rollupYear({ entries: mixed, gridFactor: "0.217", pricePerGallon: null, gwpSet: "AR6" });
+
+    for (const category of r.byCategory) {
+      expect(category.ch4FossilTonnes + category.ch4NonFossilTonnes).toBeCloseTo(
+        category.ch4Tonnes,
+        9,
+      );
+    }
+
+    // Fuentes Fijas holds one fossil and one biogenic element, so both buckets are populated.
+    const fijas = r.byCategory.find((c) => c.category === "Fuentes Fijas")!;
+    expect(fijas.ch4FossilTonnes).toBeGreaterThan(0);
+    expect(fijas.ch4NonFossilTonnes).toBeGreaterThan(0);
+  });
+});

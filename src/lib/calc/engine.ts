@@ -29,6 +29,7 @@ export interface FactorInput {
  */
 export interface GasBreakdownKg {
   co2Kg: number;
+  /** CO2e kg from CH4, both buckets. Always equals ch4FossilKg + ch4NonFossilKg. */
   ch4Kg: number;
   n2oKg: number;
   /** Consolidated CO2e kg for factors already expressed as CO2e (refrigerants, SF6/NF3,
@@ -36,6 +37,28 @@ export interface GasBreakdownKg {
   otherKg: number;
   /** True exactly when factor.co2eFactor != null - the same condition computeCo2eKg branches on. */
   isPreBlended: boolean;
+
+  // ---------------------------------------------------------------------------------------
+  // Gas MASS, in kg, unweighted by GWP.
+  //
+  // Every field above is CO2e. The client's "Declaración consolidada GEI (ISO 14064-1)" reports
+  // CO2, CH4 and N2O as gas MASS and only the pre-blended gases as CO2e, so a table wired to the
+  // CO2e fields would be wrong by 29.8x and 273x while its CO2e total still reconciled perfectly.
+  // These fields exist so that mistake cannot be made silently: the declaration reads only the
+  // *MassKg fields, and every other surface keeps reading the CO2e ones.
+  //
+  // Zero for a pre-blended factor: its per-gas mass was never retained by the factor library.
+  // ---------------------------------------------------------------------------------------
+  co2MassKg: number;
+  n2oMassKg: number;
+  /** CH4 mass priced at the FOSSIL GWP. Zero when the source is biogenic. */
+  ch4FossilMassKg: number;
+  /** CH4 mass priced at the NON-FOSSIL GWP. Zero when the source is not biogenic. */
+  ch4NonFossilMassKg: number;
+  /** ch4Kg, split by which GWP was applied. Exactly one of the two is ever non-zero for a
+   *  single source; both are non-zero only in an aggregate that summed sources of both kinds. */
+  ch4FossilKg: number;
+  ch4NonFossilKg: number;
 }
 
 export function computeCo2eBreakdownKg(
@@ -46,18 +69,44 @@ export function computeCo2eBreakdownKg(
 ): GasBreakdownKg {
   // Items stored already as CO2e (refrigerants, SF6/NF3, spend/distance-based).
   if (factor.co2eFactor != null) {
-    return { co2Kg: 0, ch4Kg: 0, n2oKg: 0, otherKg: activity * factor.co2eFactor, isPreBlended: true };
+    return {
+      co2Kg: 0,
+      ch4Kg: 0,
+      n2oKg: 0,
+      otherKg: activity * factor.co2eFactor,
+      isPreBlended: true,
+      co2MassKg: 0,
+      n2oMassKg: 0,
+      ch4FossilMassKg: 0,
+      ch4NonFossilMassKg: 0,
+      ch4FossilKg: 0,
+      ch4NonFossilKg: 0,
+    };
   }
 
   const gwp = GWP[gwpSet];
-  const ch4Gwp = usesNonFossilCh4(factor, ch4Rule) ? gwp.ch4NonFossil : gwp.ch4Fossil;
+  const nonFossil = usesNonFossilCh4(factor, ch4Rule);
+  const ch4Gwp = nonFossil ? gwp.ch4NonFossil : gwp.ch4Fossil;
+
+  const co2MassKg = activity * (factor.co2Factor ?? 0);
+  const ch4MassKg = activity * (factor.ch4Factor ?? 0);
+  const n2oMassKg = activity * (factor.n2oFactor ?? 0);
+  const ch4Kg = ch4MassKg * ch4Gwp;
 
   return {
-    co2Kg: activity * (factor.co2Factor ?? 0) * gwp.co2,
-    ch4Kg: activity * (factor.ch4Factor ?? 0) * ch4Gwp,
-    n2oKg: activity * (factor.n2oFactor ?? 0) * gwp.n2o,
+    co2Kg: co2MassKg * gwp.co2,
+    ch4Kg,
+    n2oKg: n2oMassKg * gwp.n2o,
     otherKg: 0,
     isPreBlended: false,
+    co2MassKg,
+    n2oMassKg,
+    // A single source is entirely fossil or entirely non-fossil; the zero on the other side is
+    // what lets an aggregate simply add both fields without consulting the biogenic flag again.
+    ch4FossilMassKg: nonFossil ? 0 : ch4MassKg,
+    ch4NonFossilMassKg: nonFossil ? ch4MassKg : 0,
+    ch4FossilKg: nonFossil ? 0 : ch4Kg,
+    ch4NonFossilKg: nonFossil ? ch4Kg : 0,
   };
 }
 

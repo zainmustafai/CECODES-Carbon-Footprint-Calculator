@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyElementGases } from "@/lib/calc/rollup";
 import { buildPdf } from "../build-pdf";
 import { PAGE_HEIGHT, readPdfTextByPage } from "./read-pdf-text";
 import type { ReportVM, ResultRow } from "../types";
@@ -52,6 +53,7 @@ const base: ReportVM = {
       factorValue: "10.149",
       factorUnit: "kg CO2/gal",
       tonnes: 10.149,
+      gases: emptyElementGases(),
       uncertaintyPct: "5",
     },
     {
@@ -66,6 +68,7 @@ const base: ReportVM = {
       factorValue: "0.217",
       factorUnit: "kg CO2/kWh",
       tonnes: 0.1085,
+      gases: emptyElementGases(),
       uncertaintyPct: null,
     },
   ],
@@ -132,6 +135,7 @@ const manyRows: ResultRow[] = Array.from({ length: 90 }, (_, i) => ({
   factorValue: "10.149",
   factorUnit: "kg CO2/gal",
   tonnes: 100 - i * 0.5,
+  gases: emptyElementGases(),
   uncertaintyPct: i % 2 === 0 ? "5" : null,
 }));
 

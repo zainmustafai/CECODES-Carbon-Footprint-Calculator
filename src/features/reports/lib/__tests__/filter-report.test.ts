@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyElementGases } from "@/lib/calc/rollup";
 import { filterReportVM } from "../filter-report";
 import type { ReportVM } from "../types";
 
@@ -31,6 +32,7 @@ const base: ReportVM = {
       factorValue: "10.149",
       factorUnit: "kg CO2/gal",
       tonnes: 500,
+      gases: emptyElementGases(),
       uncertaintyPct: null,
     },
     {
@@ -45,6 +47,7 @@ const base: ReportVM = {
       factorValue: "0.217",
       factorUnit: "kg CO2/kWh",
       tonnes: 200,
+      gases: emptyElementGases(),
       uncertaintyPct: null,
     },
     {
@@ -59,6 +62,7 @@ const base: ReportVM = {
       factorValue: "0.1",
       factorUnit: "kg CO2/km",
       tonnes: 300,
+      gases: emptyElementGases(),
       uncertaintyPct: null,
     },
   ],
@@ -85,6 +89,7 @@ const base: ReportVM = {
     factorValue: null,
     factorUnit: null,
     tonnes: -50,
+    gases: emptyElementGases(),
     uncertaintyPct: null,
   }], tonnes: -50 },
   cleanTech: [],

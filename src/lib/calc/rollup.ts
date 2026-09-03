@@ -1,7 +1,6 @@
 import type { EntryMode, GwpSet, Scope } from "@/lib/generated/prisma/client";
 import {
   computeCo2eBreakdownKg,
-  computeCo2eKg,
   type FactorInput,
   type GasBreakdownKg,
 } from "@/lib/calc/engine";
@@ -88,6 +87,13 @@ export type CategoryTotal = {
    */
   co2Tonnes: number;
   ch4Tonnes: number;
+  /**
+   * ch4Tonnes, split by which GWP priced it: fossil (29.8 under AR6) or non-fossil (27). Client
+   * feedback 2026-09-03 asks the dashboard to show the two separately, because "if biogenic, then
+   * CH4 is non-fossil and non-biogenic is fossil". Always sums to ch4Tonnes exactly.
+   */
+  ch4FossilTonnes: number;
+  ch4NonFossilTonnes: number;
   n2oTonnes: number;
   /** Entries whose factor arrived already expressed as CO2e (refrigerants, SF6/PFC/NF3, or
    *  spend/distance-based Scope 3): the individual gas mass was never retained for these.
@@ -115,13 +121,66 @@ export type SubcategoryTotal = {
   tonnes: number;
 };
 
+/**
+ * One element's emissions expressed the way the client's "Declaración consolidada GEI
+ * (ISO 14064-1)" reports them: CO2, CH4 and N2O as gas MASS in kg, and the pre-blended gases
+ * (HFCs, PFCs, SF6, NF3) as CO2e kg, because their mass was never retained by the factor library.
+ *
+ * The reconciliation this type exists to guarantee, and which rollup.test.ts pins for every
+ * element: co2MassKg + ch4FossilMassKg x 29.8 + ch4NonFossilMassKg x 27 + n2oMassKg x 273 plus
+ * every preBlendedCo2eKgByType value equals the element's own tonnes x 1000, under AR6.
+ */
+export type ElementGasTotals = {
+  co2MassKg: number;
+  /** CH4 mass priced at the fossil GWP (a non-biogenic source). */
+  ch4FossilMassKg: number;
+  /** CH4 mass priced at the non-fossil GWP (a biogenic source). */
+  ch4NonFossilMassKg: number;
+  n2oMassKg: number;
+  /** CO2e kg keyed by RollupFactor.gasType ("HFC", "PFC", "SF6", "NF3"), or OTHER_GAS_FALLBACK
+   *  when the pre-blended factor carried no gas-identifying column. Empty for an element with a
+   *  real per-gas split. */
+  preBlendedCo2eKgByType: Record<string, number>;
+};
+
 export type ElementTotal = {
   scope: Scope;
   category: string;
   subcategory: string | null;
   element: string;
   tonnes: number;
+  /** The per-gas view of `tonnes`, for the ISO 14064-1 declaration. */
+  gases: ElementGasTotals;
 };
+
+/** A zeroed per-gas breakdown. Exported because report fixtures and any caller building a
+ *  ResultRow by hand needs the same empty shape rather than repeating five zero fields. */
+export function emptyElementGases(): ElementGasTotals {
+  return {
+    co2MassKg: 0,
+    ch4FossilMassKg: 0,
+    ch4NonFossilMassKg: 0,
+    n2oMassKg: 0,
+    preBlendedCo2eKgByType: {},
+  };
+}
+
+/**
+ * Folds one source's gas breakdown into an element's running totals. The pre-blended CO2e is
+ * keyed by gas so the declaration can put it in the right column; a source with a real per-gas
+ * split contributes mass and never touches that map.
+ */
+function addGases(target: ElementGasTotals, gas: GasBreakdownKg, gasTypeKey: string): void {
+  if (gas.isPreBlended) {
+    target.preBlendedCo2eKgByType[gasTypeKey] =
+      (target.preBlendedCo2eKgByType[gasTypeKey] ?? 0) + gas.otherKg;
+    return;
+  }
+  target.co2MassKg += gas.co2MassKg;
+  target.ch4FossilMassKg += gas.ch4FossilMassKg;
+  target.ch4NonFossilMassKg += gas.ch4NonFossilMassKg;
+  target.n2oMassKg += gas.n2oMassKg;
+}
 
 /** One month of the Scope 2 trend. tonnes is null when no month was reported (a gap, not 0). */
 export type MonthlyPoint = { month: number; tonnes: number | null };
@@ -291,24 +350,36 @@ export function rollupYear({
         removalsUnpriced += 1;
         continue;
       }
-      const removalKg = computeCo2eKg(
+      // Priced through the breakdown rather than computeCo2eKg so a removal carries the same
+      // per-gas detail every other element now does; the CO2e is the sum of that breakdown, so
+      // the total is unchanged.
+      const removalGas = computeCo2eBreakdownKg(
         activity,
         toFactorInput(entry.factor, entry.category),
         gwpSet,
       );
-      const removalTonnes = kgToTonnes(removalKg);
+      const removalTonnes = kgToTonnes(
+        removalGas.co2Kg + removalGas.ch4Kg + removalGas.n2oKg + removalGas.otherKg,
+      );
+      const removalGasTypeKey = entry.factor.gasType?.trim() || OTHER_GAS_FALLBACK;
       removalsTonnes += removalTonnes;
       const key = `${entry.subcategory ?? ""}::${entry.element}`;
       const existing = removalElements.get(key);
-      if (existing) existing.tonnes += removalTonnes;
-      else
+      if (existing) {
+        existing.tonnes += removalTonnes;
+        addGases(existing.gases, removalGas, removalGasTypeKey);
+      } else {
+        const gases = emptyElementGases();
+        addGases(gases, removalGas, removalGasTypeKey);
         removalElements.set(key, {
           scope: entry.scope,
           category: entry.category,
           subcategory: entry.subcategory,
           element: entry.element,
           tonnes: removalTonnes,
+          gases,
         });
+      }
       continue;
     }
 
@@ -328,7 +399,20 @@ export function rollupYear({
         unpricedCount += 1;
         continue;
       }
-      gas = { co2Kg: activity * grid, ch4Kg: 0, n2oKg: 0, otherKg: 0, isPreBlended: false };
+      // GWP of CO2 is 1, so the CO2e kg and the CO2 mass kg are the same number here.
+      gas = {
+        co2Kg: activity * grid,
+        ch4Kg: 0,
+        n2oKg: 0,
+        otherKg: 0,
+        isPreBlended: false,
+        co2MassKg: activity * grid,
+        n2oMassKg: 0,
+        ch4FossilMassKg: 0,
+        ch4NonFossilMassKg: 0,
+        ch4FossilKg: 0,
+        ch4NonFossilKg: 0,
+      };
     } else if (entry.factor && isPriceable(entry.factor)) {
       gas = computeCo2eBreakdownKg(activity, toFactorInput(entry.factor, entry.category), gwpSet);
     } else {
@@ -342,6 +426,8 @@ export function rollupYear({
 
     const co2Tonnes = kgToTonnes(gas.co2Kg);
     const ch4Tonnes = kgToTonnes(gas.ch4Kg);
+    const ch4FossilTonnes = kgToTonnes(gas.ch4FossilKg);
+    const ch4NonFossilTonnes = kgToTonnes(gas.ch4NonFossilKg);
     const n2oTonnes = kgToTonnes(gas.n2oKg);
     const otherGasesTonnes = kgToTonnes(gas.otherKg);
     // `tonnes` is DEFINED as this sum, not computed separately from the same kg value - the
@@ -361,6 +447,8 @@ export function rollupYear({
       existing.tonnes += tonnes;
       existing.co2Tonnes += co2Tonnes;
       existing.ch4Tonnes += ch4Tonnes;
+      existing.ch4FossilTonnes += ch4FossilTonnes;
+      existing.ch4NonFossilTonnes += ch4NonFossilTonnes;
       existing.n2oTonnes += n2oTonnes;
       existing.otherGasesTonnes += otherGasesTonnes;
       if (gas.isPreBlended) {
@@ -379,6 +467,8 @@ export function rollupYear({
         tonnes,
         co2Tonnes,
         ch4Tonnes,
+        ch4FossilTonnes,
+        ch4NonFossilTonnes,
         n2oTonnes,
         otherGasesTonnes,
         otherGasesByType,
@@ -403,15 +493,21 @@ export function rollupYear({
     // Keyed on the element, so a source split across twelve months collapses into one row.
     const elementKey = `${subKey}::${entry.element}`;
     const element = elements.get(elementKey);
-    if (element) element.tonnes += tonnes;
-    else
+    if (element) {
+      element.tonnes += tonnes;
+      addGases(element.gases, gas, gasTypeKey);
+    } else {
+      const gases = emptyElementGases();
+      addGases(gases, gas, gasTypeKey);
       elements.set(elementKey, {
         scope: entry.scope,
         category: entry.category,
         subcategory: entry.subcategory,
         element: entry.element,
         tonnes,
+        gases,
       });
+    }
 
     if (
       entry.scope === "SCOPE_2" &&

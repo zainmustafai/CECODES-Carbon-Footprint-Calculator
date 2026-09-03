@@ -1,7 +1,7 @@
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
-import type { MonthlyPoint } from "@/lib/calc/rollup";
+import type { ElementGasTotals, MonthlyPoint } from "@/lib/calc/rollup";
 
-export type { MonthlyPoint };
+export type { ElementGasTotals, MonthlyPoint };
 
 // The view model behind the Excel/CSV export (Requirements 10, 14.7).
 //
@@ -49,6 +49,13 @@ export type ResultRow = {
   factorValue: string | null;
   factorUnit: string | null;
   tonnes: number;
+  /**
+   * This element's emissions split by gas, the way the "Declaración consolidada GEI
+   * (ISO 14064-1)" reports them: CO2, CH4 (fósil and no fósil) and N2O as gas MASS in kg, and the
+   * pre-blended gases (HFCs, PFCs, SF6, NF3) as CO2e kg. Reconciles to `tonnes` by construction;
+   * see ElementGasTotals in the calc engine.
+   */
+  gases: ElementGasTotals;
   /**
    * The factor's uncertainty, as a +/- percentage string, or null when the library has none for
    * this element. Coverage is partial (roughly Scope 1 only), so the PDF shows null as "no

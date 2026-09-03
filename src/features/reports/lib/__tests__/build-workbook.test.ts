@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyElementGases } from "@/lib/calc/rollup";
 import { buildCsv, buildWorkbook } from "../build-workbook";
 import type { ReportVM } from "../types";
 
@@ -51,6 +52,7 @@ const base: ReportVM = {
       factorValue: "10.149",
       factorUnit: "kg CO2/gal",
       tonnes: 10.149,
+      gases: emptyElementGases(),
       uncertaintyPct: "5",
     },
   ],
@@ -219,6 +221,7 @@ describe("buildWorkbook", () => {
             factorValue: "-13073.87",
             factorUnit: "kgCO2 e/ha",
             tonnes: -13.07387,
+            gases: emptyElementGases(),
             uncertaintyPct: null,
           },
         ],
