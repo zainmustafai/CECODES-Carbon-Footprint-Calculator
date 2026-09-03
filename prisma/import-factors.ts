@@ -224,6 +224,74 @@ async function main() {
       : "No emission-factor version found; imported factors will have no versionId.",
   );
 
+  // -------------------------------------------------------------------------
+  // Preload. Everything the row loop needs to ASK about the database is fetched here, once.
+  //
+  // This loop used to issue three or four queries per sheet row: findFirst the factor by its
+  // natural key, count its non-IMPORTED change rows, sometimes findFirst an edited sibling, plus
+  // a grid lookup for every Scope 2 row. Over 1.751 rows that is roughly 5.000 sequential round
+  // trips through the Supabase pooler, which took minutes and printed nothing while it ran. The
+  // whole factor table is a few thousand small rows, so it fits in memory many times over.
+  //
+  // Only the READS moved. Every write below is untouched and still one audited transaction per
+  // changed row, because those are proportional to what actually changed, not to the sheet.
+  const [allFactors, humanEditedRows, entryCounts, gridRows] = await Promise.all([
+    prisma.emissionFactor.findMany(),
+    // Which factors a human has touched. groupBy, not a count per factor: the guard only asks
+    // "is there at least one non-IMPORTED row", so one query answers it for every factor at once.
+    prisma.emissionFactorChange.groupBy({
+      by: ["factorId"],
+      where: { action: { not: FactorChangeAction.IMPORTED } },
+    }),
+    // How many activity entries reference each factor, for the starter cleanup and the leftover
+    // pass. Both must never orphan an entry, and both used to count one factor at a time.
+    prisma.activityEntry.groupBy({
+      by: ["emissionFactorId"],
+      _count: { _all: true },
+    }),
+    prisma.gridElectricityFactor.findMany(),
+  ]);
+
+  const humanEditedIds = new Set(humanEditedRows.map((row) => row.factorId));
+  const entryCountByFactorId = new Map<string, number>();
+  for (const row of entryCounts) {
+    if (row.emissionFactorId !== null) {
+      entryCountByFactorId.set(row.emissionFactorId, row._count._all);
+    }
+  }
+  const gridByYear = new Map(gridRows.map((row) => [row.year, row]));
+
+  type LoadedFactor = (typeof allFactors)[number];
+
+  // The natural key the importer matches on, spelled exactly as the old findFirst did: a null
+  // subcategory is its own value, never conflated with the empty string.
+  const naturalKeyOf = (f: {
+    scope: Scope;
+    category: string;
+    subcategory: string | null;
+    element: string;
+    unit: string;
+  }) => JSON.stringify([f.scope, f.category, f.subcategory, f.element, f.unit]);
+
+  // The subcategory-ignoring key behind the editedSibling check, which exists so a regrouped,
+  // admin-edited factor is not duplicated under the workbook's stale grouping.
+  const siblingKeyOf = (f: { scope: Scope; category: string; element: string; unit: string }) =>
+    JSON.stringify([f.scope, f.category, f.element, f.unit]);
+
+  const byNaturalKey = new Map<string, LoadedFactor>();
+  const editedBySiblingKey = new Map<string, LoadedFactor>();
+  for (const factor of allFactors) {
+    // findFirst returns the first match in an unspecified order; a duplicate natural key would
+    // already have been a bug. Keep the FIRST seen so behaviour matches the previous query.
+    const key = naturalKeyOf(factor);
+    if (!byNaturalKey.has(key)) byNaturalKey.set(key, factor);
+
+    if (humanEditedIds.has(factor.id)) {
+      const sibling = siblingKeyOf(factor);
+      if (!editedBySiblingKey.has(sibling)) editedBySiblingKey.set(sibling, factor);
+    }
+  }
+
   const counts = {
     created: 0,
     updated: 0,
@@ -283,11 +351,11 @@ async function main() {
         );
         continue;
       }
-      const grid = await prisma.gridElectricityFactor.findUnique({ where: { year } });
+      const grid = gridByYear.get(year) ?? null;
       if (!grid) {
         if (flags.applyGrid) {
           if (!flags.dryRun) {
-            await prisma.gridElectricityFactor.create({
+            const written = await prisma.gridElectricityFactor.create({
               data: {
                 year,
                 factor: new Prisma.Decimal(value),
@@ -295,6 +363,9 @@ async function main() {
                 updatedByEmail: IMPORTER_EMAIL,
               },
             });
+            // The map is the only read path now, so a write has to land in it too: two sheet
+            // rows can name the same year, and the second must see what the first wrote.
+            gridByYear.set(year, written);
           }
           counts.gridCreated++;
           gridMissingLines.push(`  row ${r}: GRID CREATED year ${year} = ${value}`);
@@ -306,7 +377,7 @@ async function main() {
       } else if (!new Prisma.Decimal(value).eq(grid.factor)) {
         if (flags.applyGrid) {
           if (!flags.dryRun) {
-            await prisma.gridElectricityFactor.update({
+            const written = await prisma.gridElectricityFactor.update({
               where: { year },
               data: {
                 factor: new Prisma.Decimal(value),
@@ -314,6 +385,7 @@ async function main() {
                 updatedByEmail: IMPORTER_EMAIL,
               },
             });
+            gridByYear.set(year, written);
           }
           counts.gridUpdated++;
           gridMismatchLines.push(
@@ -339,15 +411,10 @@ async function main() {
     }
     seenKeys.add(key);
 
-    const existing = await prisma.emissionFactor.findFirst({
-      where: {
-        scope: f.scope,
-        category: f.category,
-        element: f.element,
-        unit: f.unit,
-        subcategory: f.subcategory, // null => IS NULL, which is what the natural key wants
-      },
-    });
+    // A map lookup, not a query. byNaturalKey was built from the single findMany above, and its
+    // key keeps a null subcategory distinct from an empty-string one, which is exactly what the
+    // findFirst this replaced meant by `subcategory: f.subcategory` (null => IS NULL).
+    const existing = byNaturalKey.get(naturalKeyOf(f)) ?? null;
 
     if (!existing) {
       // The natural key includes subcategory, so an admin correction that regrouped a factor
@@ -361,15 +428,9 @@ async function main() {
       // category + unit, regardless of its current subcategory. If so, this is that same element
       // reappearing under a stale workbook grouping - skip it exactly like the exact-match
       // "never touch a human-edited factor" rule below, rather than creating a duplicate.
-      const editedSibling = await prisma.emissionFactor.findFirst({
-        where: {
-          scope: f.scope,
-          category: f.category,
-          element: f.element,
-          unit: f.unit,
-          changes: { some: { action: { not: FactorChangeAction.IMPORTED } } },
-        },
-      });
+      // editedBySiblingKey holds only factors that carry a non-IMPORTED change row, which is the
+      // `changes: { some: ... }` clause this replaces, indexed without the subcategory.
+      const editedSibling = editedBySiblingKey.get(siblingKeyOf(f)) ?? null;
       if (editedSibling) {
         counts.keptAdminEdited++;
         keptLines.push(
@@ -445,11 +506,10 @@ async function main() {
       continue;
     }
 
-    // Never touch a factor a human has edited (any non-IMPORTED change row).
-    const humanEdits = await prisma.emissionFactorChange.count({
-      where: { factorId: existing.id, action: { not: FactorChangeAction.IMPORTED } },
-    });
-    if (humanEdits > 0) {
+    // Never touch a factor a human has edited (any non-IMPORTED change row). The guard only ever
+    // asked whether at least one such row exists, so one groupBy above answers it for every
+    // factor at once instead of a count per row.
+    if (humanEditedIds.has(existing.id)) {
       counts.keptAdminEdited++;
       keptLines.push(`  row ${r}: KEPT (admin-edited) - ${f.element}`);
       continue;
@@ -496,9 +556,7 @@ async function main() {
       starterLines.push(`  PRESERVED (grid picker) - ${starter.element}`);
       continue;
     }
-    const references = await prisma.activityEntry.count({
-      where: { emissionFactorId: starter.id },
-    });
+    const references = entryCountByFactorId.get(starter.id) ?? 0;
     if (references === 0) {
       if (!flags.dryRun) {
         await prisma.emissionFactor.delete({ where: { id: starter.id } });
@@ -560,9 +618,7 @@ async function main() {
       continue;
     }
 
-    const references = await prisma.activityEntry.count({
-      where: { emissionFactorId: f.id },
-    });
+    const references = entryCountByFactorId.get(f.id) ?? 0;
     if (references > 0) {
       leftoverLines.push(
         `  KEPT (${references} entries) - ${f.scope} / ${f.category} / ${f.element} (${f.unit})`,
