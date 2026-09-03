@@ -174,9 +174,14 @@ sheet of the same file. Alcance 1 totals **12.020,95 t** in the pivot against **
 PRINCIPAL, and "Fugas de Propano Alta Calidad / R-290" reads **18,798 t** in the pivot where
 PRINCIPAL computes 6.266 × 0,02 = **0,12532 t**.
 
-A pivot table keeps the last values it was refreshed with, so this looks like a saved copy that was
-never refreshed after the factors were corrected. We are treating **PRINCIPAL** as the reference the
-tool must reproduce. Please confirm that is what you expect.
+A pivot table keeps the last values it was refreshed with, so this is a saved copy that was never
+refreshed after the factors were corrected. `PRINCIPAL` recalculates; the pivot does not, and the
+R-290 row above proves it, because the pivot contradicts the multiplication its own file performs.
+
+So we have taken **PRINCIPAL** as the reference the tool reproduces, and the tool reproduces it. No
+decision is needed from you. We mention it only so that if you compare the tool against the pivot
+sheet and see a difference, you know which of the two is out of date. Refreshing the pivot in Excel
+will bring it into line.
 
 ### What we checked against your own numbers
 
@@ -262,17 +267,13 @@ Send them whenever phase 2 concludes and they load like any other row.
 1. **Your transport subsidy factors were never affected.** We were concerned that an earlier
    correction might have wrongly divided the gasoline and diesel per-gallon factors as well. It did
    not: they carry no record of ever having been edited. There is nothing to undo.
-2. **We did not consolidate the duplicate rows.** The renames left a second, unused copy of some
-   elements in the library. Your data sits on the current copy, and both copies now hold the same
-   corrected values, so no figure is affected. Merging them is a tidying job that needs you to
-   confirm which name is the right one, and we did not want to guess: moving data onto the wrong
-   element would re-price it. We would rather raise it than quietly decide it.
-
-### One thing we would like you to confirm
-
-Inside the DASHBOARD workbook, the `Tablas dinámicas` sheet does not agree with the `PRINCIPAL`
-sheet of the same file (see section 2). We have treated **PRINCIPAL** as the reference the tool
-must reproduce, and the tool now reproduces it. Please confirm that is what you expect.
+2. **The duplicate rows are harmless, and we know which copy is the live one.** The renames left a
+   second copy of some travel elements in the library. We checked where the activity data actually
+   sits: **every entry is on the current, `C7:`-prefixed rows, and the older copies hold zero
+   entries.** The current names are therefore the correct ones, and the leftovers are dead rows that
+   nothing points at. Both copies also now carry the same corrected values, so no figure is affected
+   either way. We have left the dead rows in place rather than deleting them, because deleting rows
+   from a factor library is irreversible and buys nothing; they simply do not appear in your data.
 
 From now on the Tablero and every report carry a dated note saying the factor table was corrected
 on 3 September 2026, so anyone comparing against an earlier download can see why the numbers moved.
@@ -295,12 +296,10 @@ on 3 September 2026, so anyone comparing against an earlier download can see why
 | 12 | User guide download | Working |
 | 13 | Correct the emission factors | Working, applied 3 Sept 2026 |
 
-All thirteen are available now. Two things need a word from you when you have a moment, neither of
-which blocks anything:
+All thirteen are available now, and nothing is waiting on a decision from you.
 
-1. Confirm that **PRINCIPAL**, not the `Tablas dinámicas` sheet, is the reference the tool must
-   reproduce (section 2 and section 3).
-2. Tell us which name is the correct one for the duplicated travel elements, so we can retire the
-   unused copies (section 3).
+The one thing we would still like from you is the emission factors for the seven Alcance 3
+categories your own sheet marks as pending phase 2 (section 3). Until those arrive, those seven
+categories cannot be calculated by anyone, in the tool or in Excel.
 
 A Spanish version of this document is available on request.
