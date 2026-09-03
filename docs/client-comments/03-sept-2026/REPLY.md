@@ -226,7 +226,7 @@ changed. Nobody had to re-enter anything.**
 
 The 7 protected rows that were corrected: the urea factor was moved from the CO₂ column to the N₂O
 column, exactly as your own sheet has it; three refrigerants had their CO₂e value corrected
-(R-407F 1.873,4 to 1.965,3; R-413A 1.108,89 to 2.182,5; R-437A 2.522,82 to 5.290,15); and four
+(R-407F 1.873,4 to 1.965,3; R-413A 1.108,89 to 2.182,5; R-437A 2.522,82 to 5.290,15); and six
 refrigerants had their gas family recorded as HFC, which is what lets them appear by name in the
 gas chart instead of as an unnamed value.
 
@@ -245,6 +245,17 @@ element was overstated by 1,609 squared, which is **2,588881 times**.
 That is now corrected. For example, "C7: Carro particular" went from 0,477873 to 0,184587 kg CO₂
 per vehículo por km. If your inventory includes employee commuting or business road travel, this is
 the figure that will have moved the most.
+
+### Seven Alcance 3 categories still have no factors
+
+Seven rows of the official table were not loaded, because they carry no element and no unit. They
+are your own placeholders: their subcategory reads *"SE AGREGARÁ DESPUÉS DE CONCLUIR LA FASE 2"*.
+They are **C8** (Activos arrendados aguas arriba), **C10** (Procesamiento de productos vendidos),
+**C11** (Uso de productos vendidos), **C12** (Tratamiento final de productos vendidos), **C13**
+(Activos arrendados aguas abajo), **C14** (Franquicias) and **C15** (Inversiones).
+
+Nothing was lost, but those seven categories cannot be calculated until you supply their factors.
+Send them whenever phase 2 concludes and they load like any other row.
 
 ### Two things we checked afterwards, and what we found
 
