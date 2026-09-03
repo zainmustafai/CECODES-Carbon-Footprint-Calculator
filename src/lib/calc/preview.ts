@@ -25,7 +25,14 @@ export type PreviewFactor = {
   source: string | null;
   /** How the activity quantity is derived - client feedback 2026-08-15. */
   entryMode: EntryMode;
+  /** Which gas a PRE-BLENDED factor is ("HFC", "PFC", "SF6", "NF3"), so the summary can name it
+   *  rather than showing an anonymous CO2e number. Null for a per-gas factor. */
+  gasType?: string | null;
 };
+
+/** One gas a factor carries, for the data-entry summary. Client feedback 2026-09-03: "when
+ *  applicable, show not only CO2 emission factor, include all other gases even SF6, HFC, etc." */
+export type FactorGas = { gas: string; value: string; unit: string | null };
 
 export type PreviewGridFactor = { factor: string; source: string | null };
 export type PreviewSubsidyPrice = { pricePerGallonCop: string; source: string | null };
@@ -44,6 +51,12 @@ export type SourceEstimate =
       factorValue: string | null;
       factorUnit: string | null;
       factorSource: string | null;
+      /**
+       * Every gas this factor actually carries, so the user sees the whole factor rather than
+       * just its headline number. A per-gas factor lists CO2, CH4 and N2O separately (only those
+       * it has); a pre-blended one lists its single CO2e value under the gas it represents.
+       */
+      gases: FactorGas[];
       /** Set only for MONEY_PER_GALLON: the gallons derived from the reported money, shown as
        *  an intermediate step so the estimate stays auditable. */
       derivedGallons?: number;
@@ -125,6 +138,8 @@ export function estimateSourceTonnes({
       hasValues,
       factorValue: gridFactor.factor,
       factorUnit: "kg CO2/kWh",
+      // Scope 2 is priced from the national grid factor, which is a pure CO2 number.
+      gases: [{ gas: "CO2", value: gridFactor.factor, unit: "kg CO2/kWh" }],
       factorSource: gridFactor.source,
     };
   }
@@ -185,5 +200,37 @@ export function estimateSourceTonnes({
     factorValue: factor.co2eFactor ?? factor.co2Factor ?? factor.ch4Factor ?? factor.n2oFactor,
     factorUnit: factor.factorUnit,
     factorSource: factor.source,
+    gases: listFactorGases(factor),
   };
+}
+
+/**
+ * The gases a factor carries, in the order the GWP table lists them. A pre-blended factor has
+ * exactly one entry, named by the gas the importer captured (or a neutral "CO2e" when it captured
+ * none), because its individual gas masses were never retained.
+ */
+export function listFactorGases(factor: PreviewFactor): FactorGas[] {
+  if (factor.co2eFactor !== null) {
+    return [
+      {
+        gas: factor.gasType?.trim() || "CO2e",
+        value: factor.co2eFactor,
+        unit: factor.factorUnit,
+      },
+    ];
+  }
+
+  const unit = factor.factorUnit;
+  // "kg CO2/gal" -> "/gal", so CH4 and N2O can be labelled in their own mass against the same
+  // activity unit. Stops at the slash: a greedy match would swallow the unit as well.
+  const perUnit = unit?.replace(/^kg\s+[^/\s]+/i, "") ?? "";
+  const gases: FactorGas[] = [];
+  if (factor.co2Factor !== null) gases.push({ gas: "CO2", value: factor.co2Factor, unit });
+  // CH4 and N2O share the factor's activity unit but are their own gas mass, so the label is
+  // rebuilt rather than reusing the CO2 unit verbatim.
+  if (factor.ch4Factor !== null)
+    gases.push({ gas: "CH4", value: factor.ch4Factor, unit: unit ? `kg CH4${perUnit}` : null });
+  if (factor.n2oFactor !== null)
+    gases.push({ gas: "N2O", value: factor.n2oFactor, unit: unit ? `kg N2O${perUnit}` : null });
+  return gases;
 }

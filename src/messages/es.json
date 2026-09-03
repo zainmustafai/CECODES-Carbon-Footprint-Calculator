@@ -480,6 +480,7 @@
     "summary": {
       "title": "Resumen del elemento",
       "estimated": "Emisiones estimadas",
+      "factorForGas": "Factor {gas}",
       "factorApplied": "Factor aplicado",
       "gwpSet": "Fuente GWP",
       "factorSource": "Fuente del factor",

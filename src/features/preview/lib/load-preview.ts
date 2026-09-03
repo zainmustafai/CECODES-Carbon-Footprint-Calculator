@@ -543,6 +543,9 @@ export async function loadCompanyWidePreview(
         factorValue: m.factorValue,
         factorUnit: m.factorUnit,
         factorSource: null,
+        // The Resumen screen shows one headline factor per element, not the per-gas breakdown
+        // the data-entry summary does; there is no per-gas metadata on this path to list.
+        gases: [],
       };
     }
     if (id.scope === "SCOPE_2" && rollup.missingGridFactor) return { kind: "missingGridFactor" };

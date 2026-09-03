@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateSourceTonnes, type PreviewFactor } from "@/lib/calc/preview";
+import { estimateSourceTonnes, listFactorGases, type PreviewFactor } from "@/lib/calc/preview";
 
 const NO_FACTORS: PreviewFactor = {
   co2Factor: null,
@@ -273,5 +273,65 @@ describe("estimateSourceTonnes: COUNT_TIMES_DISTANCE", () => {
     });
 
     expect(result).toMatchObject({ kind: "ok", tonnes: 0, hasValues: false });
+  });
+});
+
+
+// Client feedback 2026-09-03: "when applicable, show not only CO2 emission factor. Include all
+// other gases even SF6, HFC, etc." The data-entry summary showed one number chosen by a fallback
+// chain, so a diesel factor displayed only its CO2 term and a refrigerant displayed an anonymous
+// CO2e figure with no gas named at all.
+describe("listFactorGases", () => {
+  const base: PreviewFactor = {
+    co2Factor: null,
+    ch4Factor: null,
+    n2oFactor: null,
+    co2eFactor: null,
+    biogenic: false,
+    factorUnit: null,
+    source: null,
+    entryMode: "QUANTITY",
+  };
+
+  it("lists every gas a per-gas factor carries, with a unit per gas", () => {
+    expect(
+      listFactorGases({
+        ...base,
+        co2Factor: "10.149",
+        ch4Factor: "0.00001",
+        n2oFactor: "0.000006",
+        factorUnit: "kg CO2/gal",
+      }),
+    ).toEqual([
+      { gas: "CO2", value: "10.149", unit: "kg CO2/gal" },
+      { gas: "CH4", value: "0.00001", unit: "kg CH4/gal" },
+      { gas: "N2O", value: "0.000006", unit: "kg N2O/gal" },
+    ]);
+  });
+
+  it("omits a gas the factor does not have, rather than showing a zero", () => {
+    const gases = listFactorGases({ ...base, co2Factor: "2", factorUnit: "kg CO2/kg" });
+    expect(gases.map((g) => g.gas)).toEqual(["CO2"]);
+  });
+
+  it("names a pre-blended factor by its captured gas instead of an anonymous CO2e", () => {
+    expect(
+      listFactorGases({
+        ...base,
+        co2eFactor: "1960",
+        gasType: "HFC",
+        factorUnit: "kg CO2eq/kg",
+      }),
+    ).toEqual([{ gas: "HFC", value: "1960", unit: "kg CO2eq/kg" }]);
+  });
+
+  it("falls back to a neutral CO2e label when the library captured no gas", () => {
+    expect(listFactorGases({ ...base, co2eFactor: "500", factorUnit: "kg CO2eq/USD" })).toEqual([
+      { gas: "CO2e", value: "500", unit: "kg CO2eq/USD" },
+    ]);
+  });
+
+  it("returns nothing for a factor with no readable value", () => {
+    expect(listFactorGases(base)).toEqual([]);
   });
 });

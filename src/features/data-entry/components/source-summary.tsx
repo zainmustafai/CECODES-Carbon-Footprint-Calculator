@@ -117,7 +117,27 @@ export function SourceSummary({
             </dd>
           </div>
         ) : null}
-        {factorLabel ? (
+        {/* Every gas the factor carries, not just its headline number - client feedback
+            2026-09-03: "when applicable, show not only CO2 emission factor. Include all other
+            gases even SF6, HFC, etc." A factor with a single gas still renders as one row, so
+            there is no second layout to maintain. */}
+        {estimate.gases.length > 0 ? (
+          estimate.gases.map((gas) => (
+            <div key={gas.gas} className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">
+                {t("factorForGas", { gas: gas.gas })}
+              </dt>
+              <dd className="text-right font-mono">
+                {[
+                  format.number(Number(gas.value), { maximumFractionDigits: 6 }),
+                  gas.unit,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              </dd>
+            </div>
+          ))
+        ) : factorLabel ? (
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">{t("factorApplied")}</dt>
             <dd className="text-right font-mono">{factorLabel}</dd>

@@ -129,6 +129,7 @@ export async function DataEntryScreen({
               factorUnit: true,
               source: true,
               entryMode: true,
+              gasType: true,
             },
           },
         },
@@ -189,6 +190,7 @@ export async function DataEntryScreen({
           factorUnit: entry.emissionFactor.factorUnit,
           source: entry.emissionFactor.source,
           entryMode: entry.emissionFactor.entryMode,
+          gasType: entry.emissionFactor.gasType,
         }
       : null,
   }));
