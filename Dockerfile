@@ -5,8 +5,13 @@
 #   --target migrator  the one-shot init job. Keeps devDependencies, the Prisma CLI and bun,
 #                      because prisma/seed.ts and prisma.config.ts are bun scripts.
 #
-# Bun, not Node, because package.json's db:seed* scripts and prisma.config.ts's seed hook all
-# shell out to `bun`. The app itself runs under Node inside the standalone bundle.
+# Both runtimes are here, and each is used for exactly what it can do:
+#   bun   installs (the lockfile is bun.lock) and runs the seed scripts, because db:seed* and
+#         prisma.config.ts's seed hook all shell out to `bun` by name.
+#   node  builds and serves. `next build` loads Turbopack's native N-API module and a worker
+#         pool, neither of which Bun implements, and output:"standalone" emits a Node server.js.
+# Mixing them is safe here because every stage is Debian with the same glibc, so the native
+# binaries bun resolves are the ones node loads.
 #
 # The version is pinned deliberately. `latest` would mean two builds a month apart produce
 # different runtimes from identical source, which is the opposite of a portable deployment.
@@ -29,7 +34,15 @@ RUN bun install --frozen-lockfile
 # ---------------------------------------------------------------------------------------------
 # builder - compile the app
 # ---------------------------------------------------------------------------------------------
-FROM oven/bun:${BUN_VERSION} AS builder
+#
+# NODE, not bun, and this is not a preference. `next build` loads Turbopack's native N-API module
+# and spins up a worker pool, and under Bun that fails outright:
+#   TypeError: symbol 'napi_register_module_v1' not found in native module
+#   ERR_NOT_IMPLEMENTED at new WorkerPool
+# Bun installs the dependencies, because the lockfile is bun.lock, and Node builds them. The two
+# stages share a Debian base and the same glibc, so the native binaries bun resolved are the ones
+# node loads here.
+FROM node:22-slim AS builder
 WORKDIR /app
 
 # Next inlines NEXT_PUBLIC_* into the bundle at BUILD time, so these must be present now, not at
@@ -44,13 +57,23 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# The generated Prisma client, brought over from deps rather than regenerated.
+#
+# It lands INSIDE src (prisma/schema.prisma sets output = "../src/lib/generated/prisma"), it is
+# gitignored, and .dockerignore excludes it from the build context on purpose, so the COPY . .
+# above cannot supply it. deps already produced it: package.json's postinstall runs
+# prisma generate. Without this line the build fails at src/lib/prisma.ts on a module it cannot
+# resolve. It comes AFTER COPY . . because that would otherwise overwrite the directory.
+COPY --from=deps /app/src/lib/generated ./src/lib/generated
+
 # Needs devDependencies: reactCompiler:true requires babel-plugin-react-compiler, and the build
 # typechecks with typescript. Do not try to prune before this step.
 #
 # Note this step reaches the network: src/app/layout.tsx imports Geist/Inter from
 # next/font/google, which fetches from Google's CDN during the build. On a host without outbound
 # HTTPS this is the first thing that will fail.
-RUN bun run build
+# Invoked through node rather than the bin shim so it is unambiguous which runtime executes it.
+RUN node node_modules/next/dist/bin/next build
 
 # ---------------------------------------------------------------------------------------------
 # migrator - the init job (target for the `init` compose service)
@@ -59,20 +82,39 @@ FROM oven/bun:${BUN_VERSION} AS migrator
 WORKDIR /app
 ENV NODE_ENV=production
 
+# The Prisma CLI shells out to a query engine that links against OpenSSL, and the bun image does
+# not carry it. Without this, every migrate command prints "Prisma failed to detect the
+# libssl/openssl version" and falls back to a guess, which is a warning today and a failure the
+# day the guess is wrong.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl   && rm -rf /var/lib/apt/lists/*
+
 # Deliberately the full install, not the pruned one: `prisma migrate deploy` needs the Prisma CLI,
 # which is a devDependency. This image is short-lived and never serves traffic, so its size is not
 # worth optimising - and keeping the CLI OUT of the runtime image is the actual security win.
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json bun.lock prisma.config.ts tsconfig.json ./
-COPY prisma ./prisma
-COPY scripts ./scripts
-COPY src/lib/env.ts ./src/lib/env.ts
+# --chown, because this stage runs as the unprivileged bun user and the Prisma CLI writes into
+# node_modules/@prisma/engines when it resolves an engine for the platform it finds. Copied as
+# root it cannot, and migrate deploy fails with "please make sure you install prisma with the
+# right permissions" rather than anything about permissions on the thing it actually wanted.
+COPY --from=deps --chown=bun:bun /app/node_modules ./node_modules
+COPY --chown=bun:bun package.json bun.lock prisma.config.ts tsconfig.json ./
+COPY --chown=bun:bun prisma ./prisma
+COPY --chown=bun:bun scripts ./scripts
+# The whole of src, not a hand-picked file or two. The prisma/*.ts scripts import across the app
+# by relative path: seed.ts alone reaches src/lib/supabase/admin, src/lib/auth/password and
+# src/lib/env, and the factor scripts reach further still. Copying only what today's seed happens
+# to import is a trap that breaks the next time one of them grows an import, and the source is
+# small next to node_modules.
+COPY --chown=bun:bun src ./src
+
+# The generated client, which .dockerignore keeps out of the build context, so the COPY above
+# cannot supply it. Same reason as the builder stage.
+COPY --from=deps --chown=bun:bun /app/src/lib/generated ./src/lib/generated
 
 # The emission-factor workbook. init-db.ts does NOT import it - that stays a deliberate manual
 # step, because it rewrites the shared factor library. But shipping it here means an operator can
 # run `docker compose run --rm init bun prisma/import-factors.ts` without rebuilding, and the
 # alternative is a system left on the 12 starter factors, which is not a usable carbon tool.
-COPY docs/reference ./docs/reference
+COPY --chown=bun:bun docs/reference ./docs/reference
 
 USER bun
 CMD ["bun", "scripts/init-db.ts"]
