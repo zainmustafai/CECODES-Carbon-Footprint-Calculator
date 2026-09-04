@@ -1,21 +1,24 @@
 # CECODES - Huella de Carbono
 #
-#   cp .env.example .env   # then fill in the required values
+#   cp .env.example .env   # then fill in anything you want to override
 #   docker compose up -d --build
 #
-# On a developer machine that already has .env.local, point compose at it so the NEXT_PUBLIC_*
-# build args resolve too (env_file feeds the containers; --env-file feeds ${...} substitution):
+# On a developer machine that already has .env.local, point compose at it so its overrides reach
+# ${...} substitution too (env_file feeds the containers; --env-file feeds ${...} substitution):
 #
 #   docker compose --env-file .env.local up -d --build
 #
-# Two containers by default:
-#   init  runs once, applies pending migrations and seeds, then exits 0
-#   app   starts only after init succeeds
+# Four containers by default:
+#   db      Postgres, with a named volume. DATABASE_URL can point at this container or at any
+#           other Postgres; nothing here is Supabase-specific any more.
+#   init    runs once, applies pending migrations and seeds, then exits 0
+#   app     starts only after init succeeds
+#   mailpit catches password-reset mail so there is something to read with no provider account.
+#           A production deployment sets MAIL_TRANSPORT=resend and RESEND_API_KEY instead, at
+#           which point this container simply sits idle.
 #
-# There is NO database service here on purpose. The database is managed Supabase, reached over
-# DATABASE_URL, and Supabase also provides authentication - user identities live in its auth
-# schema, not in this repo's migrations. Running a Postgres container here would give you every
-# application table and nobody able to log in.
+# Identity lives in this database now too: app_users holds the password hash, user_sessions
+# holds the session. Nothing here talks to a third party for authentication.
 #
 # Add TLS with:  docker compose --profile edge up -d
 # Useful:        docker compose logs -f init     (the whole initialization story, in order)
@@ -46,6 +49,32 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    restart: unless-stopped
+    networks: [internal]
+
+  # -------------------------------------------------------------------------------------------
+  # mailpit - a mail server that catches everything and delivers nothing
+  # -------------------------------------------------------------------------------------------
+  # The default transport, so `docker compose up -d` gives a working password-reset flow with no
+  # provider account. Read the messages at http://127.0.0.1:8025.
+  #
+  # A production deployment sets MAIL_TRANSPORT=resend and RESEND_API_KEY, at which point this
+  # container simply sits idle, or is skipped with `--scale mailpit=0`.
+  mailpit:
+    image: axllent/mailpit:v1.31.0
+    # BOTH ports bound to 127.0.0.1, never 0.0.0.0. The short form "1025:1025" would publish an
+    # open relay to the internet on a VPS, which is found by scanners within hours.
+    #
+    # SMTP is published at all because `bun run dev` and the Playwright suite run on the HOST, not
+    # inside this network, and the reset spec needs somewhere to deliver. Containers reach it as
+    # mailpit:1025 and ignore this mapping.
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
     restart: unless-stopped
     networks: [internal]
 
@@ -81,6 +110,13 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Inert until env.ts reads them (a later task), and harmless until then: nothing in this
+      # image looks these up yet. Defaulted here so the values are correct the day it does.
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
     depends_on:
       db:
         condition: service_healthy
@@ -96,11 +132,6 @@ services:
     build:
       context: .
       target: runner
-      args:
-        # Next inlines NEXT_PUBLIC_* at BUILD time, so these are build args, not just env vars.
-        # Change either one and you must rebuild: `docker compose up -d --build`.
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     env_file:
       - path: .env
         required: false
@@ -117,11 +148,20 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Inert until env.ts reads them (a later task), and harmless until then: nothing in this
+      # image looks these up yet. Defaulted here so the values are correct the day it does.
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
     depends_on:
       init:
         # The app does not start until init exits 0. A failed migration therefore means no app,
         # rather than an app serving requests against a half-migrated schema.
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     # Bound to loopback, not 0.0.0.0: on a public VPS the short form "3000:3000" would publish the
     # app directly to the internet, bypassing any reverse proxy and its TLS. Put Caddy (below) or
     # your own proxy in front. For a local trial, http://127.0.0.1:3000 still works.
@@ -157,7 +197,8 @@ services:
   # -------------------------------------------------------------------------------------------
   # caddy - optional TLS terminator (profile: edge)
   # -------------------------------------------------------------------------------------------
-  # Off by default so `docker compose up -d` stays two containers and works with no domain.
+  # Off by default so `docker compose up -d` stays at the four containers above and works with no
+  # domain.
   # Enable once DNS points at this host: docker compose --profile edge up -d
   # Caddy obtains and renews a Let's Encrypt certificate on its own; set DOMAIN in .env.
   caddy:

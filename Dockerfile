@@ -51,13 +51,10 @@ RUN bun install --frozen-lockfile
 FROM node:22-slim AS builder
 WORKDIR /app
 
-# Next inlines NEXT_PUBLIC_* into the bundle at BUILD time, so these must be present now, not at
-# run time. The practical consequence: an image is tied to one Supabase project. Build on the
-# target host (docker compose up -d --build) and compose passes them from .env automatically.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Nothing environment-specific is inlined into the bundle at build time any more. Every
+# configuration value this app reads (DATABASE_URL, SITE_URL, mail settings) is read from
+# process.env at runtime, not compiled in, so one image serves any deployment: build it once,
+# run it against staging, production, or a laptop, with no rebuild in between.
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -106,10 +103,10 @@ COPY --chown=bun:bun package.json bun.lock prisma.config.ts tsconfig.json ./
 COPY --chown=bun:bun prisma ./prisma
 COPY --chown=bun:bun scripts ./scripts
 # The whole of src, not a hand-picked file or two. The prisma/*.ts scripts import across the app
-# by relative path: seed.ts alone reaches src/lib/supabase/admin, src/lib/auth/password and
-# src/lib/env, and the factor scripts reach further still. Copying only what today's seed happens
-# to import is a trap that breaks the next time one of them grows an import, and the source is
-# small next to node_modules.
+# by relative path: seed.ts alone reaches src/lib/auth/password and the generated Prisma client,
+# and the factor scripts reach further still. Copying only what today's seed happens to import is
+# a trap that breaks the next time one of them grows an import, and the source is small next to
+# node_modules.
 COPY --chown=bun:bun src ./src
 
 # The generated client, which .dockerignore keeps out of the build context, so the COPY above
@@ -148,6 +145,11 @@ RUN mkdir .next && chown node:node .next
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
+
+# The .hbs email templates, read with fs at runtime. next.config.ts also lists them in
+# outputFileTracingIncludes, and this line is the belt to that braces: a template missing from the
+# image is discovered by a user who cannot reset their password, which is too late to find out.
+COPY --from=builder --chown=node:node /app/src/lib/mail/templates ./src/lib/mail/templates
 
 # sharp, copied explicitly rather than left to dependency tracing. next/image is used in
 # src/app/(auth)/layout.tsx and src/features/app-shell/components/app-sidebar.tsx, and Next's

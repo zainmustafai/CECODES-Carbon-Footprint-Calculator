@@ -440,6 +440,17 @@ even though RLS is inert through Prisma.
 > future non-Prisma access path. **They protect nothing today.** Do not tell anyone that
 > RLS isolates tenants in this application.
 
+Identity itself lives in this database, not a third party's. `app_users` carries the password
+hash and `user_sessions` carries the session; a request is authenticated by resolving its
+session cookie against `user_sessions`, nothing more exotic than that.
+
+The RLS policies still call `private.current_app_user_id()`, which reads the Postgres session
+setting `app.current_user_id` (`current_setting('app.current_user_id', true)`). **Nothing sets
+that setting today.** `src/lib/prisma.ts` never issues `SET LOCAL app.current_user_id`, so every
+policy predicate that depends on it evaluates as "nobody" and the point above holds: these
+policies are unreachable through this application, not a second layer of defence that happens to
+agree with the first.
+
 Isolation rests on two things: the constraints in section 6, and one file.
 
 ### `src/lib/auth/company-scope.ts`

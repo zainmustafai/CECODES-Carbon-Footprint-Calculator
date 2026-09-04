@@ -7,26 +7,39 @@ changes it; this exists so the app can run on any server that has Docker.
 
 ## 1. What you need first
 
-A **Supabase project**. This is not optional, and it is the one thing worth understanding before
-anything else.
+Nothing external, no third-party account or project to provision first. Everything this app
+needs, including its own database, comes up with the stack; the one thing you must still choose
+yourself is `ADMIN_PASSWORD` (see §4), because a shipped default password would not be a
+convenience.
 
-Supabase gives this app two separate things:
+Four containers by default:
 
-| What | Reached over | Holds |
+| Service | What it is | Holds |
 | --- | --- | --- |
-| Postgres | `DATABASE_URL` | every business table: companies, sedes, activity entries, factors |
-| Auth (GoTrue) | `NEXT_PUBLIC_SUPABASE_URL` | user accounts, passwords, sessions |
+| `db` | Postgres 17, with a named volume | every table: companies, sedes, activity entries, factors, `app_users`, `user_sessions` |
+| `init` | a one-shot job | applies pending migrations, seeds reference data and the admin account, then exits |
+| `app` | the Next.js server | serves the application |
+| `mailpit` | a mail catcher | password-reset mail, when no real mail provider is configured |
 
-The Prisma schema in this repo describes **only the first**. There is no password column, no session
-table, nowhere for a login to live. `AppUser.id` *is* the Supabase auth user's uuid.
+Identity lives in this database now, not a third party's: `app_users` holds the password hash and
+`user_sessions` holds the session. Nothing here talks out to authenticate a user.
 
-So pointing `DATABASE_URL` at a plain Postgres container would give you every table and **nobody
-able to log in**. It would not even get that far: migration `20260709120320_rls_and_auth` refers to
-`auth.users`, `auth.uid()` and the `authenticated` role, none of which exist outside Supabase, so
-it fails and takes the 15 migrations after it with it.
+`DATABASE_URL` may point at the bundled `db` container, or at any other Postgres you already run
+and manage yourself; nothing in this repo assumes one provider. Overriding it in `.env` is enough;
+`init` still waits for the bundled `db` container to become healthy before it starts, so a
+deployment that ignores it simply runs one unused Postgres alongside the one it actually talks to.
 
-**Portable here means: this app runs on any server, against a Supabase project.** Moving servers is
-easy. Moving off Supabase is a different project, and a large one.
+Mail works the same way in intent: the stack ships a `mailpit` container as the default SMTP
+target, reachable from the other containers at `mailpit:1025` and readable by you at
+**http://127.0.0.1:8025**. As of this writing the application only sends mail through the Resend
+API (`RESEND_API_KEY` + `MAIL_FROM`); until the SMTP transport is wired up, password-reset mail is
+simply not sent when neither is set, and Mailpit's inbox stays empty. `MAIL_TRANSPORT`,
+`SMTP_HOST` and `SMTP_PORT` are already set in every container's environment with Mailpit as their
+target, ready for that transport to read them once it lands.
+
+**Portable here means: one image runs on any server, against any Postgres.** Nothing
+environment-specific is compiled into it at build time, so the same image can move between
+servers with no rebuild.
 
 ---
 
@@ -34,7 +47,7 @@ easy. Moving off Supabase is a different project, and a large one.
 
 ```bash
 git clone <repo> && cd CECODES
-cp .env.example .env          # then fill in the required values
+cp .env.example .env          # then set at least ADMIN_PASSWORD
 docker compose up -d --build
 ```
 
@@ -50,8 +63,6 @@ Add HTTPS once DNS points at the server (set `DOMAIN` in `.env` first):
 ```bash
 docker compose --profile edge up -d
 ```
-
-`--build` is needed because `NEXT_PUBLIC_*` values are compiled into the app (see §6).
 
 ---
 
@@ -84,22 +95,31 @@ system that answers requests is worse than one that is plainly down.
 
 ## 4. Environment variables
 
-### Required (the app refuses to start without these)
+Every variable below has a working default in `docker-compose.yml` except one: `ADMIN_PASSWORD`
+has no default anywhere, deliberately, because a shipped default password is a vulnerability, not
+a convenience. See `.env.example` for the full list with explanations; this is the short version.
+
+### Required (initialization refuses to run without this)
 
 | Variable | Used by | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | app, init | **Compiled in at build time.** Changing it needs `--build`. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | app, init | Same. |
-| `SUPABASE_SERVICE_ROLE_KEY` | init | Full database rights. Never expose it, never log it. |
-| `DATABASE_URL` | app | Pooled connection, port 6543. |
-| `DIRECT_URL` | init | Direct connection, port 5432. Migrations cannot use a pooler. |
-| `ADMIN_EMAIL` | init | The first and only way in. |
-| `ADMIN_PASSWORD` | init | Minimum 12 characters. |
+| `ADMIN_PASSWORD` | init | Minimum 12 characters. No default. |
 
-### Optional
+### Defaulted but worth setting anyway
 
 | Variable | Default | Notes |
 | --- | --- | --- |
+| `ADMIN_EMAIL` | `admin@cecodes.local` | The first and only way in: self-serve registration is off. The default works, but you probably want your own address. |
+
+### Defaulted, override only if you need to
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | points at the `db` container | Point it at any Postgres instead and the `db` service is not required. |
+| `DIRECT_URL` | same as `DATABASE_URL` | Used for migrations. If you front `DATABASE_URL` with a pooler, point this at the same database without the pooler. |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `cecodes` / `cecodes-local-dev` / `cecodes` | Only relevant when the `db` container is the one running; change the password before exposing this anywhere but a loopback interface. |
+| `MAIL_TRANSPORT`, `SMTP_HOST`, `SMTP_PORT` | `smtp`, `mailpit`, `1025` | Set in every container's environment already, pointed at Mailpit; not yet read by the application (see §1). |
+| `RESEND_API_KEY` / `MAIL_FROM` | unset | The only mail transport the application actually uses today. Both or neither. |
 | `DOMAIN` | `localhost` | Only for the `edge` (Caddy/TLS) profile. |
 | `PORT` | `3000` | Inside the container. |
 
@@ -137,11 +157,9 @@ decision, not a side effect of restarting a container.
 
 ## 6. Things that will surprise you
 
-**One image belongs to one Supabase project.** Next compiles `NEXT_PUBLIC_*` values *into* the
-JavaScript at build time. You cannot build once and promote the same image from staging to
-production; build on the target host. (Worth revisiting: nothing in the browser actually reads
-these two variables, so they could become ordinary server-side variables and this limitation would
-disappear.)
+**One image serves any deployment.** Nothing environment-specific is compiled into the JavaScript
+at build time any more, so you CAN build once and promote the same image from staging to
+production; nothing here forces a rebuild per target.
 
 **Run exactly one app container.** `unstable_cache` and `revalidatePath` in
 `src/features/admin/lib/factor-library-cache.ts` are per-process. With two containers, an admin
@@ -151,9 +169,10 @@ old value. Vercel hides this behind a shared cache layer. Compose does not.
 **The build needs internet.** `src/app/layout.tsx` loads fonts via `next/font/google`, which fetches
 from Google during `docker build`.
 
-**The database is never exposed.** There is no database container and no published database port.
-The app port is bound to `127.0.0.1`, so on a public server it is not reachable from the internet
-until you put a proxy in front of it.
+**The bundled database is never exposed.** The `db` service publishes no port. Every consumer
+reaches it over the internal network, by service name. The app port is bound to `127.0.0.1`, so on
+a public server it is not reachable from the internet either, until you put a proxy in front of
+it.
 
 ---
 
@@ -163,15 +182,15 @@ until you put a proxy in front of it.
 | --- | --- | --- |
 | `env file .env not found` | You skipped `cp .env.example .env` | Create it. |
 | init exits 1, "Invalid environment" | A required variable is missing or still a placeholder | The message names the variable. |
-| init exits 1, "Database unreachable after 30 attempts" | Wrong host/password, or the Supabase project is paused | Check `DIRECT_URL`; open the Supabase dashboard. |
-| init exits 1, "Cannot seed the admin account" | `ADMIN_EMAIL`/`ADMIN_PASSWORD` missing | Set them. Without an admin there is no way in: self-serve registration is off. |
+| init exits 1, "Database unreachable after 30 attempts" | Wrong host/password, or your Postgres is unreachable from the container network | Check `DIRECT_URL`. If you pointed it at an external database, confirm the `app` container can actually reach that host. |
+| init exits 1, "Cannot seed the admin account" | `ADMIN_PASSWORD` missing, or too short | Set it, at least 12 characters. Without an admin there is no way in: self-serve registration is off. |
 | init exits 1, "DEMO_SEED_ALLOWED=true is set" | Demo flag copied from a dev `.env` | Remove it. This guard is protecting real data. |
 | app container never starts | init failed | `docker compose logs init`. The app is gated on init succeeding. |
-| app exits 1 immediately | Boot-time env validation failed | `docker compose logs app`. It names the variable. |
+| app exits 1 immediately | Boot-time env validation failed | `docker compose logs app`. It names the variable; today that can only be `DATABASE_URL`. |
 | app runs but shows `unhealthy` | Database unreachable from the app | `curl` the readiness endpoint inside: `docker compose exec app node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>r.text()).then(console.log)"` |
-| Every request returns 503 "Service misconfigured" | Supabase URL/key missing or placeholder | Fix `.env`, then rebuild (`--build`), because these are compile-time values. |
 | Styles missing, pages unstyled | `.next/static` not copied | Rebuild without cache: `docker compose build --no-cache app`. |
 | Build fails downloading fonts | No outbound HTTPS on the build host | Allow egress to `fonts.googleapis.com` / `fonts.gstatic.com`. |
+| Mailpit's inbox stays empty after a reset request | Mail is only sent through Resend today | Set `RESEND_API_KEY` and `MAIL_FROM`, or check back once the SMTP transport is wired up. |
 
 Two commands worth knowing:
 

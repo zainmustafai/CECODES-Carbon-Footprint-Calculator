@@ -12,7 +12,7 @@ reports. It replaces the client's Excel tool, and **reproducing that Excel's tot
 acceptance test** (docs §14). Plain-language overview: [UNDERSTANDING.md](./UNDERSTANDING.md).
 
 **Stack (locked, do not propose alternatives):** Next.js 16 App Router full-stack on Vercel ·
-React 19 (compiler on) · Tailwind v4 · shadcn/ui + Recharts · Supabase Postgres + Auth ·
+React 19 (compiler on) · Tailwind v4 · shadcn/ui + Recharts · Postgres + self-hosted auth ·
 Prisma 7 (pg adapter) · next-intl · exceljs + react-pdf · Vitest + Playwright · **bun**.
 
 ## Read before coding
@@ -67,8 +67,9 @@ not evidence a feature works.
   re-authorizes, no matter what the UI already checked.
 - `updateMany`/`deleteMany` return `{ count }` instead of throwing. **Check the count**, or a
   cross-tenant write reports success.
-- **Never call Supabase from the browser.** No browser client exists in this repo and none
-  may be added.
+- **No database client may exist in browser code.** All Prisma access happens in a Server
+  Action or a Server Component; nothing queries the database from code that ships to the
+  client.
 - The client never sends `scope`, `category`, `subcategory`, `element`, or `unit`; the server
   derives all five from the chosen `EmissionFactor`.
 - Errors return opaque i18n keys, never sentences, and never reveal whether a resource exists.
