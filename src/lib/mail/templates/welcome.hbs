@@ -1,0 +1,12 @@
+{{#> layout title="Tu cuenta en Huella de Carbono"}}
+<p style="margin:0 0 16px;">{{#if name}}Hola {{name}}: se{{else}}Se{{/if}} creó una cuenta para ti en Huella de Carbono CECODES.</p>
+<p style="margin:0 0 16px;">Tu usuario es <strong>{{email}}</strong>. Define tu contraseña con este enlace:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+<tr><td align="center" bgcolor="#002060" style="border-radius:6px;">
+<a href="{{setPasswordUrl}}" style="display:inline-block;padding:12px 24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;">Definir mi contraseña</a>
+</td></tr>
+</table>
+<p style="margin:0 0 8px;">Si el botón no funciona, copia este enlace en tu navegador:</p>
+<p style="margin:0 0 16px;word-break:break-all;"><a href="{{setPasswordUrl}}" style="color:#002060;">{{setPasswordUrl}}</a></p>
+<p style="margin:0;color:#555555;">El enlace vence en {{expiry}}. Si vence, pide uno nuevo desde "Olvidé mi contraseña" en la pantalla de ingreso.</p>
+{{/layout}}

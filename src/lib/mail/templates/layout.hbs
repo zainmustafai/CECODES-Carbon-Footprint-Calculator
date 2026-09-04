@@ -1,0 +1,20 @@
+{{!-- Shared shell for every message. No image and no tracking pixel: a message whose only job is
+      to carry one link should not ask the reader's client to phone anywhere, and a remote image is
+      also what gets a message blocked before the link is ever seen.
+      #002060 is --primary from globals.css, in hex because email clients do not resolve oklch(). --}}
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:8px;">
+<tr><td style="padding:32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1a1a1a;">
+<p style="margin:0 0 16px;font-size:20px;font-weight:bold;color:#002060;">{{title}}</p>
+{{> @partial-block }}
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   // has to carry the whole node_modules tree (shadcn alone drags in ts-morph and @babel/core).
   // Harmless on Vercel, which ignores it.
   output: "standalone",
+  // The .hbs files under src/lib/mail/templates are read with fs at runtime, so Next's import
+  // tracing cannot see them and would ship none of them. Without this the standalone server throws
+  // "Email template not found" the first time anyone asks for a password reset. The Dockerfile also
+  // COPYs the directory, deliberately: a missing template is discovered by a locked-out user.
+  outputFileTracingIncludes: {
+    "/**": ["./src/lib/mail/templates/**"],
+  },
+  // handlebars compiles templates with new Function, which a bundler cannot follow. Leaving it
+  // external keeps it a plain node_modules require at runtime.
+  serverExternalPackages: ["handlebars"],
   // NOTE ON CACHING (deliberate): cacheComponents (PPR / `use cache`) is NOT enabled. It is a
   // whole-app switch: with it on, every uncached dynamic read must sit under a Suspense boundary
   // or the route fails to prerender. This app reads auth cookies directly in its layouts (the
