@@ -268,7 +268,7 @@
       "PFC": "PFCs",
       "SF6": "SF6",
       "NF3": "NF3",
-      "UNIDENTIFIED": "Sin identificar"
+      "UNIDENTIFIED": "CO₂e sin desagregar"
     },
     "filters": {
       "label": "Filtrar",
@@ -291,18 +291,6 @@
     },
     "downloadView": {
       "button": "Descargar vista como PDF"
-    },
-    "intro": {
-      "title": "Cómo funciona Huella de Carbono",
-      "subtitle": "Guía rápida en 3 pasos. La guía completa está en el manual de usuario.",
-      "step1Title": "Registra tus datos",
-      "step1Body": "En \"Registro de datos\", ingresa el consumo anual (o mensual para Alcance 2) de tu empresa.",
-      "step2Title": "Revisa el resumen",
-      "step2Body": "En \"Resumen\" verás una estimación referencial antes de que se calculen los totales oficiales.",
-      "step3Title": "Consulta y exporta",
-      "step3Body": "El Tablero muestra tu huella por alcance, categoría y gas; en \"Reportes\" la descargas en PDF o Excel.",
-      "gotIt": "Entendido",
-      "dismiss": "Cerrar guía"
     },
     "kpi": {
       "total": "Huella de carbono total",
@@ -334,7 +322,8 @@
       "share": "% participación",
       "gasColumn": "Gas",
       "empty": "Sin datos de gases para este filtro.",
-      "preBlendedNote": "{count, plural, one {# fuente llega} other {# fuentes llegan}} con el factor ya expresado en CO2e (refrigerantes, SF6/PFC/NF3, o Alcance 3 por gasto o distancia), por lo que se cuentan bajo su propio gas y no aportan masa de CO2, CH4 ni N2O."
+      "preBlendedNote": "{count, plural, one {# fuente llega} other {# fuentes llegan}} con el factor ya expresado en CO2e (refrigerantes, SF6/PFC/NF3, o Alcance 3 por gasto o distancia), por lo que se cuentan bajo su propio gas y no aportan masa de CO2, CH4 ni N2O.",
+      "unidentifiedNote": "La columna “CO₂e sin desagregar” recoge factores que la biblioteca entrega directamente en CO₂e sin indicar el gas, típicamente los de Alcance 3 basados en gasto. Ya son CO₂e y no masa de CO₂, por eso se muestran aparte en lugar de sumarse a la columna de CO₂. Están incluidos en el total."
     },
     "pareto": {
       "title": "Priorización de fuentes de emisión",
@@ -445,6 +434,19 @@
   "dataEntry": {
     "title": "Ingreso de datos",
     "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
+    "intro": {
+      "title": "Cómo funciona Huella de Carbono",
+      "subtitle": "Guía rápida en 3 pasos. La guía completa está en el manual de usuario.",
+      "step1Title": "Registra tus datos",
+      "step1Body": "En esta misma pantalla, ingresa el consumo anual (o mensual para Alcance 2) de tu empresa.",
+      "step2Title": "Revisa el resumen",
+      "step2Body": "En \"Resumen\" verás una estimación referencial antes de que se calculen los totales oficiales.",
+      "step3Title": "Consulta y exporta",
+      "step3Body": "El Tablero muestra tu huella por alcance, categoría y gas; en \"Reportes\" la descargas en PDF o Excel.",
+      "gotIt": "Entendido",
+      "dismiss": "Cerrar guía",
+      "userGuide": "Descargar guía de usuario"
+    },
     "emptyScope": "La biblioteca de factores aún no tiene categorías para este alcance.",
     "valueHint": "Solo valores no negativos. Decimales con coma (,) o punto (.). No uses separador de miles. Verifica la unidad solicitada en cada campo antes de registrar el valor (kg, lb, km, gal, cc, etc.). Registra el total consolidado por año y sede: si compraste 1.000 galones de diésel para el vehículo A y 2.000 para el vehículo B, registra un solo valor de 3.000 galones para esa sede.",
     "contextBar": {

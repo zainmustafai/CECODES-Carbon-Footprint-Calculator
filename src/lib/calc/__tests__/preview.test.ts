@@ -395,6 +395,36 @@ describe("listFactorGases", () => {
     ]);
   });
 
+  // The client reported "Factor CH4  1,5 kg CH4kgCH4/cabeza" on enteric fermentation. The unit
+  // column of a CH4-only row is the sheet's own unspaced spelling, so the gas name was never
+  // stripped and got prepended to the whole string. These pin the real workbook units, unspaced
+  // and already naming the gas, which the spaced "kg CO2/gal" case above never exercised.
+  it("labels a gas correctly when the stored unit has no space and already names the gas", () => {
+    expect(
+      listFactorGases({ ...base, ch4Factor: "1.5", factorUnit: "kgCH4/cabeza" }),
+    ).toEqual([{ gas: "CH4", value: "1.5", unit: "kg CH4/cabeza" }]);
+
+    expect(listFactorGases({ ...base, ch4Factor: "0.9", factorUnit: "kgCH4/t" })).toEqual([
+      { gas: "CH4", value: "0.9", unit: "kg CH4/t" },
+    ]);
+
+    expect(listFactorGases({ ...base, n2oFactor: "0.02", factorUnit: "kgN2O/ha" })).toEqual([
+      { gas: "N2O", value: "0.02", unit: "kg N2O/ha" },
+    ]);
+  });
+
+  it("keeps the activity unit whatever the mass token looks like", () => {
+    // No slash at all: there is no activity unit to carry over, so the label is the gas alone.
+    expect(listFactorGases({ ...base, ch4Factor: "3", factorUnit: "kgCH4" })).toEqual([
+      { gas: "CH4", value: "3", unit: "kg CH4" },
+    ]);
+
+    // A compound activity unit keeps every segment after the first slash.
+    expect(
+      listFactorGases({ ...base, ch4Factor: "4", factorUnit: "kg CH4/cabeza/año" }),
+    ).toEqual([{ gas: "CH4", value: "4", unit: "kg CH4/cabeza/año" }]);
+  });
+
   it("omits a gas the factor does not have, rather than showing a zero", () => {
     const gases = listFactorGases({ ...base, co2Factor: "2", factorUnit: "kg CO2/kg" });
     expect(gases.map((g) => g.gas)).toEqual(["CO2"]);

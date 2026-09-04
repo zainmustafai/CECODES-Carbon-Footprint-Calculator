@@ -11,6 +11,7 @@ import type { FacilityVM, YearVM } from "../lib/types";
 import { ContextBar } from "./context-bar";
 import { CreateYearDialog } from "./create-year-dialog";
 import { DataEntryProvider } from "./data-entry-provider";
+import { IntroGuide } from "./intro-guide";
 import { ScopeTabs } from "./scope-tabs";
 
 type DataEntryScreenProps = {
@@ -50,10 +51,13 @@ export async function DataEntryScreen({
     years.find((y) => y.year === requestedYear) ?? years[0] ?? null;
 
   const header = (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-      <p className="text-muted-foreground">{t("subtitle")}</p>
-    </div>
+    <>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground">{t("subtitle")}</p>
+      </div>
+      <IntroGuide />
+    </>
   );
 
   if (!selectedFacility) {

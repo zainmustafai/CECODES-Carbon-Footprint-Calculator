@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useFormSubmit } from "@/hooks/use-form-submit";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 import { registerSchema, type RegisterValues } from "../schemas/auth-schemas";
 import { signUpAction } from "../actions/auth-actions";
 
@@ -40,7 +41,7 @@ export function useRegister() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(POST_LOGIN_PATH);
     router.refresh();
   });
 

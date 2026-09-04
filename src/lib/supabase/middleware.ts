@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 
 // /register is public only while self-serve onboarding is open; closed, an anonymous visit
 // bounces to /login here and a signed-in visit is redirected by the page itself.
@@ -73,7 +74,7 @@ export async function updateSession(request: NextRequest) {
     return redirectTo("/login");
   }
   if (user && isAuthPage(pathname)) {
-    return redirectTo("/dashboard");
+    return redirectTo(POST_LOGIN_PATH);
   }
 
   return supabaseResponse;

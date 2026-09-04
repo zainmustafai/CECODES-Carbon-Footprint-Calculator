@@ -20,9 +20,11 @@ import type { GasBreakdown } from "../lib/types";
 // than derived from the data precisely so a gas reading 0,00% still appears: an inventory that
 // silently omits SF6 reads as "we did not measure it", which is a different claim from zero.
 //
-// The one column that is ours and not theirs is "sin identificar", shown only when it holds
+// The one column that is ours and not theirs is "CO2e sin desagregar", shown only when it holds
 // something: a pre-blended factor whose gas the library never captured has to land somewhere, and
-// folding it into a named gas would be a quiet lie.
+// folding it into a named gas would be a quiet lie. It is NOT a defect column and it is not rare -
+// every spend-based Alcance 3 factor arrives this way by construction (map-row.ts:378), so a
+// perfectly clean library still fills it. Hence the note under the table.
 //
 // Colour: chart-1/2/3 are reserved for Alcance everywhere else in the product (see chart.ts), so
 // reusing them here would make a reader who has learned "green = Alcance 1" misread this as
@@ -168,6 +170,13 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
               <p className="mt-3 text-muted-foreground text-xs">
                 {t("preBlendedNote", { count: breakdown.otherEntries })}
               </p>
+            ) : null}
+
+            {/* The client read this column as "we do not know what this is" and asked why it was
+                not simply added to CO2. It is CO2e, not CO2 mass, so it cannot be - but the column
+                has to say why on the screen where the question arises, not only in a reply. */}
+            {breakdown.slices.some((s) => s.gas === "UNIDENTIFIED" && s.tonnes !== 0) ? (
+              <p className="mt-2 text-muted-foreground text-xs">{t("unidentifiedNote")}</p>
             ) : null}
           </>
         ) : (

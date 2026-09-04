@@ -62,9 +62,15 @@ leave empty is simply left out, never printed blank.
 CH₄ (fósil), N₂O, HFCs, PFCs, SF₆ and NF₃**, with a table underneath giving each gas its share of
 the total and its tonnes. Nothing is grouped into "other" any more.
 
-One extra column, "Sin identificar", appears only if a factor arrives in CO₂e without saying which
-gas it is. It is there so that case is visible instead of being quietly folded into another gas.
-On a clean factor table it never appears.
+One extra column holds the factors that arrive already expressed in CO₂e without naming the gas.
+It is there so that case stays visible instead of being quietly folded into another gas.
+
+**Correction to what we told you here.** We wrote that this column never appears on a clean factor
+table. That was wrong, and we are glad you asked about it. The Alcance 3 factors based on spend
+carry no gas column in the source sheet at all, so a perfectly clean library still fills this
+column as soon as a company reports spend based Alcance 3. It is normal, not a fault, and we have
+renamed it from "Sin identificar" to **"CO₂e sin desagregar"** so it says what the number is
+instead of what we lack, and the screen now carries a one line explanation under the table.
 
 **6. CH₄ fossil separated from non fossil.** CH₄ from biogenic sources is converted at GWP **27**
 and fossil CH₄ at **29,8** (IPCC AR6), and the two are separate columns everywhere: on the Tablero,
@@ -116,9 +122,9 @@ We loaded the national averages from your own `C6 - Viajes de negocios.xlsx`, sh
 `(C6) Viajes y subsidios`:
 
 | Year | Gasolina (COP/gal) | Diésel (COP/gal) |
-| --- | --- | --- |
-| 2024 | 16.046,315789 | 9.574,157895 |
-| 2025 | 15.663,157895 | 10.646,473684 |
+| ---- | ------------------ | ---------------- |
+| 2024 | 16.046,315789      | 9.574,157895     |
+| 2025 | 15.663,157895      | 10.646,473684    |
 
 Your figures carry twelve decimals; the column keeps six, so the values above are your numbers
 rounded to six decimal places. The difference is under one thousandth of a peso. You can edit any
@@ -156,11 +162,11 @@ The two sheets have the same 45 columns, so we compared them row by row. **213 r
 mostly CH₄ and N₂O. The official sheet divides by 1.000 where the older one does not, and in some
 rows corrects the coefficient as well:
 
-| Element | Loaded today (old sheet) | Official sheet | Off by |
-| --- | --- | --- | --- |
-| Coque | 0,0282 kg | 0,000282 kg | 100 × |
-| Carbón Vegetal | 5,9 kg | 0,0059 kg | 1.000 × |
-| Gas Natural Genérico, fijo | 357 kg | 0,0000357 kg | 10.000.000 × |
+| Element                    | Loaded today (old sheet) | Official sheet | Off by       |
+| -------------------------- | ------------------------ | -------------- | ------------ |
+| Coque                      | 0,0282 kg                | 0,000282 kg    | 100 ×        |
+| Carbón Vegetal             | 5,9 kg                   | 0,0059 kg      | 1.000 ×      |
+| Gas Natural Genérico, fijo | 357 kg                   | 0,0000357 kg   | 10.000.000 × |
 
 The official table also moves 60 refrigerant CO₂e factors from AR5 to AR6, and divides 53 Alcance 3
 C1 spend based factors by 1.000.
@@ -188,13 +194,13 @@ will bring it into line.
 We took rows straight out of your pivot and reproduced them. This is the row **"C9: Transporte
 terrestre de carga (camiones de servicio medianos y pesados)"**:
 
-| Gas | Mass (kg) | GWP AR6 | kg CO₂e |
-| --- | --- | --- | --- |
-| CO₂ | 4.929.185,89 | 1 | 4.929.185,89 |
-| CH₄ fósil | 38,81 | 29,8 | 1.156,54 |
-| N₂O | 155,25 | 273 | 42.383,25 |
-| **Total** | | | **4.972.725,68** |
-| Your table | | | 4.972.725,73 |
+| Gas        | Mass (kg)    | GWP AR6 | kg CO₂e          |
+| ---------- | ------------ | ------- | ---------------- |
+| CO₂        | 4.929.185,89 | 1       | 4.929.185,89     |
+| CH₄ fósil  | 38,81        | 29,8    | 1.156,54         |
+| N₂O        | 155,25       | 273     | 42.383,25        |
+| **Total**  |              |         | **4.972.725,68** |
+| Your table |              |         | 4.972.725,73     |
 
 The 0,05 kg difference is the rounding of the gas masses printed in your own table, not a difference
 in method.
@@ -223,11 +229,11 @@ changed. Nobody had to re-enter anything.**
 
 ### What the correction did
 
-| Step | Result |
-| --- | --- |
-| Load the official table | 1.705 rows now match the sheet; 19 Alcance 2 rows compared against the grid table, of which 18 already agreed |
-| Re-apply to protected rows | 18 rows were held back because a person had edited them; 7 of those were corrected |
-| Restore the kilometre correction | 8 travel factors corrected |
+| Step                             | Result                                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Load the official table          | 1.705 rows now match the sheet; 19 Alcance 2 rows compared against the grid table, of which 18 already agreed |
+| Re-apply to protected rows       | 18 rows were held back because a person had edited them; 7 of those were corrected                            |
+| Restore the kilometre correction | 8 travel factors corrected                                                                                    |
 
 The 7 protected rows that were corrected: the urea factor was moved from the CO₂ column to the N₂O
 column, exactly as your own sheet has it; three refrigerants had their CO₂e value corrected
@@ -254,12 +260,8 @@ the figure that will have moved the most.
 ### Seven Alcance 3 categories still have no factors
 
 Seven rows of the official table were not loaded, because they carry no element and no unit. They
-are your own placeholders: their subcategory reads *"SE AGREGARÁ DESPUÉS DE CONCLUIR LA FASE 2"*.
-They are **C8** (Activos arrendados aguas arriba), **C10** (Procesamiento de productos vendidos),
-**C11** (Uso de productos vendidos), **C12** (Tratamiento final de productos vendidos), **C13**
-(Activos arrendados aguas abajo), **C14** (Franquicias) and **C15** (Inversiones).
-
-Nothing was lost. The tool already handles those categories; the rows simply have no numbers in
+are your own placeholders: their subcategory reads _"SE AGREGARÁ DESPUÉS DE CONCLUIR LA FASE 2"_.
+They are **C8** (Activos arrendados aguas arriba), **C10** (Procesamiento de productos vendidos), \**C11*Nothing was lost. The tool already handles those categories; the rows simply have no numbers in
 them yet, in the workbook or anywhere else. When phase 2 concludes they load like any other row.
 
 ### Two things we checked afterwards, and what we found
@@ -280,21 +282,21 @@ on 3 September 2026, so anyone comparing against an earlier download can see why
 
 ## 4. Summary
 
-| # | Your comment | Status |
-| --- | --- | --- |
-| 1 | Order of the menu | Working |
-| 2 | Show every gas in data entry | Working |
-| 3 | Register pasajero·km and vehículo·km (C4, C6, C7, C9) | Working |
-| 4 | Company information as the header | Working |
-| 5 | Every gas shown separately | Working |
-| 6 | CH₄ fossil separated from non fossil | Working |
-| 7 | Monthly chart with points, not an area | Working |
-| 8 | Pareto in one colour, highlighting to 85% | Working |
-| 9 | Total duplicated when filtering by Alcance | Working |
-| 10 | Report rebuilt with the ISO 14064-1 declaration | Working |
-| 11 | Yearly gasoline and diesel prices, admin maintained | Working |
-| 12 | User guide download | Working |
-| 13 | Correct the emission factors | Working, applied 3 Sept 2026 |
+| #   | Your comment                                          | Status                       |
+| --- | ----------------------------------------------------- | ---------------------------- |
+| 1   | Order of the menu                                     | Working                      |
+| 2   | Show every gas in data entry                          | Working                      |
+| 3   | Register pasajero·km and vehículo·km (C4, C6, C7, C9) | Working                      |
+| 4   | Company information as the header                     | Working                      |
+| 5   | Every gas shown separately                            | Working                      |
+| 6   | CH₄ fossil separated from non fossil                  | Working                      |
+| 7   | Monthly chart with points, not an area                | Working                      |
+| 8   | Pareto in one colour, highlighting to 85%             | Working                      |
+| 9   | Total duplicated when filtering by Alcance            | Working                      |
+| 10  | Report rebuilt with the ISO 14064-1 declaration       | Working                      |
+| 11  | Yearly gasoline and diesel prices, admin maintained   | Working                      |
+| 12  | User guide download                                   | Working                      |
+| 13  | Correct the emission factors                          | Working, applied 3 Sept 2026 |
 
 All thirteen are available now. Nothing is waiting on you, and nothing needs a decision from us.
 

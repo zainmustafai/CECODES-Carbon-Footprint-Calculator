@@ -2,6 +2,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getUser } from "@/lib/auth/server";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 import { LanguageToggle } from "@/features/localization";
 import { ThemeToggle } from "@/features/theme";
 
@@ -13,7 +14,7 @@ export default async function AuthLayout({
   children: React.ReactNode;
 }) {
   const user = await getUser();
-  if (user) redirect("/dashboard");
+  if (user) redirect(POST_LOGIN_PATH);
 
   const t = await getTranslations("auth.brand");
 

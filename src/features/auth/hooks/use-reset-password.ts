@@ -12,6 +12,7 @@ import {
 } from "../schemas/auth-schemas";
 import { updatePasswordAction } from "../actions/auth-actions";
 import { useFormSubmit } from "@/hooks/use-form-submit";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 
 export function useResetPassword() {
   const tv = useTranslations("auth.validation");
@@ -34,7 +35,7 @@ export function useResetPassword() {
       return;
     }
     toast.success(tt("passwordUpdated"));
-    router.push("/dashboard");
+    router.push(POST_LOGIN_PATH);
     router.refresh();
   });
 

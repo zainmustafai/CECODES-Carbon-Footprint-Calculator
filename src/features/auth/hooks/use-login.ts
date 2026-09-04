@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useFormSubmit } from "@/hooks/use-form-submit";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 import { loginSchema, type LoginValues } from "../schemas/auth-schemas";
 import { signInAction } from "../actions/auth-actions";
 
@@ -31,7 +32,7 @@ export function useLogin() {
       setServerError(te(error));
       return;
     }
-    router.push("/dashboard");
+    router.push(POST_LOGIN_PATH);
     router.refresh();
   });
 

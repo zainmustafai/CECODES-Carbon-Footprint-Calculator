@@ -12,6 +12,7 @@ import {
 } from "../schemas/onboarding-schema";
 import { createCompanyAction } from "../actions/onboarding-actions";
 import { useFormSubmit } from "@/hooks/use-form-submit";
+import { POST_LOGIN_PATH } from "@/lib/routes";
 
 export function useOnboarding() {
   const tv = useTranslations("onboarding.validation");
@@ -45,7 +46,7 @@ export function useOnboarding() {
     // Invalidating the cache first means the push fetches a fresh /dashboard that sees the new
     // company and renders it.
     router.refresh();
-    router.push("/dashboard");
+    router.push(POST_LOGIN_PATH);
   });
 
   return { form, onSubmit, isSubmitting, serverError };

@@ -249,8 +249,16 @@ export function listFactorGases(factor: PreviewFactor): FactorGas[] {
 
   const unit = factor.factorUnit;
   // "kg CO2/gal" -> "/gal", so CH4 and N2O can be labelled in their own mass against the same
-  // activity unit. Stops at the slash: a greedy match would swallow the unit as well.
-  const perUnit = unit?.replace(/^kg\s+[^/\s]+/i, "") ?? "";
+  // activity unit.
+  //
+  // Everything from the first slash, rather than a regex that strips a leading "kg <gas>" token:
+  // the workbook spells the mass token both ways and the unspaced form is genuine sheet content,
+  // not corruption (see map-row.test.ts, cell 16 = "kgCH4/t"). A regex requiring the space left
+  // "kgCH4/cabeza" untouched and then prepended to it, printing "kg CH4kgCH4/cabeza" on the
+  // estimate panel. The activity unit is what we actually want here, and it always follows the
+  // slash whichever way the mass token is spelled.
+  const slash = unit?.indexOf("/") ?? -1;
+  const perUnit = slash >= 0 ? unit!.slice(slash) : "";
   const gases: FactorGas[] = [];
   if (factor.co2Factor !== null) gases.push({ gas: "CO2", value: factor.co2Factor, unit });
   // CH4 and N2O share the factor's activity unit but are their own gas mass, so the label is

@@ -900,6 +900,14 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             masa de gas (kg); HFCs, PFCs, SF6 y NF3 llegan de la biblioteca ya expresados en CO2e.
             No es un cálculo nuevo: es la misma huella reportada arriba, abierta por gas.
           </Text>
+          {declaration.hasUnidentified ? (
+            <Text style={styles.sectionSubtitle}>
+              La columna &quot;kg CO2e s/desag.&quot; recoge los factores que la biblioteca entrega
+              directamente en CO2e sin indicar el gas, como los de Alcance 3 basados en gasto. Ya
+              son CO2e, no masa de CO2, por eso se muestran aparte y no se suman a la columna de
+              CO2. Están incluidos en el total.
+            </Text>
+          ) : null}
           <View style={[styles.headRow, { marginTop: 6 }]} fixed>
             <Text style={[styles.isoLabel, styles.isoTh]}>Emisiones consolidadas</Text>
             <Text style={[styles.isoNum, styles.isoTh]}>kg CO2</Text>
@@ -911,7 +919,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             <Text style={[styles.isoNum, styles.isoTh]}>kg SF6</Text>
             <Text style={[styles.isoNum, styles.isoTh]}>kg NF3</Text>
             {declaration.hasUnidentified ? (
-              <Text style={[styles.isoNum, styles.isoTh]}>kg s/ident.</Text>
+              <Text style={[styles.isoNum, styles.isoTh]}>kg CO2e s/desag.</Text>
             ) : null}
             <Text style={[styles.isoTotal, styles.isoTh]}>kg CO2e</Text>
             <Text style={[styles.isoTotal, styles.isoTh]}>t CO2e</Text>

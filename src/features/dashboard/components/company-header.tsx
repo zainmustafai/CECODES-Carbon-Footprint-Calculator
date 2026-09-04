@@ -9,9 +9,10 @@ import { USER_GUIDE_HREF, USER_GUIDE_FILENAME } from "@/lib/user-guide";
 // company information as header, I mean the first thing the user will visualize is their
 // information."
 //
-// It doubles as the home for the user guide download, which the client asked for in the previous
-// round and which had nowhere stable to live: the intro card is dismissed permanently per browser,
-// so a button placed only there disappears for anyone who has already clicked "Entendido".
+// It doubles as the PERMANENT home for the user guide download. The client asked on 2026-09-04
+// for that button to sit inside the "Cómo funciona" intro card as well, and it now does - but the
+// card lives on Ingreso de datos and is dismissed permanently per browser, so a button placed only
+// there disappears for anyone who has already clicked "Entendido". Both copies are deliberate.
 export async function CompanyHeader({
   companyName,
   sector,

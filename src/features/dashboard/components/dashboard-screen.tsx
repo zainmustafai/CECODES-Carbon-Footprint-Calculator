@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { AlertTriangle, Gauge, Info, Leaf } from "lucide-react";
+import { AlertTriangle, Download, Gauge, Info, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Scope } from "@/lib/generated/prisma/client";
 import { FACTOR_CORRECTION_APPLIED } from "@/lib/factor-correction";
+import { USER_GUIDE_FILENAME, USER_GUIDE_HREF } from "@/lib/user-guide";
 import { loadDashboard } from "../lib/dashboard-data";
 import { DashboardFilters } from "./dashboard-filters";
 import { KpiCards } from "./kpi-cards";
@@ -16,7 +17,6 @@ import { MonthlyTrend } from "./monthly-trend";
 import { SedeBars } from "./sede-bars";
 import { YearComparison } from "./year-comparison";
 import { MetaVsReal } from "./meta-vs-real";
-import { IntroGuide } from "./intro-guide";
 import { DownloadViewButton } from "./download-view-button";
 import { CompanyHeader } from "./company-header";
 
@@ -81,8 +81,6 @@ export async function DashboardScreen({
         facilityCount={vm.facilities.length}
         companyProfileHref={companyProfileHref}
       />
-
-      <IntroGuide />
 
       {/* Header */}
       <div className="flex flex-wrap justify-between items-end gap-3">
@@ -285,9 +283,20 @@ async function EmptyDashboard({
           <p className="max-w-md text-muted-foreground text-sm">
             {t("emptyBody")}
           </p>
-          <Button asChild className="mt-2">
-            <Link href={dataEntryHref}>{t("emptyCta")}</Link>
-          </Button>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <Button asChild>
+              <Link href={dataEntryHref}>{t("emptyCta")}</Link>
+            </Button>
+            {/* This state renders instead of CompanyHeader, which is where the guide otherwise
+                lives, so without this a company that has entered nothing yet - exactly the one
+                most likely to want the guide - could not reach it at all. */}
+            <Button asChild variant="outline">
+              <a href={USER_GUIDE_HREF} download={USER_GUIDE_FILENAME}>
+                <Download className="size-4" aria-hidden />
+                {t("companyHeader.userGuide")}
+              </a>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,9 +2,10 @@
 
 import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
-import { ClipboardList, FileBarChart, Gauge, X } from "lucide-react";
+import { ClipboardList, Download, FileBarChart, Gauge, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { USER_GUIDE_FILENAME, USER_GUIDE_HREF } from "@/lib/user-guide";
 
 const STORAGE_KEY = "cecodes.introGuide.dismissed";
 
@@ -31,7 +32,8 @@ function getServerSnapshot() {
   return true; // unknown until the client mounts - render nothing rather than flash the card
 }
 
-// A short, illustrated "how this tool works" card, shown first on the dashboard - client
+// A short, illustrated "how this tool works" card, shown at the top of Ingreso de datos -
+// the first screen a company actually works in. Client
 // feedback 2026-08-24: "Include an Introduction section in the first place... shorter than
 // already existing one" (the existing guide is docs/USER_GUIDE.md, a full external document;
 // this is the 3-step in-app version). Dismissal is remembered in localStorage: this is a
@@ -39,7 +41,7 @@ function getServerSnapshot() {
 // database column. useSyncExternalStore (rather than useState+useEffect) reads that external
 // store without the render-then-setState waterfall the effect version would need.
 export function IntroGuide() {
-  const t = useTranslations("dashboard.intro");
+  const t = useTranslations("dataEntry.intro");
   const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (dismissed) return null;
@@ -88,9 +90,21 @@ export function IntroGuide() {
             </div>
           ))}
         </div>
-        <Button variant="outline" size="sm" onClick={dismiss}>
-          {t("gotIt")}
-        </Button>
+        {/* Client feedback 2026-09-04: the guide button belongs inside this card. It also stays in
+            the dashboard company header, and in the empty-dashboard state, because this card is
+            dismissed permanently per browser - putting the guide ONLY here would take it away for
+            good from anyone who has clicked "Entendido". */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={dismiss}>
+            {t("gotIt")}
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <a href={USER_GUIDE_HREF} download={USER_GUIDE_FILENAME}>
+              <Download className="size-4" aria-hidden />
+              {t("userGuide")}
+            </a>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

@@ -24,8 +24,8 @@ export type NavLeaf = {
 // items nested under /admin/companies/[companyId]. The sidebar prepends the base.
 // Order is the client's, requested 2026-09-03: data entry comes first because it is where the
 // work starts, and the dashboard reads what it produced. This array IS the render order for both
-// roles, so the admin drill-down reorders with it. It does not move the post-login landing page,
-// which is /dashboard and is hardcoded elsewhere.
+// roles, so the admin drill-down reorders with it. The post-login landing page followed on
+// 2026-09-04 and is POST_LOGIN_PATH in lib/routes.ts, not this array.
 export const WORKSPACE_ITEMS: NavLeaf[] = [
   { key: "dataEntry", segment: "data-entry", icon: ClipboardList },
   { key: "dashboard", segment: "dashboard", icon: LayoutDashboard },

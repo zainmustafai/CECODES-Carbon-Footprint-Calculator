@@ -268,7 +268,7 @@
       "PFC": "PFCs",
       "SF6": "SF6",
       "NF3": "NF3",
-      "UNIDENTIFIED": "Unidentified"
+      "UNIDENTIFIED": "CO₂e not broken out"
     },
     "filters": {
       "label": "Filter",
@@ -291,18 +291,6 @@
     },
     "downloadView": {
       "button": "Download view as PDF"
-    },
-    "intro": {
-      "title": "How Carbon Footprint works",
-      "subtitle": "A quick 3-step guide. The full guide lives in the user manual.",
-      "step1Title": "Enter your data",
-      "step1Body": "In \"Data entry\", enter your company's annual consumption (or monthly for Scope 2).",
-      "step2Title": "Check the summary",
-      "step2Body": "\"Summary\" shows a reference estimate before official totals are calculated.",
-      "step3Title": "Review and export",
-      "step3Body": "The Dashboard shows your footprint by scope, category, and gas; \"Reports\" lets you download it as PDF or Excel.",
-      "gotIt": "Got it",
-      "dismiss": "Close guide"
     },
     "kpi": {
       "total": "Total carbon footprint",
@@ -334,7 +322,8 @@
       "share": "% share",
       "gasColumn": "Gas",
       "empty": "No gas data for this filter.",
-      "preBlendedNote": "{count, plural, one {# source arrives} other {# sources arrive}} with the factor already expressed as CO2e (refrigerants, SF6/PFC/NF3, or spend or distance based Scope 3), so they count under their own gas and contribute no CO2, CH4 or N2O mass."
+      "preBlendedNote": "{count, plural, one {# source arrives} other {# sources arrive}} with the factor already expressed as CO2e (refrigerants, SF6/PFC/NF3, or spend or distance based Scope 3), so they count under their own gas and contribute no CO2, CH4 or N2O mass.",
+      "unidentifiedNote": "The “CO₂e not broken out” column holds factors the library supplies directly in CO₂e without naming the gas, typically spend-based Scope 3. They are already CO₂e rather than CO₂ mass, so they are shown separately instead of being added to the CO₂ column. They are included in the total."
     },
     "pareto": {
       "title": "Prioritizing emission sources",
@@ -445,6 +434,19 @@
   "dataEntry": {
     "title": "Data entry",
     "subtitle": "Record your sources' consumption by alcance. Changes save themselves.",
+    "intro": {
+      "title": "How Carbon Footprint works",
+      "subtitle": "A quick 3-step guide. The full guide lives in the user manual.",
+      "step1Title": "Enter your data",
+      "step1Body": "On this screen, enter your company's annual consumption (or monthly for Scope 2).",
+      "step2Title": "Check the summary",
+      "step2Body": "\"Summary\" shows a reference estimate before official totals are calculated.",
+      "step3Title": "Review and export",
+      "step3Body": "The Dashboard shows your footprint by scope, category, and gas; \"Reports\" lets you download it as PDF or Excel.",
+      "gotIt": "Got it",
+      "dismiss": "Close guide",
+      "userGuide": "Download user guide"
+    },
     "emptyScope": "The factor library has no categories for this alcance yet.",
     "valueHint": "Non-negative values only. Decimals with a comma (,) or dot (.). Do not use thousands separators. Check the unit requested by each field before entering a value (kg, lb, km, gal, cc, etc.). Report the consolidated total per year and location: if you bought 1,000 gallons of diesel for vehicle A and 2,000 for vehicle B, report a single value of 3,000 gallons for that location.",
     "contextBar": {

@@ -84,10 +84,14 @@ export const REMOVALS_CATEGORY = "Remociones";
  * when its factor carries no gasType - an import from before the 2026-08-15 gasType backfill, or
  * a genuinely gas-less pre-blended factor such as a spend/distance-based Scope 3 line (see
  * map-row.ts: column 9 read as CO2e carries no gas-identifying column). A stable internal label,
- * not translated UI copy: dashboard-data.ts compares against it to set OtherGasSlice.isFallback,
- * which the (client-side) gas-bars.tsx uses to show a translated label (dashboard.gasNames.OTHER)
- * instead of this raw string - the same reason isFallback exists rather than making the client
- * import this constant from the calc engine just to compare against it.
+ * not translated UI copy: dashboard-data.ts maps anything that is not one of the four named gas
+ * families onto the UNIDENTIFIED GasKey, and gas-bars.tsx renders that key through
+ * dashboard.gasNames so the raw string never reaches a screen.
+ *
+ * The user-facing name for this bucket is "CO2e sin desagregar", not "sin identificar": the
+ * client read the old wording as "we do not know what this is" and asked why the value was not
+ * simply added to CO2. It cannot be - these are CO2e, and the gas mass was never retained - so
+ * the label says what the number is instead of what we lack.
  */
 export const OTHER_GAS_FALLBACK = "Otros gases sin identificar";
 
