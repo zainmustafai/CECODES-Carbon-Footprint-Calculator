@@ -127,13 +127,54 @@ stopped writing.
 upsert. Restoring into a target that already holds an earlier rehearsal's data collides on the
 same primary keys and unique constraints (`user_sessions.tokenHash`, `password_reset_tokens.id`,
 and every table's primary key) and `pg_restore` aborts partway rather than overwriting anything.
-Empty it one of two ways: if the target is disposable, remove its volume and repeat Section 2 from
-nothing; if it is not, truncate every `public` table first:
+
+Empty it one of two ways, and prefer the first:
+
+**Disposable target (the recommended path).** Remove its volume and repeat Section 2 from
+nothing:
 
 ```bash
-psql "$TARGET" -At -c "SELECT tablename FROM pg_tables WHERE schemaname='public'" \
-  | xargs -I{} psql "$TARGET" -c 'TRUNCATE TABLE public."{}" RESTART IDENTITY CASCADE'
+docker compose down
+docker volume rm cecodes_pgdata
+docker compose up -d db
+# then repeat Section 2 against the recreated, empty database
 ```
+
+This is safer than truncating for one structural reason: it never connects to `$TARGET` at all,
+it only ever acts on the volume Section 2 already created, so there is no database name for a
+stale shell variable to get wrong.
+
+**Target that must survive (fallback only).** Use this when the target cannot simply be
+recreated, for example a shared long-lived staging database. Truncating names `$TARGET` directly
+on a production-shaped command with no undo, so run this guard first, every time, and read what
+it prints before typing anything. The truncate itself is wired to run only if the confirmation
+matches, so a mismatch skips it rather than relying on the operator noticing a warning:
+
+```bash
+target_name=$(psql "$TARGET" -At -c "SELECT current_database()")
+target_host=$(psql "$TARGET" -At -c "SELECT inet_server_addr()")
+printf 'About to TRUNCATE every table in database "%s" on host %s.\nType that database name to confirm, anything else aborts: ' \
+  "$target_name" "$target_host"
+read -r confirm
+if [ "$confirm" = "$target_name" ]; then
+  psql "$TARGET" -At -c "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'" \
+    | xargs -I{} psql "$TARGET" -c 'TRUNCATE TABLE public."{}" RESTART IDENTITY CASCADE'
+else
+  echo "Confirmation did not match. Aborting, nothing was touched."
+fi
+```
+
+The confirmation is not "retype `$TARGET`", which would only prove the variable agrees with
+itself. It asks the operator to type the database name they believe they are about to empty,
+against what `$TARGET` actually resolves to right now. A stale `$TARGET` left over from an
+earlier shell, or a copy-pasted wrong export line, shows up here as a mismatch, before anything is
+truncated rather than after.
+
+`_prisma_migrations` is excluded from the truncate on purpose: it is Prisma's record of which
+migrations Section 2 already applied, not application data, and truncating it would make `migrate
+deploy` believe none of the twenty migrations has ever run, so a later `migrate deploy` replays
+all of them from `20260709120319_init` against tables that already exist and fails on the first
+`CREATE TABLE`, leaving the target with neither data nor a working schema path, mid-cutover.
 
 Before the final `docker compose up -d`, update **both** `DATABASE_URL` and `DIRECT_URL` in
 `.env` to name `$TARGET`, not just `DATABASE_URL`. `docker-compose.yml` defaults `DIRECT_URL` to

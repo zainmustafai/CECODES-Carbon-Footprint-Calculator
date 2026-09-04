@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PASSWORD_MAX } from "@/features/auth/schemas/auth-server-schemas";
 
 // Server Actions are public POST endpoints. Everything the login form enforces in the browser is
 // enforced again here, or it is not enforced at all: a hand-crafted request never runs React Hook
@@ -60,6 +61,32 @@ describe("signInAction input validation", () => {
     expect(await signInAction({ email: oversizedEmail, password: "supersecret" })).toEqual({
       error: "invalidInput",
     });
+  });
+
+  // signInInput deliberately carries no upper bound on the password, unlike the schemas that SET
+  // one (see PASSWORD_MAX's own comment in auth-server-schemas.ts). An account created before
+  // PASSWORD_MAX existed may still hold a password longer than it, and this proves that account is
+  // not locked out by a validator: bcrypt truncates at 72 bytes on comparison either way, so the
+  // sign-in path only has to let the string through, never reject it up front.
+  it("AUTH-12 lets a password past PASSWORD_MAX reach the credential check on sign-in", async () => {
+    const longPassword = "a".repeat(PASSWORD_MAX + 1);
+
+    // Not invalidInput: reaching "generic" is only possible if signInInput accepted the password
+    // and signInWithCredentials went on to ask the (empty) prisma stand-in for the account, which
+    // throws. That is the same reasoning the "oversized email" test above states explicitly, run
+    // against the opposite outcome: acceptance, not rejection.
+    expect(await signInAction({ email: "someone@example.com", password: longPassword })).toEqual({
+      error: "generic",
+    });
+
+    // The other half: the identical string, offered to updatePasswordAction (which enforces
+    // passwordInput, and therefore PASSWORD_MAX, in its own schema before anything reads a
+    // session), is refused. Without this half, a deleted PASSWORD_MAX cap would leave the
+    // assertion above passing for the wrong reason: not because sign-in has no ceiling, but
+    // because nothing anywhere does.
+    expect(
+      await updatePasswordAction({ password: longPassword, currentPassword: "whatever" }),
+    ).toEqual({ error: "invalidInput" });
   });
 });
 

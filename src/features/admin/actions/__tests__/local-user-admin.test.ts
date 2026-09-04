@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { compareSync } from "bcryptjs";
 
@@ -338,8 +339,8 @@ describe("deleteUser", () => {
     expect(result).toEqual({});
     expect(appUser.deleteMany).toHaveBeenCalledWith({ where: { id: TARGET_ID } });
     // The dependents (user_sessions, password_reset_tokens) are FK onDelete: Cascade in
-    // prisma/schema.prisma rather than a second statement here, so there is nothing this
-    // fake can assert about them; the schema is what proves that half of this case.
+    // prisma/schema.prisma rather than a second statement here, so there is nothing this fake can
+    // assert about them; see the AUTH-29 test below, which reads the schema declaration itself.
   });
 
   it("AUTH-50 refuses a row that is not there instead of reporting a delete that touched nobody", async () => {
@@ -348,6 +349,41 @@ describe("deleteUser", () => {
     const result = await actions.deleteUser({ userId: TARGET_ID });
 
     expect(result).toEqual({ error: "forbidden" });
+  });
+
+  // The fake above cannot exercise a real foreign key: deleteUser issues one delete and relies on
+  // Postgres to remove the dependent rows, so what proves that half of AUTH-50 is the schema
+  // declaration itself, not this test file's stand-in. This asserts the declaration directly:
+  // if either relation ever lost its onDelete: Cascade, deleting a user would orphan live
+  // sessions and outstanding reset tokens instead of removing them, and a stale session would
+  // keep resolving to a user that no longer exists.
+  //
+  // Reading prisma/schema.prisma rather than exercising a real database, so this is not proof the
+  // cascade fires at runtime, only that it is still declared. End-to-end proof needs a
+  // database-level test.
+  it("AUTH-29 declares ON DELETE CASCADE on UserSession.user and PasswordResetToken.user", () => {
+    const schema = readFileSync("prisma/schema.prisma", "utf8");
+
+    const userSessionModel = /model UserSession \{[\s\S]*?\n\}/.exec(schema)?.[0];
+    const passwordResetTokenModel = /model PasswordResetToken \{[\s\S]*?\n\}/.exec(schema)?.[0];
+
+    expect(userSessionModel, "model UserSession not found in prisma/schema.prisma").toBeDefined();
+    expect(
+      passwordResetTokenModel,
+      "model PasswordResetToken not found in prisma/schema.prisma",
+    ).toBeDefined();
+
+    expect(
+      userSessionModel!.includes("onDelete: Cascade"),
+      "UserSession.user must declare onDelete: Cascade, or deleting a user leaves that user's " +
+        "sessions in the table, and a stale session would keep resolving to a user that no " +
+        "longer exists",
+    ).toBe(true);
+    expect(
+      passwordResetTokenModel!.includes("onDelete: Cascade"),
+      "PasswordResetToken.user must declare onDelete: Cascade, or deleting a user leaves that " +
+        "user's outstanding reset tokens live in the table",
+    ).toBe(true);
   });
 });
 

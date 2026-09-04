@@ -65,7 +65,7 @@ and why.
 
 - AUTH-27 deactivating a user takes effect on their next request
 - AUTH-28 deactivating a user deletes their sessions
-- AUTH-29 deleting a user cascades sessions and reset tokens
+- AUTH-29 the schema declares ON DELETE CASCADE on sessions and reset tokens, so deleting a user removes them
 - AUTH-30 requireAdmin() returns 404 for a company user
 - AUTH-31 a company user calling an admin Server Action is refused by company-scope.ts
 
