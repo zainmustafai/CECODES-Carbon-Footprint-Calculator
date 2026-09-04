@@ -20,6 +20,7 @@ import {
 import {
   clearSignInThrottle,
   isSignInThrottled,
+  passwordResetThrottleKeys,
   recordSignInFailure,
   signInThrottleKeys,
 } from "@/lib/auth/throttle";
@@ -27,6 +28,7 @@ import { passwordResetEmail } from "@/lib/mail/password-reset-email";
 import { sendMail } from "@/lib/mail/send";
 import { reportError } from "@/lib/observability/report-error";
 import {
+  checkedPasswordInput,
   emailInput,
   passwordInput,
   signInInput,
@@ -62,17 +64,30 @@ async function siteOrigin() {
 /**
  * The caller's address, for the sign-in throttle.
  *
- * x-forwarded-for is a client-settable header, so its value cannot be trusted as identity. It
- * does not need to be: a forged one buys an attacker a fresh throttle bucket but never lifts the
- * lock on the address being attacked, which is the key that matters. The FIRST hop is used
- * because that is where a proxy appends the real client; a long or malformed value is dropped
- * rather than stored, so a crafted header cannot write junk rows.
+ * The LAST hop, and that is the whole of this function's correctness. x-forwarded-for is a list
+ * that each proxy APPENDS to: a request arriving at Caddy already carrying
+ * "X-Forwarded-For: 1.2.3.4" reaches this app as "1.2.3.4, <the real client>". So the leftmost
+ * value is whatever the caller typed and the rightmost is the one the proxy in front of us wrote.
+ *
+ * This used to read the first element while its comment argued that a proxy appends, which is the
+ * two halves of the same sentence disagreeing. The cost of the old reading was that IP_MAX_ATTEMPTS
+ * was opt-in: one header minted a fresh bucket per request, or (with a value the regex rejects) no
+ * IP key at all, and the same header pointed a lockout at a member company's office address.
+ *
+ * The caveat this reading carries instead: it assumes exactly ONE trusted proxy. Put a second one
+ * in front (a CDN ahead of Caddy) and every user shares that proxy's address, so IP_MAX_ATTEMPTS
+ * would lock the whole deployment. The single-proxy shape is what docker-compose.yml and the
+ * Caddyfile deploy, and it is what Vercel presents.
+ *
+ * A long or malformed value is still dropped rather than stored, so a crafted header cannot write
+ * junk rows, and contributing no key is safer than lumping every unknown caller into one bucket
+ * that a single attacker could lock for everyone.
  */
 async function requestIp(): Promise<string | null> {
-  const forwarded = (await headers()).get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  if (!first || first.length > 45) return null; // 45 = longest possible IPv6 text form
-  return /^[0-9a-fA-F.:]+$/.test(first) ? first : null;
+  const hops = (await headers()).get("x-forwarded-for")?.split(",") ?? [];
+  const nearest = hops.at(-1)?.trim();
+  if (!nearest || nearest.length > 45) return null; // 45 = longest possible IPv6 text form
+  return /^[0-9a-fA-F.:]+$/.test(nearest) ? nearest : null;
 }
 
 /**
@@ -97,19 +112,35 @@ export async function signInAction(input: {
   const parsed = signInInput.safeParse(input);
   if (!parsed.success) return { error: "invalidInput" };
 
-  const ip = await requestIp();
+  // Everything below this line is wrapped, and the reason is what the login form does with a throw
+  // rather than what the throw itself costs. An unhandled rejection out of a Server Action never
+  // reaches use-login.ts, which only ever reads the returned error key: the spinner stops and the
+  // screen says nothing at all, which is the exact failure resetPasswordWithTokenAction already
+  // takes pains to avoid. Every other auth path here already had a boundary; this one, the busiest,
+  // had none, so any database blip during sign-in was a silent form.
+  //
+  // "generic" and not a more specific key: whatever failed is a fact about this deployment, and an
+  // unauthenticated caller learns nothing from it.
+  try {
+    const ip = await requestIp();
 
-  // Before the password is checked, not after: the point is to stop the credential store from
-  // being asked at all. Supabase's own per-IP protection sees this server's IP for every user in
-  // the system, so it cannot tell one company's staff apart from a script working through a
-  // password list. Local mode has no upstream protection to lean on at all, and every attempt
-  // there spends a quarter of a second of this server's CPU on bcrypt, so an unmetered endpoint
-  // would be a denial of service lever as well as a guessing one.
-  const throttleKeys = signInThrottleKeys(parsed.data.email, ip);
-  if (await isSignInThrottled(throttleKeys)) return { error: "tooManyAttempts" };
+    // Before the password is checked, not after: the point is to stop the credential store from
+    // being asked at all. Supabase's own per-IP protection sees this server's IP for every user in
+    // the system, so it cannot tell one company's staff apart from a script working through a
+    // password list. Local mode has no upstream protection to lean on at all, and every attempt
+    // there spends a quarter of a second of this server's CPU on bcrypt, so an unmetered endpoint
+    // would be a denial of service lever as well as a guessing one.
+    const throttleKeys = signInThrottleKeys(parsed.data.email, ip);
+    if (await isSignInThrottled(throttleKeys)) return { error: "tooManyAttempts" };
 
-  if (authProvider() === "local") return signInLocally(parsed.data, throttleKeys, ip);
-  return signInThroughSupabase(parsed.data, throttleKeys);
+    if (authProvider() === "local") return await signInLocally(parsed.data, throttleKeys, ip);
+    return await signInThroughSupabase(parsed.data, throttleKeys);
+  } catch (error) {
+    // No address, ever. "who tried to sign in" is the fact these logs must not carry, for the
+    // reason src/lib/mail/send.ts gives, and it is the one field a caller controls here.
+    reportError({ where: "auth/sign-in", error });
+    return { error: "generic" };
+  }
 }
 
 /** Today's sign-in, and shadow mode's: GoTrue decides, and nothing else is allowed to. */
@@ -242,16 +273,23 @@ async function signInLocally(
     ? await hashPassword(credentials.password)
     : null;
   const { count } = await prisma.appUser.updateMany({
-    where: { id: user.id },
+    // `active: true` is re-stated here, not carried over from the read above, and it is the only
+    // thing standing between an admin's deactivation and a session minted a millisecond later.
+    // setUserActive sweeps user_sessions in the same transaction as the flag, so a sign-in that
+    // inserted its row AFTER that sweep would leave a live-looking session for an account that is
+    // refused everywhere: authorization still holds (every entry point re-reads `active`), but the
+    // row survives unswept, which is precisely the "cannot tell a session that would be refused
+    // from one that would be honoured" state setUserActive's local branch exists to prevent.
+    where: { id: user.id, active: true },
     data: {
       lastSignInAt: new Date(),
       ...(upgraded ? { passwordHash: upgraded.hash, passwordAlgo: upgraded.algo } : {}),
     },
   });
   // updateMany reports a row that was not there as success, so the count is read. Zero means the
-  // account was deleted between the lookup above and this write, and the session that would follow
-  // is the worst outcome of that race: a cookie for a user nobody can deactivate, because there is
-  // no longer a row to deactivate.
+  // account was deleted or deactivated between the lookup above and this write, and the session
+  // that would follow is the worst outcome of that race: a cookie for a user nobody can
+  // deactivate, because there is no longer a row to deactivate.
   if (count === 0) return { error: "invalidCredentials" };
 
   await clearSignInThrottle(throttleKeys);
@@ -335,9 +373,31 @@ export async function requestPasswordResetAction(email: string): Promise<void> {
     return;
   }
 
-  const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${await siteOrigin()}/auth/callback?next=/reset-password`,
+  // Metered and deferred here too, and it was neither until now. This is the branch every
+  // deployment actually runs, and it was an unauthenticated endpoint that sends mail: a loop
+  // against it buried whoever owns the address in reset links and drained the Supabase mail
+  // allowance, with nothing counting the requests. The local branch spent a whole after() block
+  // and a throttle on exactly these three problems; this one got none of it.
+  const normalized = normalizeEmail(parsed.data);
+  const throttleKeys = passwordResetThrottleKeys(normalized, await requestIp());
+  if (await isSignInThrottled(throttleKeys)) return;
+  await recordSignInFailure(throttleKeys);
+
+  // Read before the callback, because it reads request headers and the callback runs after the
+  // response has gone out.
+  const redirectTo = `${await siteOrigin()}/auth/callback?next=/reset-password`;
+
+  // After the response, for the reason the local branch gives: GoTrue does measurably more work
+  // for an address it holds an account for (it composes and dispatches a message) than for one it
+  // does not, and identical wording on the screen does nothing about a stopwatch.
+  after(async () => {
+    try {
+      const supabase = await createClient();
+      await supabase.auth.resetPasswordForEmail(normalized, { redirectTo });
+    } catch (error) {
+      // The only place a failure on this path can surface at all, now that the response is sent.
+      reportError({ where: "auth/password-reset", error });
+    }
   });
   // Intentionally no result - never reveal whether the account exists.
 }
@@ -347,21 +407,20 @@ async function requestPasswordResetLocally(email: string): Promise<void> {
 
   // Metered, because without this it is an unauthenticated endpoint that sends mail: a loop
   // against it burns the provider quota, and it buries whoever owns the address in reset links.
-  // It counts against the SAME keys a sign-in does, which couples them, so a flood of reset
-  // requests can lock that address out of signing in for the window. That is deliberate and it
-  // grants an attacker nothing new: the address key can already be locked from anywhere by typing
-  // wrong passwords at it. What the shared bucket does buy is that neither endpoint can be used to
-  // refill the other's allowance.
-  const throttleKeys = signInThrottleKeys(normalized, await requestIp());
+  //
+  // Its OWN allowance, not the sign-in one it used to share. See passwordResetThrottleKeys: the
+  // property the sharing was there for survives the split, and what the split removes is a user
+  // locking themselves out of /login by pressing "Solicitar un enlace nuevo" five times.
+  const throttleKeys = passwordResetThrottleKeys(normalized, await requestIp());
   if (await isSignInThrottled(throttleKeys)) return;
 
   // The two deployment guards run BEFORE the attempt is counted, and that order is the whole
-  // point of them. Counting against a shared bucket is only defensible while the endpoint has
-  // something to meter; on a deployment where it can do nothing at all, the count is a lockout
-  // with nothing on the other side of it. MAX_ATTEMPTS is five, so five clicks of "Solicitar un
-  // enlace nuevo" would refuse that address at /login for fifteen minutes, and nothing could lift
-  // it early, because clearSignInThrottle only runs when a link is consumed and no link was ever
-  // issued. The user would have locked themselves out by asking for the way back in.
+  // point of them. Counting is only defensible while the endpoint has something to meter; on a
+  // deployment where it can do nothing at all, the count is a lockout with nothing on the other
+  // side of it. MAX_ATTEMPTS is five, so five clicks of "Solicitar un enlace nuevo" would refuse
+  // this endpoint to that address for fifteen minutes, and nothing could lift it early, because
+  // clearSignInThrottle only runs when a link is consumed and no link was ever issued. The user
+  // would have locked themselves out by asking for the way back in.
   //
   // Neither guard reads the address, so neither can be timed to answer whether an account exists:
   // both are facts about the deployment and give every caller the same answer.
@@ -560,16 +619,17 @@ export async function resetPasswordWithTokenAction(input: {
 
   // The same clearance a successful sign-in gets, and for the same reason.
   //
-  // Every request for a link counts a failure against this address, because
-  // requestPasswordResetLocally shares the sign-in bucket on purpose. Someone who cannot get in
-  // presses that button more than once, and MAX_ATTEMPTS is five: by the time the link works, the
-  // address is often already locked. Without this line they set a new password, are sent to
-  // /login, type it, and are refused with "demasiados intentos" by the very flow that existed to
-  // let them back in. Holding an unspent token proves control of the mailbox, which is at least as
-  // strong a claim as the password that clears this on the sign-in path.
+  // Someone reaching this line could not get in a moment ago, so the address is very often already
+  // locked from the wrong guesses that sent them to /forgot-password in the first place. Without
+  // this they set a new password, are sent to /login, type it, and are refused with "demasiados
+  // intentos" by the very flow that existed to let them back in. Holding an unspent token proves
+  // control of the mailbox, which is at least as strong a claim as the password that clears this
+  // on the sign-in path.
   //
-  // The IP key goes too, on that same path's reasoning: a caller who just proved they read the
-  // account's mail is not the one being brute-forced.
+  // Both allowances go: the sign-in one because it is what stands between this user and /login,
+  // and the reset one because they no longer need a second link. The IP keys go with them, on the
+  // sign-in path's reasoning: a caller who just proved they read the account's mail is not the one
+  // being brute-forced.
   //
   // Wrapped, and deliberately NOT folded into the try above, which returns "generic" on failure.
   // Everything that matters has already committed by this point: the password is the new one, the
@@ -580,7 +640,11 @@ export async function resetPasswordWithTokenAction(input: {
   // and reasonably conclude the reset never happened. Swallowing the failure costs them a wait
   // until the throttle window closes instead, which is the smaller of the two.
   try {
-    await clearSignInThrottle(signInThrottleKeys(row.user.email, await requestIp()));
+    const ip = await requestIp();
+    await clearSignInThrottle([
+      ...signInThrottleKeys(row.user.email, ip),
+      ...passwordResetThrottleKeys(row.user.email, ip),
+    ]);
   } catch (error) {
     reportError({ where: "auth/reset-password", error, context: { stage: "clear-throttle" } });
   }
@@ -591,21 +655,40 @@ export async function resetPasswordWithTokenAction(input: {
   return {};
 }
 
-export async function updatePasswordAction(
-  password: string,
-): Promise<{ error?: string }> {
+/**
+ * The signed-in change, which is two different flows wearing one form.
+ *
+ * `currentPassword` is required under `local` and meaningless under the other two, and that is not
+ * an inconsistency to tidy away later. Under `local`, recovery arrives as ?token= and never as a
+ * session (route-gate.ts explains the split), so a session on this action is always somebody who
+ * already knows the password: asking for it costs one field and closes the "thirty seconds at an
+ * unlocked laptop" takeover below. Under `supabase` and `shadow`, GoTrue's recovery link signs the
+ * user in at /auth/callback and lands them here precisely BECAUSE they cannot supply the old
+ * password, so demanding it would break the only recovery those providers have.
+ */
+const updatePasswordInput = z
+  .object({
+    password: passwordInput,
+    currentPassword: checkedPasswordInput.optional(),
+  })
+  .strict();
+
+export async function updatePasswordAction(input: {
+  password: string;
+  currentPassword?: string;
+}): Promise<{ error?: string }> {
   // This is where the 8-character minimum is actually enforced. Supabase's own floor is 6, and
   // local mode has no floor at all beyond this line.
-  const parsed = passwordInput.safeParse(password);
+  const parsed = updatePasswordInput.safeParse(input);
   if (!parsed.success) return { error: "invalidInput" };
 
   if (authProvider() === "local") return updatePasswordLocally(parsed.data);
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password: parsed.data });
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { error: "generic" };
 
-  await mirrorLocalHash(parsed.data);
+  await mirrorLocalHash(parsed.data.password);
   return {};
 }
 
@@ -642,9 +725,33 @@ async function mirrorLocalHash(password: string): Promise<void> {
     if (!user) return;
 
     const { hash, algo } = await hashPassword(password);
-    const { count } = await prisma.appUser.updateMany({
-      where: { id: user.id },
-      data: { passwordHash: hash, passwordAlgo: algo },
+    const { count } = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appUser.updateMany({
+        where: { id: user.id },
+        data: { passwordHash: hash, passwordAlgo: algo },
+      });
+
+      // The local sessions and the local reset links go too, even though this provider honours
+      // neither of them, and that is the point rather than an oversight.
+      //
+      // These rows only decide anything under `local`, so the reading used to be "not this
+      // action's to revoke". What that missed is the direction of travel: AUTH_PROVIDER is one
+      // variable and a rollback to `supabase` is meant to be real, so a session minted during a
+      // local window sits in this table through the whole Supabase window and is honoured again
+      // the moment the flag goes back. Leaving it means the password the user retired here still
+      // has live sessions and live reset links waiting for it on the other side of the round trip,
+      // for up to SESSION_TTL_MS. Deleting them costs nothing under this provider, because nothing
+      // here reads them.
+      //
+      // Every session, unlike updatePasswordLocally: there is no cookie of ours to keep, because
+      // this provider never issued one.
+      await tx.userSession.deleteMany({ where: { userId: user.id } });
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+
+      return updated;
     });
     // updateMany calls a write that matched nothing a success, and here that means a GoTrue account
     // with no app_users row: a real mismatch between the two stores, and precisely what the shadow
@@ -661,12 +768,42 @@ async function mirrorLocalHash(password: string): Promise<void> {
   }
 }
 
-async function updatePasswordLocally(password: string): Promise<{ error?: string }> {
+async function updatePasswordLocally({
+  password,
+  currentPassword,
+}: {
+  password: string;
+  currentPassword?: string;
+}): Promise<{ error?: string }> {
   // Re-established here rather than trusted to whatever rendered the form: this is a public POST
   // endpoint that changes a credential, and a page guard protects rendering only. getUser() is the
   // single answer to "who is asking" in every provider.
   const user = await getUser();
   if (!user) return { error: "sessionExpired" };
+
+  // Re-authentication, and the session cookie is not a substitute for it.
+  //
+  // What this closes: whoever holds the cookie, for thirty seconds at an unlocked laptop or
+  // through one injected script calling this action with the ambient credential, could set a
+  // password of their choosing. The sweep below would then end every session BUT theirs and spend
+  // every reset link the owner had in flight, so the account changed hands and the owner's only
+  // route back was a fresh link or an admin. httpOnly does not help against the script version:
+  // it never needs to read the cookie, only to send it.
+  //
+  // Refused with its own key rather than "invalidCredentials", because on this form the address is
+  // not in question and telling the user their EMAIL might be wrong is a support call.
+  const row = await prisma.appUser.findUnique({
+    where: { id: user.id },
+    select: { passwordHash: true, passwordAlgo: true },
+  });
+  // verifyPassword spends the dummy hash on a missing password too, so an empty field costs the
+  // same quarter second a wrong one does and cannot be told apart by timing.
+  const reauthenticated = await verifyPassword(
+    currentPassword ?? "",
+    row?.passwordHash,
+    row?.passwordAlgo,
+  );
+  if (!reauthenticated) return { error: "currentPasswordIncorrect" };
 
   const { hash, algo } = await hashPassword(password);
   // Read outside the transaction: it is a request header, and the transaction below should hold a
@@ -721,20 +858,29 @@ async function updatePasswordLocally(password: string): Promise<{ error?: string
 }
 
 export async function signOutAction(): Promise<void> {
-  if (authProvider() === "local") {
-    const jar = await cookies();
-    // Read before the delete: the row is keyed by the digest of this value, and the cookie is the
-    // only place the value exists. destroySession treats an absent token and an unknown one alike,
-    // so a visitor with no cookie is not an error.
-    await destroySession(jar.get(SESSION_COOKIE)?.value);
-    // Deleted even when there was no row to destroy. A cookie whose session is already gone still
-    // has to leave the browser, or the user watches the app forget them and then remember them.
-    jar.delete(SESSION_COOKIE);
-    return;
-  }
+  const jar = await cookies();
+  // In EVERY provider, not only local, and the ordinary case is that this finds nothing: shadow
+  // and supabase never issue one of our cookies, so the read is undefined and destroySession
+  // returns immediately.
+  //
+  // The case it is here for is the one that survives a rollback. A user who signed in during a
+  // local window holds this cookie for thirty days. Flip AUTH_PROVIDER back to `supabase`, let
+  // them sign out, and the old code cleared GoTrue's cookie and left ours untouched, along with
+  // its row: flip forward to `local` again inside the TTL and that sign-out is undone, silently.
+  // A sign-out has to mean the same thing in every mode or it does not mean anything.
+  //
+  // Read before the delete: the row is keyed by the digest of this value, and the cookie is the
+  // only place the value exists. destroySession treats an absent token and an unknown one alike,
+  // so a visitor with no cookie is not an error.
+  await destroySession(jar.get(SESSION_COOKIE)?.value);
+  // Deleted even when there was no row to destroy. A cookie whose session is already gone still
+  // has to leave the browser, or the user watches the app forget them and then remember them.
+  jar.delete(SESSION_COOKIE);
 
-  // Shadow mode stays here too: it never issues a local session, so there is no cookie of ours to
-  // clear, and GoTrue holds the only one that exists.
+  if (authProvider() === "local") return;
+
+  // Shadow mode reaches here too: it never issues a local session, and GoTrue holds the cookie
+  // that decides who is signed in.
   const supabase = await createClient();
   await supabase.auth.signOut();
 }

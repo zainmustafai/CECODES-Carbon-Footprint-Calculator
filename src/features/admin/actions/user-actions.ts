@@ -277,42 +277,36 @@ export async function setUserActive(input: {
     // /account-disabled; resolveCompanyScope and resolveAdminScope throw ScopeError; the sign-in
     // action returns "accountDisabled"). So the flag alone is what enforces this.
     //
-    // What `local` adds is that the sessions end too, in the same transaction as the flag.
-    // Enforcement and appearance used to disagree: the deactivated person kept a cookie that
-    // looked live, and an admin reading user_sessions during an incident could not tell a session
-    // that would be refused from one that would be honoured. GoTrue exposed no by-user-id
-    // revocation, which is why the other two providers still leave those rows sitting there.
-    if (authProvider() === "local") {
-      await prisma.$transaction(async (tx) => {
-        const updated = await tx.appUser.updateMany({ where: { id: userId }, data: { active } });
-        if (updated.count !== 1) throw new ScopeError("not-found");
-
-        // Reactivation deletes nothing. There is nothing to revoke, and any surviving row belongs
-        // to the person now being let back in.
-        //
-        // destroyAllSessionsForUser is deliberately not called: it holds the app's own client, so
-        // it would run outside this transaction and could purge the sessions of a flag update that
-        // then rolled back. The deleted count is not checked either, because unlike a
-        // tenant-scoped write, zero here just means a user who never signed in.
-        if (!active) {
-          await tx.userSession.deleteMany({ where: { userId } });
-          // The reset links go with them, and for a reason the sessions do not carry: an emailed
-          // link is good for one password change by whoever is holding it, and `active` does not
-          // stop it being spent. requestPasswordResetAction refuses to issue a NEW link for a
-          // deactivated account, which is only half the property; this is the other half. Without
-          // it, an account deactivated at 10:00 can still have its password set by the holder of a
-          // 09:55 link, and that attacker-chosen password is what governs the day it is
-          // reactivated, silently, because nothing on the reactivation screen says otherwise.
-          await tx.passwordResetToken.deleteMany({ where: { userId } });
-        }
-      });
-    } else {
-      const updated = await prisma.appUser.updateMany({
-        where: { id: userId },
-        data: { active },
-      });
+    // The sessions end too, in the same transaction as the flag, and this no longer branches on
+    // the provider. It used to, on the reading that rows nothing currently honours are not this
+    // action's to delete. What that missed is that AUTH_PROVIDER is one variable: a session minted
+    // during a `local` window survives a rollback to `supabase` untouched, and is honoured again
+    // the moment the flag goes back, up to thirty days later. So an account deactivated during the
+    // Supabase window would come back with its old sessions live. Deleting them costs nothing
+    // under the other two providers, which do not read these rows at all.
+    //
+    // destroyAllSessionsForUser is deliberately not called: it holds the app's own client, so it
+    // would run outside this transaction and could purge the sessions of a flag update that then
+    // rolled back. The deleted count is not checked either, because unlike a tenant-scoped write,
+    // zero here just means a user who never signed in.
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.appUser.updateMany({ where: { id: userId }, data: { active } });
       if (updated.count !== 1) throw new ScopeError("not-found");
-    }
+
+      // Reactivation deletes nothing. There is nothing to revoke, and any surviving row belongs
+      // to the person now being let back in.
+      if (!active) {
+        await tx.userSession.deleteMany({ where: { userId } });
+        // The reset links go with them, and for a reason the sessions do not carry: an emailed
+        // link is good for one password change by whoever is holding it, and `active` does not
+        // stop it being spent. requestPasswordResetAction refuses to issue a NEW link for a
+        // deactivated account, which is only half the property; this is the other half. Without
+        // it, an account deactivated at 10:00 can still have its password set by the holder of a
+        // 09:55 link, and that attacker-chosen password is what governs the day it is
+        // reactivated, silently, because nothing on the reactivation screen says otherwise.
+        await tx.passwordResetToken.deleteMany({ where: { userId } });
+      }
+    });
 
     revalidatePath("/admin/users");
     return {};

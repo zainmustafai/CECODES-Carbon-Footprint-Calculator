@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PASSWORD_MAX } from "@/features/auth/schemas/auth-server-schemas";
+import { EMAIL_MAX, PASSWORD_MAX } from "@/features/auth/schemas/auth-server-schemas";
 
 // Translator for the "admin.users.validation" namespace (keeps messages localized).
 type T = (key: string) => string;
@@ -37,7 +37,10 @@ export const createUserInput = z
   .object({
     // Trim and lowercase so the app_users.email unique check and the auth user agree on one
     // canonical form ("Foo@Bar.com" and "foo@bar.com" must not create two accounts).
-    email: z.string().trim().toLowerCase().email(),
+    //
+    // Bounded for the reason EMAIL_MAX gives: this address becomes an auth_throttle primary key
+    // the first time resetUserPassword clears the lockout on it, and that column is a btree entry.
+    email: z.string().trim().toLowerCase().max(EMAIL_MAX).email(),
     // Capped because bcrypt hashes at most 72 bytes and ignores the rest: a longer temporary
     // password would be silently truncated, and the admin would dictate characters that turn out
     // not to matter. See PASSWORD_MAX.

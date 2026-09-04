@@ -28,8 +28,37 @@ export const PASSWORD_MIN = 8;
  */
 export const PASSWORD_MAX = 72;
 
-const email = z.string().trim().min(1).email();
+/**
+ * The longest address anyone may present, anywhere.
+ *
+ * 254 is the practical ceiling on a deliverable address (RFC 5321 caps the reverse path at 256
+ * including the angle brackets), so nothing real is refused by it. What it refuses is the thing
+ * an unbounded z.email() lets through: a multi-kilobyte local part.
+ *
+ * That is not a cosmetic bound. auth_throttle.key is a TEXT PRIMARY KEY, so it is a btree entry
+ * capped at 2704 bytes, and signInThrottleKeys builds it as "email:" plus the address. A 3000
+ * character address therefore made recordSignInFailure raise 54000 out of an unauthenticated
+ * endpoint AFTER the full quarter second of bcrypt had already been spent, and the failed write
+ * meant the attempt was never counted. Bounding the address here is what keeps the counter, the
+ * key and the request body all finite.
+ */
+export const EMAIL_MAX = 254;
+
+/**
+ * The bound on a password being CHECKED rather than set.
+ *
+ * Deliberately far above PASSWORD_MAX and not equal to it: an account created before that rule
+ * may hold a longer password, and refusing it here would lock out the very people the rule was
+ * written to protect (bcrypt reads the first 72 bytes either way, so they still sign in). The
+ * only job of this number is that a megabyte of text is refused before anything hashes it.
+ */
+const CHECKED_PASSWORD_MAX = 1024;
+
+const email = z.string().trim().min(1).max(EMAIL_MAX).email();
 const password = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
+
+/** A password offered as proof, not stored. See CHECKED_PASSWORD_MAX for why the two differ. */
+const checkedPassword = z.string().min(1).max(CHECKED_PASSWORD_MAX);
 
 export const signInInput = z
   .object({
@@ -37,7 +66,7 @@ export const signInInput = z
     // Not PASSWORD_MIN: an existing account may predate the policy, and rejecting a short
     // password here would leak that the stored one is short. Length is enforced where a password
     // is SET, not where it is checked.
-    password: z.string().min(1),
+    password: checkedPassword,
   })
   .strict();
 
@@ -46,3 +75,5 @@ export const signUpInput = z.object({ email, password }).strict();
 export const emailInput = email;
 
 export const passwordInput = password;
+
+export const checkedPasswordInput = checkedPassword;
