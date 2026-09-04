@@ -72,8 +72,13 @@ const PUBLIC_PREFIXES: string[] = [];
  * The trailing slash is the entire point. A bare startsWith("/auth"), which is what this replaced,
  * also matches "/authors": any future route whose name merely begins with a public one would
  * inherit its publicness, silently, at the moment it was added.
+ *
+ * Exported so this rule can be tested directly. PUBLIC_PREFIXES is empty today (see its own
+ * comment), so isPublicPath's use of this function is not exercised by anything reaching it
+ * through a real prefix; AUTH_PAGES keeps isAuthPage's use of it covered, but the PUBLIC_PREFIXES
+ * call site needs its own proof that survives the day the array is still empty.
  */
-function isUnder(pathname: string, base: string): boolean {
+export function isUnder(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 

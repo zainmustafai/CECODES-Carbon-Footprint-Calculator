@@ -70,8 +70,6 @@ export const signInInput = z
   })
   .strict();
 
-export const signUpInput = z.object({ email, password }).strict();
-
 export const emailInput = email;
 
 export const passwordInput = password;

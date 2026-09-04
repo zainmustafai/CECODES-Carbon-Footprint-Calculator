@@ -711,7 +711,6 @@ describe("resetPasswordWithTokenAction", () => {
     expect(await resetPasswordWithTokenAction(input as never)).toEqual({ error: "invalidInput" });
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
   });
-
 });
 
 describe("updatePasswordAction, the signed-in change", () => {

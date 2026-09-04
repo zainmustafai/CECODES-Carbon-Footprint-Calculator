@@ -17,10 +17,10 @@
  * This is not defence in depth against a careless caller. It is defence against the one thing no
  * caller controls: Prisma renders the ARGUMENTS of a failing call into its error message, and the
  * credential migration put `data.passwordHash` into the arguments of half a dozen writes that are
- * reported through here. mirrorLocalHash is designed to log its failures; the reset transaction
- * says a throw is the wanted behaviour; the rehash write inside signInLocally is not wrapped at
- * all. Each of those, on a schema mismatch or a constraint violation, hands this function a live
- * bcrypt hash, which is a password an attacker can grind offline at leisure.
+ * reported through here. The reset transaction in resetPasswordWithTokenAction says a throw is
+ * the wanted behaviour; the rehash write inside signInWithCredentials is not wrapped at all. Each
+ * of those, on a schema mismatch or a constraint violation, hands this function a live bcrypt
+ * hash, which is a password an attacker can grind offline at leisure.
  *
  * prisma/backfill-auth-credentials.ts reasoned this through and built its own redact() for exactly
  * this failure. It was the only file that had one. The rule belongs where every boundary already

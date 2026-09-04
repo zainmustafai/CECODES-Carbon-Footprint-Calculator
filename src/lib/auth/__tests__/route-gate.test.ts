@@ -47,7 +47,7 @@ afterAll(() => {
   vi.resetModules();
 });
 
-const { isAuthPage, isPublicPath, decideRoute, gate, applyDecision } = closed;
+const { isAuthPage, isPublicPath, isUnder, decideRoute, gate, applyDecision } = closed;
 const { SESSION_COOKIE } = await import("@/lib/auth/session");
 
 /** Every sign-in page in the shipped configuration. */
@@ -75,6 +75,29 @@ const PROTECTED = [
   // other: nothing is public here just because something used to be.
   "/auth/confirm",
 ];
+
+// PUBLIC_PREFIXES is empty (Ruling 21), so nothing reaches isUnder through isPublicPath's
+// PUBLIC_PREFIXES.some() call today - that branch is always false regardless of which matching
+// rule it runs, because there is nothing in the array to match. isAuthPage's use of isUnder over
+// AUTH_PAGES is still exercised below, but AUTH_PAGES is a different call site: a regression
+// scoped to the PUBLIC_PREFIXES line specifically (e.g. swapping isUnder for a bare
+// pathname.startsWith(prefix)) would go uncaught by every other test in this file until the day
+// someone adds a prefix, which is exactly the day it would matter. So isUnder is tested directly.
+describe("isUnder", () => {
+  it("matches the base path itself", () => {
+    expect(isUnder("/auth", "/auth")).toBe(true);
+  });
+
+  it("matches anything nested under the base", () => {
+    expect(isUnder("/auth/confirm", "/auth")).toBe(true);
+  });
+
+  // The whole-segment rule. A bare startsWith(base) would also match this, silently granting
+  // "/authors" whatever "/auth" was granted.
+  it("does not extend the base to a path that merely starts with the same letters", () => {
+    expect(isUnder("/authors", "/auth")).toBe(false);
+  });
+});
 
 describe("isAuthPage", () => {
   it.each(AUTH_PAGES)("treats %s as a sign-in page", (path) => {

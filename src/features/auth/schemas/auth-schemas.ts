@@ -45,7 +45,7 @@ export type ForgotPasswordValues = z.infer<ReturnType<typeof forgotPasswordSchem
  * recovery link (a session, and the user by definition does not know the old password), and the
  * account menu's "change my password" (a session, and they do). Only the last one can be asked to
  * re-authenticate, so the field is optional in the shape and made required by this flag. The
- * server decides the same thing independently in updatePasswordLocally; this half is so the box
+ * server decides the same thing independently in changeSignedInPassword; this half is so the box
  * appears and so an empty one is caught before a round trip.
  */
 export function resetPasswordSchema(t: T, { requireCurrent = false } = {}) {

@@ -121,7 +121,7 @@ export async function signInAction(input: {
     const throttleKeys = signInThrottleKeys(parsed.data.email, ip);
     if (await isSignInThrottled(throttleKeys)) return { error: "tooManyAttempts" };
 
-    return await signInLocally(parsed.data, throttleKeys, ip);
+    return await signInWithCredentials(parsed.data, throttleKeys, ip);
   } catch (error) {
     // No address, ever. "who tried to sign in" is the fact these logs must not carry, for the
     // reason src/lib/mail/send.ts gives, and it is the one field a caller controls here.
@@ -131,7 +131,7 @@ export async function signInAction(input: {
 }
 
 /** The only sign-in: app_users holds the credential, and nothing else is ever asked. */
-async function signInLocally(
+async function signInWithCredentials(
   credentials: { email: string; password: string },
   throttleKeys: string[],
   ip: string | null,
@@ -527,10 +527,10 @@ export async function updatePasswordAction(input: {
   const parsed = updatePasswordInput.safeParse(input);
   if (!parsed.success) return { error: "invalidInput" };
 
-  return updatePasswordLocally(parsed.data);
+  return changeSignedInPassword(parsed.data);
 }
 
-async function updatePasswordLocally({
+async function changeSignedInPassword({
   password,
   currentPassword,
 }: {
