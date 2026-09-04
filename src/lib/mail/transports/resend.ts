@@ -1,3 +1,4 @@
+import { HEADER_SAFE_VALUE } from "@/lib/env";
 import { reportError } from "@/lib/observability/report-error";
 import type { MailMessage, MailResult } from "@/lib/mail/transport";
 
@@ -15,15 +16,6 @@ const ENDPOINT = "https://api.resend.com/emails";
 /** Past a healthy Resend call, well short of any request timeout above us. */
 const TIMEOUT_MS = 10_000;
 
-/**
- * Visible ASCII, which is every character an API key has and the only range a header value can
- * carry without argument. Checked BEFORE the key reaches the request: fetch quotes the offending
- * value back at you, that error is what reportError would write, and a key that wrapped when it
- * was pasted into a .env file would then print in full, once per reset attempt, in the one log an
- * operator is most likely to ship somewhere else.
- */
-const HEADER_SAFE = /^[\x21-\x7e]+$/;
-
 export async function sendViaResend(message: MailMessage): Promise<MailResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.MAIL_FROM?.trim();
@@ -33,7 +25,16 @@ export async function sendViaResend(message: MailMessage): Promise<MailResult> {
     console.warn(`[mail] not sent, unset: ${missing}`);
     return { ok: false, reason: "not-configured" };
   }
-  if (!HEADER_SAFE.test(apiKey)) {
+  // Checked BEFORE the key reaches the request: fetch quotes the offending value back at you, that
+  // error is what reportError would write, and a key that wrapped when it was pasted into a .env
+  // file would then print in full, once per reset attempt, in the one log an operator is most
+  // likely to ship somewhere else.
+  //
+  // The shape itself lives in src/lib/env.ts, which now enforces the same rule at BOOT, so this is
+  // a backstop rather than the first line of defence: reaching it means the process started
+  // without validateRuntimeEnv, which is a state a script can be in. One constant, read by both,
+  // so the two checks cannot drift apart.
+  if (!HEADER_SAFE_VALUE.test(apiKey)) {
     console.warn("[mail] not sent, RESEND_API_KEY is not a usable header value");
     return { ok: false, reason: "not-configured" };
   }

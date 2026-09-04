@@ -129,11 +129,20 @@ describe("a declared template missing from disk", () => {
  * no quote character in between. `href="{{resetUrl}}"` does not match (a `"` sits between `=` and
  * `{{`), and plain text-node interpolation like `<p>{{expiry}}</p>` is never inside a matched tag
  * span to begin with, so neither is ever reported.
+ *
+ * The optional third brace on each side is not cosmetic. Written as `\{\{[^{}]*\}\}`, this pattern
+ * could not match `{{{resetUrl}}}` at all: after the two opening braces the next character is a
+ * third brace, which `[^{}]` forbids, so the match died there and the offender was reported clean.
+ * The hole ran in the worst direction, because a triple-stache is the one interpolation Handlebars
+ * does not escape AT ALL, making `href={{{url}}}` strictly worse than the `href={{url}}` this
+ * function was written to catch. "template source guards" below now also forbids a triple-stache
+ * outright, so nothing should ever reach this branch; it stays because the guard is only as good
+ * as the scanner under it, and a scanner with a hole reads exactly like a clean codebase.
  */
 function findUnquotedAttributeInterpolations(html: string): string[] {
   const offenders: string[] = [];
   for (const tag of html.match(/<[a-zA-Z][^<>]*>/g) ?? []) {
-    for (const attr of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(\{\{[^{}]*\}\})/g)) {
+    for (const attr of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(\{\{\{?[^{}]*\}\}\}?)/g)) {
       offenders.push(attr[1]!);
     }
   }
@@ -157,7 +166,61 @@ describe("Handlebars environment isolation", () => {
   });
 });
 
+/**
+ * Every triple-stache in `html`, quoted back so a failure names what it found.
+ *
+ * Matched on the OPENING braces alone, deliberately. A pattern insisting on three closing braces
+ * would miss `{{{resetUrl}}` left behind mid-edit, which is the shape a hand-edit inside a running
+ * container is most likely to produce and which Handlebars still treats as unescaped.
+ */
+function findTripleStaches(html: string): string[] {
+  return [...html.matchAll(/\{\{\{[^{}]*\}*/g)].map((match) => match[0]);
+}
+
+describe("the unquoted-attribute detector", () => {
+  // Unit tests for the scanner the template guard below runs, because the guard itself can only
+  // ever be as good as this, and a scanner with a hole in it reads exactly like a clean codebase.
+  it("reports a bare double-stache in an attribute", () => {
+    expect(findUnquotedAttributeInterpolations('<a href={{resetUrl}}>x</a>')).toEqual(["href"]);
+  });
+
+  it("says nothing about a quoted attribute or a text node", () => {
+    expect(findUnquotedAttributeInterpolations('<a href="{{resetUrl}}">{{expiry}}</a>')).toEqual([]);
+  });
+
+  // The hole this test was written for. `\{\{[^{}]*\}\}` cannot match `{{{x}}}`: after the two
+  // opening braces the next character is a third brace, which `[^{}]` forbids, so the match dies
+  // there and the offender is reported as clean. That is backwards, because a triple-stache is
+  // the one interpolation Handlebars does NOT escape at all, so `href={{{url}}}` is strictly worse
+  // than the `href={{url}}` the guard does catch. And these .hbs files are edited on disk by
+  // design (an operator can `docker cp` a fix into a running container without a rebuild), so
+  // nothing but this scanner stands between such an edit and a released image.
+  it("reports a triple-stache in an attribute, which escapes nothing at all", () => {
+    expect(findUnquotedAttributeInterpolations('<a href={{{resetUrl}}}>x</a>')).toEqual(["href"]);
+  });
+
+  it("reports a triple-stache passed through the url helper too", () => {
+    expect(findUnquotedAttributeInterpolations('<a href={{{url resetUrl}}}>x</a>')).toEqual(["href"]);
+  });
+});
+
 describe("template source guards", () => {
+  // A triple-stache is Handlebars' "insert this raw", and no template here has any use for one:
+  // every value these templates render is either an ordinary string that wants full escaping or a
+  // URL, which goes through the `url` helper precisely so it can stay a double-stache. So the rule
+  // is the blunt one rather than a narrower "not in an attribute": none at all, anywhere, and a
+  // future template that genuinely needs one has to come with a reason and change this test.
+  it("uses no triple-stache in any template", () => {
+    const files = readdirSync(TEMPLATES_DIR).filter((file) => file.endsWith(".hbs"));
+    expect(files.length).toBeGreaterThan(0);
+
+    for (const file of files) {
+      const html = readFileSync(join(TEMPLATES_DIR, file), "utf8");
+      const offenders = findTripleStaches(html);
+      expect(offenders, `${file} uses a triple-stache: ${offenders.join(", ")}`).toEqual([]);
+    }
+  });
+
   it("guards unquoted attributes", () => {
     // Every ordinary {{ }} interpolation still gets Handlebars' full default escaping, including
     // its defence against an unquoted attribute. The one exception is the `url` helper (see

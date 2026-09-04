@@ -84,6 +84,31 @@ describe("formatErrorReport", () => {
     expect(line).toContain("[address redacted]");
   });
 
+  // The failure this guards is not "the address was missed", it is "the address was redacted
+  // LATE". A leading character class narrower than the body class does not decline to match, it
+  // starts matching partway through, so "o'brien@empresa.co" came out as "o'[address redacted]"
+  // and the log carried the first characters of a real address while looking safe. Every local
+  // part below is accepted by zod's email rule, so each one can be a stored account.
+  it.each([
+    ["o'brien@empresa.co", "an apostrophe, which is ordinary in Colombian surnames"],
+    ["_ana@empresa.co", "a leading underscore"],
+    ["+soporte@empresa.co", "a leading plus"],
+    ["'x@empresa.co", "a leading apostrophe"],
+  ])("redacts %s whole, leaking no prefix (%s)", (address) => {
+    const line = formatErrorReport({
+      where: "mail/smtp",
+      error: new Error(`550 5.1.1 <${address}>: Recipient address rejected`),
+    });
+    // The angle brackets are the whole assertion. Checking only that the full address is absent
+    // passes on a PARTIAL redaction, which is the actual bug: with a narrow leading class the
+    // line reads "<o'[address redacted]>", which contains neither "o'brien@empresa.co" nor
+    // "o'brien", so both of the obvious assertions go green while the prefix sits in the log.
+    // Requiring the placeholder to butt directly against the "<" is what proves the local part
+    // was consumed whole.
+    expect(line).toContain("<[address redacted]>");
+    expect(line).not.toContain(address);
+  });
+
   // The pattern has to be loose enough to catch a real address and tight enough to leave ordinary
   // text alone; this pins the second half.
   it("does not mangle ordinary text with no address in it", () => {

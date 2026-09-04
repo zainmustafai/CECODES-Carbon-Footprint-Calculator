@@ -8,6 +8,53 @@ import type { MailMessage, MailResult } from "@/lib/mail/transport";
 
 const TIMEOUT_MS = 10_000;
 
+/**
+ * Bounds `work` by wall-clock time, and is the only bound on this transport a caller can rely on.
+ *
+ * The three timeouts below are nodemailer's, and each of them bounds ONE phase of ONE connection
+ * attempt. That is not the same thing as bounding a send, for two reasons, both read off the
+ * installed nodemailer@10.0.0 rather than assumed:
+ *
+ *  - Hostname resolution happens BEFORE any of them is armed. smtp-connection's connect() calls
+ *    _resolveAndConnect() first, under `timeout: this.options.dnsTimeout || DNS_TIMEOUT` where
+ *    `const DNS_TIMEOUT = 30 * 1000`; connectionTimeout is only armed later, by
+ *    _setupConnectionHandlers(), which runs once _connectToHost() has actually created a socket.
+ *    A host behind a black-holed resolver therefore stalls for 30 seconds before the 10 second
+ *    connection budget has even started. `dnsTimeout` is now set explicitly below, which is what
+ *    bounds that phase INSIDE nodemailer, but it is a fourth per-phase number, not a total.
+ *  - connectionTimeout is per address, not per send. On a failed attempt _onConnectionError()
+ *    shifts the next entry off _fallbackAddresses and calls _connectToHost() again, which arms a
+ *    fresh connectionTimeout each time. A hostname with four A records that all drop SYNs costs
+ *    four full connection budgets in sequence.
+ *
+ * So the per-phase values stay, because when one of them fires first it names the phase that
+ * stalled, and this deadline sits over the whole thing. It is the same 10 seconds the Resend
+ * transport gets from AbortSignal.timeout, and for the same reason: a Server Action holding a
+ * user's spinner open is the failure being bounded, not the socket.
+ */
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        // Carries a `code` for the same reason nodemailer's errors do: it is the one field the
+        // catch below is allowed to report, so without it a timed-out send would log identically
+        // to every other failure. Deliberately not "ETIMEDOUT", which is nodemailer's own and
+        // means a single phase gave up rather than the whole send running out of time.
+        timer = setTimeout(
+          () => reject(Object.assign(new Error("SMTP send exceeded its deadline"), { code: "EDEADLINE" })),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    // Cancelled on the winning path too. A 10 second timer left armed after a successful send
+    // holds the event loop open, which on a serverless invocation is billed time.
+    clearTimeout(timer);
+  }
+}
+
 export async function sendViaSmtp(message: MailMessage): Promise<MailResult> {
   const host = process.env.SMTP_HOST?.trim();
   const from = process.env.MAIL_FROM?.trim();
@@ -35,15 +82,24 @@ export async function sendViaSmtp(message: MailMessage): Promise<MailResult> {
       connectionTimeout: TIMEOUT_MS,
       greetingTimeout: TIMEOUT_MS,
       socketTimeout: TIMEOUT_MS,
+      // The fourth phase, and the one nodemailer leaves at 30 seconds when it is not named. See
+      // withDeadline above for why it sits outside all three timeouts on the lines before it.
+      dnsTimeout: TIMEOUT_MS,
     });
 
-    await transporter.sendMail({
+    const send = transporter.sendMail({
       from,
       to: message.to,
       subject: message.subject,
       html: message.html,
       text: message.text,
     });
+    // Once the deadline wins the race nothing is awaiting `send` any more, and nodemailer will
+    // still reject it of its own accord later. An unhandled rejection is fatal under Node's
+    // default, so a send this function has given up on must still be somebody's responsibility.
+    send.catch(() => {});
+
+    await withDeadline(send, TIMEOUT_MS);
 
     console.info("[mail] sent via smtp");
     return { ok: true };

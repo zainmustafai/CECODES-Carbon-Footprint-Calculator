@@ -45,6 +45,24 @@ function optionalVar<T extends z.ZodType>(schema: T) {
  */
 type EnvSource = Record<string, string | undefined>;
 
+/**
+ * Visible ASCII, which is every character an API key has and the only range an HTTP header value
+ * can carry without argument.
+ *
+ * Exported because two places have to agree on it. src/lib/mail/transports/resend.ts refuses to
+ * send with a key that fails this test, for a reason written out there: fetch quotes the offending
+ * value back in its error, and a wrapped key would then print in full in the one log an operator is
+ * most likely to ship somewhere else. But refusing at send time is far too late for the OTHER
+ * failure. A key with a stray non-visible character (wrapped on paste, a smart quote, a
+ * non-breaking space picked up from a browser) boots clean, mailConfigured() answers true, the
+ * reset action writes a live token row and tells the user to check their inbox, and only then is
+ * the send dropped with a single console.warn: silent production mail loss, which is the exact
+ * thing this file's header says it exists to prevent. So the rule is enforced here too, at boot,
+ * while an operator is still watching, and both enforcers read the same constant rather than each
+ * carrying a copy that can drift.
+ */
+export const HEADER_SAFE_VALUE = /^[\x21-\x7e]+$/;
+
 const MAIL_TRANSPORTS = ["smtp", "resend", "none"] as const;
 
 /**
@@ -79,10 +97,21 @@ const runtimeSchema = z.object({
   // examples: uncommenting the two RESEND lines and pasting only one of them is a routine
   // slip, and it is invisible: mailConfigured() would say yes, the token row would be written,
   // the user would be told to check an inbox, and Resend would reject the key.
+  //
+  // The header-safety rule is the second half of the same argument, and it is the half that
+  // survives a careful operator: a key can be entirely correct and still unusable because the line
+  // wrapped, or because a smart quote or a non-breaking space rode along with the paste. Neither is
+  // visible in a .env file. See HEADER_SAFE_VALUE above for why the check cannot wait for the send.
   RESEND_API_KEY: optionalVar(
-    z.string().refine((v) => !v.includes("<resend-api-key>"), {
-      message: "RESEND_API_KEY still holds the .env.example placeholder",
-    }),
+    z
+      .string()
+      .refine((v) => !v.includes("<resend-api-key>"), {
+        message: "RESEND_API_KEY still holds the .env.example placeholder",
+      })
+      .refine((v) => HEADER_SAFE_VALUE.test(v), {
+        message:
+          "RESEND_API_KEY is not usable as an HTTP header value: it must be visible ASCII, with no spaces, line breaks or smart quotes",
+      }),
   ),
   // Not validated as an email address: a From header is normally "CECODES <no-reply@example.org>",
   // which z.email() rejects. The one mistake worth catching at boot is a From with no address in
@@ -111,6 +140,22 @@ const runtimeSchema = z.object({
       if (!env[name]) {
         ctx.addIssue({ code: "custom", message: `${name} is required when MAIL_TRANSPORT=${transport}` });
       }
+    }
+
+    if (transport !== "smtp") return;
+
+    // The other pair, and the one that fails without ever naming itself. smtp.ts sends
+    // `auth: user && password ? { user, pass: password } : undefined`, so one half without the
+    // other is not a partial login: it is NO auth at all. nodemailer connects anonymously, a real
+    // relay answers "530 Authentication required", and the only thing an operator sees is a mail
+    // that did not arrive. Both halves absent stays legal, because Mailpit accepts anything and
+    // needs neither, which is exactly why the pairing has to be checked rather than the presence.
+    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
+      const missing = env.SMTP_USER ? "SMTP_PASSWORD" : "SMTP_USER";
+      ctx.addIssue({
+        code: "custom",
+        message: `${missing} is required when the other half of the SMTP credential pair is set`,
+      });
     }
   });
 

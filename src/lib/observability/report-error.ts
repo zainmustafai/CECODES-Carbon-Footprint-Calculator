@@ -46,9 +46,17 @@ const SECRET_SHAPES: ReadonlyArray<[RegExp, string]> = [
   // Deliberately ordinary: local-part@domain.tld, nothing exotic. A pattern loose enough to catch
   // quoted local parts or IP-literal domains would also start matching ordinary log text that
   // merely contains an "@", which is a worse trade than missing the rare address a stricter
-  // pattern would refuse. redact() runs on the whole JSON-stringified line, so this matches an
-  // address sitting inside a quoted string exactly as it would a bare one.
-  [/[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g, "[address redacted]"],
+  // pattern would refuse. Those forms are also unreachable here: every address this app stores
+  // passes zod's email rule first, and that rule refuses all three of them.
+  //
+  // The LEADING character class is the subtle part, and it is why ' and + appear twice. zod does
+  // accept ' _ + as the first character of a local part, so a narrower opening class does not
+  // decline to match, it matches LATE: "o'brien@empresa.co" matched from the "b" and the line
+  // came out as "o'[address redacted]". A redaction that leaks a prefix is the failure worth
+  // guarding against precisely because it still looks redacted to whoever reads the log.
+  // redact() runs on the whole JSON-stringified line, so this matches an address sitting inside
+  // a quoted string exactly as it would a bare one.
+  [/[A-Za-z0-9_'+][A-Za-z0-9._%+'-]*@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g, "[address redacted]"],
 ];
 
 /**

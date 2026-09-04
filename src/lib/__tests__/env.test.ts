@@ -141,6 +141,101 @@ describe("validateRuntimeEnv", () => {
       ).toThrow(/SMTP_HOST/);
     });
 
+    // SMTP credentials are the other pair, and they were not paired. smtp.ts writes
+    // `auth: user && password ? {...} : undefined`, so one without the other is not a partial
+    // login, it is NO auth at all: nodemailer connects anonymously and a real relay answers
+    // "530 Authentication required" with nothing anywhere naming the variable that was left out.
+    // Both halves are still optional together, because Mailpit accepts anything and needs neither.
+    describe("the smtp credential pair", () => {
+      function smtp(overrides: Record<string, string | undefined>) {
+        return boot({
+          MAIL_TRANSPORT: "smtp",
+          SMTP_HOST: "relay.example.org",
+          MAIL_FROM: "CECODES <no-reply@example.org>",
+          ...overrides,
+        });
+      }
+
+      it("boots with neither half, which is the Mailpit case", () => {
+        expect(smtp({})).not.toThrow();
+      });
+
+      it("boots with both halves", () => {
+        expect(smtp({ SMTP_USER: "relay-user", SMTP_PASSWORD: "relay-pass" })).not.toThrow();
+      });
+
+      it("refuses a user with no password, naming the password", () => {
+        expect(smtp({ SMTP_USER: "relay-user" })).toThrow(/SMTP_PASSWORD/);
+      });
+
+      it("refuses a password with no user, naming the user", () => {
+        expect(smtp({ SMTP_PASSWORD: "relay-pass" })).toThrow(/SMTP_USER/);
+      });
+
+      // The shape an operator actually produces: the line is emptied rather than deleted, and
+      // compose hands that through as "". Every other reader treats blank as absent, so this one
+      // has to as well, or "half a configuration" would depend on which of the two spellings of
+      // "off" was used.
+      it("reads a blanked half the same as an absent one", () => {
+        expect(smtp({ SMTP_USER: "relay-user", SMTP_PASSWORD: "   " })).toThrow(/SMTP_PASSWORD/);
+      });
+
+      // Nobody chose smtp, so there is no half-configuration to refuse yet: the same rule the
+      // resend pair already follows.
+      it("says nothing about the pair when no transport is selected", () => {
+        expect(boot({ SMTP_USER: "relay-user" })).not.toThrow();
+      });
+    });
+
+    // resend.ts refuses to send with a key that is not a usable header value, and refusing there
+    // is far too late: the app boots, mailConfigured() answers true, the reset action writes a
+    // live token row and tells the user to check their inbox, and only then is the send dropped
+    // with a single console.warn. That is the silent production mail loss this file's own header
+    // says it exists to prevent, so the rule belongs at boot, where an operator is still watching.
+    describe("RESEND_API_KEY header safety", () => {
+      function withKey(key: string) {
+        return boot({
+          MAIL_TRANSPORT: "resend",
+          RESEND_API_KEY: key,
+          MAIL_FROM: "CECODES <no-reply@example.org>",
+        });
+      }
+
+      it("boots on an ordinary key", () => {
+        expect(withKey("re_1AbCdEf_GhIjKlMnOpQrStUvWxYz")).not.toThrow();
+      });
+
+      // A key that wrapped when it was pasted into a .env file. The outer trim in optionalVar
+      // cannot help: the break is in the middle.
+      it("refuses a key carrying a line break", () => {
+        expect(withKey("re_1AbCdEf\n_GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
+      });
+
+      // The two invisible characters a paste from a browser or a document actually introduces.
+      it("refuses a key carrying a non-breaking space or a smart quote", () => {
+        expect(withKey("re_1AbCdEf GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
+        expect(withKey("re_1AbCdEf’GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
+      });
+
+      // Same rule as every other message this file produces: these go to a container log, and a
+      // container log gets pasted into an issue tracker. A live API key must not travel with it.
+      it("names the variable and never prints the key", () => {
+        let message = "";
+        try {
+          validateRuntimeEnv({
+            ...VALID,
+            MAIL_TRANSPORT: "resend",
+            RESEND_API_KEY: "re_LiveKeyThatMustNotBeLogged\nwrapped",
+            MAIL_FROM: "CECODES <no-reply@example.org>",
+          });
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message).toContain("RESEND_API_KEY");
+        expect(message).not.toContain("re_LiveKeyThatMustNotBeLogged");
+      });
+    });
+
     // A From header is normally "Name <address>", which is not an email address by itself, so the
     // only shape worth rejecting is one with no address in it at all.
     it("accepts a display-name From and rejects one with no address", () => {
