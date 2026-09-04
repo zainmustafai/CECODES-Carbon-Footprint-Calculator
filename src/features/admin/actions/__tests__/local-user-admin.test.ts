@@ -38,7 +38,12 @@ const appUser = {
   updateMany: vi.fn(async ({ where }: WriteArgs) => ({ count: where.id ? 1 : 0 })),
   deleteMany: vi.fn(async ({ where }: WriteArgs) => ({ count: where.id ? 1 : 0 })),
 };
-const company = { findUnique: vi.fn(async () => ({ id: COMPANY_ID })) };
+// The return type is widened by hand because vi.fn infers it from the implementation, and the
+// company-not-found tests below resolve this to null. Without the annotation, mockResolvedValueOnce
+// (null) is a type error even though it is exactly what the action has to handle.
+const company = {
+  findUnique: vi.fn(async (): Promise<{ id: string } | null> => ({ id: COMPANY_ID })),
+};
 const userSession = { deleteMany: vi.fn(async () => ({ count: 2 })) };
 const passwordResetToken = {
   deleteMany: vi.fn(async () => ({ count: 1 })),
@@ -411,19 +416,27 @@ describe("updateUser", () => {
   });
 
   it("forces companyId to null when promoting to CECODES_ADMIN, and never looks a company up", async () => {
-    // An admin owns no company; the invariant is enforced here too, never only in the schema, and
-    // a companyId supplied alongside the promotion must not survive into the write.
-    const result = await actions.updateUser({
-      userId: TARGET_ID,
-      role: "CECODES_ADMIN",
-      companyId: COMPANY_ID,
-    });
+    // An admin owns no company; the invariant is enforced here too, never only in the schema.
+    // (The schema's own refineAdminHasNoCompany already refuses a companyId alongside this role,
+    // so there is nothing to omit here: no company is ever sent for the promotion.)
+    const result = await actions.updateUser({ userId: TARGET_ID, role: "CECODES_ADMIN" });
 
     expect(result).toEqual({});
     expect(company.findUnique).not.toHaveBeenCalled();
     expect(appUser.updateMany).toHaveBeenCalledWith({
       where: { id: TARGET_ID },
       data: { role: "CECODES_ADMIN", companyId: null, name: null, phone: null, position: null },
+    });
+  });
+
+  it("stores no company for a COMPANY_USER updated with none chosen, and never looks one up", async () => {
+    const result = await actions.updateUser({ userId: TARGET_ID, role: "COMPANY_USER" });
+
+    expect(result).toEqual({});
+    expect(company.findUnique).not.toHaveBeenCalled();
+    expect(appUser.updateMany).toHaveBeenCalledWith({
+      where: { id: TARGET_ID },
+      data: { role: "COMPANY_USER", companyId: null, name: null, phone: null, position: null },
     });
   });
 
