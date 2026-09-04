@@ -38,9 +38,22 @@ export function forgotPasswordSchema(t: T) {
 }
 export type ForgotPasswordValues = z.infer<ReturnType<typeof forgotPasswordSchema>>;
 
-export function resetPasswordSchema(t: T) {
+/**
+ * `requireCurrent` is the signed-in change under AUTH_PROVIDER=local, and only that.
+ *
+ * The same form serves three arrivals: a self-hosted recovery link (?token, anonymous), a Supabase
+ * recovery link (a session, and the user by definition does not know the old password), and the
+ * account menu's "change my password" (a session, and they do). Only the last one can be asked to
+ * re-authenticate, so the field is optional in the shape and made required by this flag. The
+ * server decides the same thing independently in updatePasswordLocally; this half is so the box
+ * appears and so an empty one is caught before a round trip.
+ */
+export function resetPasswordSchema(t: T, { requireCurrent = false } = {}) {
   return z
     .object({
+      currentPassword: requireCurrent
+        ? z.string().min(1, t("currentPasswordRequired"))
+        : z.string().optional(),
       password: z.string().min(PASSWORD_MIN, t("passwordMin")),
       confirmPassword: z.string().min(1, t("passwordRequired")),
     })

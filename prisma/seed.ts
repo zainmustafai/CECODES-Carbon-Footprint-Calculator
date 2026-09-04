@@ -5,7 +5,7 @@ import {
   createSupabaseAdminClient,
   findAuthUserIdByEmail,
 } from "../src/lib/supabase/admin";
-import { hashPassword } from "../src/lib/auth/password";
+import { hashPassword, verifyPassword } from "../src/lib/auth/password";
 import { authProvider } from "../src/lib/env";
 
 // Seed starter reference data. Safe to re-run (idempotent).
@@ -187,7 +187,7 @@ async function seedAdmin() {
   // already has, and a fresh uuid is minted only on the first seed of a self-hosted database.
   const existing = await prisma.appUser.findUnique({
     where: { email },
-    select: { id: true, emailConfirmedAt: true },
+    select: { id: true, emailConfirmedAt: true, passwordHash: true, passwordAlgo: true },
   });
 
   // A profile under this address that GoTrue has never heard of. Upserting by the GoTrue id would
@@ -210,29 +210,58 @@ async function seedAdmin() {
   // backfill carried across from GoTrue with the date of the last seed.
   const emailConfirmedAt = existing?.emailConfirmedAt ?? new Date();
 
+  // Whether ADMIN_PASSWORD is already the stored password, asked before anything is written.
+  //
+  // This runs on EVERY container start (scripts/init-db.ts step 4), and under AUTH_PROVIDER=local
+  // app_users.passwordHash IS the credential rather than a mirror of one GoTrue holds. So an
+  // unconditional rewrite meant a restart silently reissued the admin's password from .env, and,
+  // worse, it was the one password write in the codebase that did not retire what the old password
+  // had minted: compare user-actions.ts resetUserPassword and auth-actions.ts
+  // updatePasswordLocally, both of which treat "the password changed" and "the old credentials are
+  // dead" as a single statement.
+  //
+  // Reverting to .env stays deliberate: on a self-hosted box .env is how an operator recovers an
+  // admin account nobody can get into, and taking that away would leave no way back. What changes
+  // is that the revert is now honest about being one.
+  const alreadyCurrent = await verifyPassword(password, existing?.passwordHash, existing?.passwordAlgo);
+
   // Force the profile role to CECODES_ADMIN (the signup trigger defaults to COMPANY_USER).
-  await prisma.appUser.upsert({
-    where: { id },
-    update: {
-      role: Role.CECODES_ADMIN,
-      email,
-      passwordHash: hash,
-      passwordAlgo: algo,
-      emailConfirmedAt,
-    },
-    create: {
-      id,
-      email,
-      role: Role.CECODES_ADMIN,
-      passwordHash: hash,
-      passwordAlgo: algo,
-      emailConfirmedAt,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.appUser.upsert({
+      where: { id },
+      update: {
+        role: Role.CECODES_ADMIN,
+        email,
+        passwordHash: hash,
+        passwordAlgo: algo,
+        emailConfirmedAt,
+      },
+      create: {
+        id,
+        email,
+        role: Role.CECODES_ADMIN,
+        passwordHash: hash,
+        passwordAlgo: algo,
+        emailConfirmedAt,
+      },
+    });
+
+    // Only when the password actually moved. A restart that changed nothing must not sign the
+    // admin out of the browser they left open, which is the ordinary case and would otherwise
+    // happen on every single `docker compose up`.
+    if (existing && !alreadyCurrent) {
+      await tx.userSession.deleteMany({ where: { userId: id } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: id } });
+    }
   });
 
   // ADMIN_EMAIL used to be printed here. Seed output is exactly the sort of text that gets pasted
   // into a chat window to show a deployment worked, and the address belongs to a real person.
-  console.log(`Admin ✓  (AUTH_PROVIDER=${provider})`);
+  console.log(
+    `Admin ✓  (AUTH_PROVIDER=${provider}${
+      existing && !alreadyCurrent ? "; password reset from ADMIN_PASSWORD, sessions ended" : ""
+    })`,
+  );
 }
 
 async function main() {

@@ -308,14 +308,27 @@ describe("sessionCookieOptions", () => {
     });
   });
 
-  // A secure cookie is simply not sent over plain http, which is what local development runs on,
-  // and the symptom is a sign-in that appears to succeed and then bounces back to the form.
-  it("marks the cookie secure in production only", () => {
-    const expiresAt = new Date("2026-10-04T12:00:00.000Z");
-    expect(sessionCookieOptions(expiresAt).secure).toBe(false);
+  // Development is the EXEMPTION, not production the condition, and the difference is a real
+  // deployment. A secure cookie is not sent over plain http, which is what `next dev` runs on, and
+  // the symptom there is a sign-in that appears to succeed and then bounces back to the form. Every
+  // other value of NODE_ENV is a container somebody built or started without setting it, and that
+  // container serves this cookie over TLS: keying on `=== "production"` shipped it in plaintext,
+  // silently, on exactly the deployments this migration is aimed at.
+  it.each(["production", "test", "staging", undefined])(
+    "marks the cookie secure with NODE_ENV=%s",
+    (nodeEnv) => {
+      const expiresAt = new Date("2026-10-04T12:00:00.000Z");
+      vi.stubEnv("NODE_ENV", nodeEnv as string);
 
-    vi.stubEnv("NODE_ENV", "production");
-    expect(sessionCookieOptions(expiresAt).secure).toBe(true);
+      expect(sessionCookieOptions(expiresAt).secure).toBe(true);
+    },
+  );
+
+  it("leaves it off in development, where plain http is the whole point", () => {
+    const expiresAt = new Date("2026-10-04T12:00:00.000Z");
+    vi.stubEnv("NODE_ENV", "development");
+
+    expect(sessionCookieOptions(expiresAt).secure).toBe(false);
   });
 
   it("names one cookie, so nothing has to repeat the string", () => {

@@ -3,6 +3,11 @@
 #   cp .env.example .env   # then fill in the required values
 #   docker compose up -d --build
 #
+# On a developer machine that already has .env.local, point compose at it so the NEXT_PUBLIC_*
+# build args resolve too (env_file feeds the containers; --env-file feeds ${...} substitution):
+#
+#   docker compose --env-file .env.local up -d --build
+#
 # Two containers by default:
 #   init  runs once, applies pending migrations and seeds, then exits 0
 #   app   starts only after init succeeds
@@ -31,7 +36,14 @@ services:
     build:
       context: .
       target: migrator
-    env_file: .env
+    # Either file, neither required at parse time. A deployed server has .env; a developer's
+    # machine already has .env.local full of the same secrets, and asking them to keep a second
+    # copy in step is how the two drift. Later entries win, so .env.local overrides .env locally.
+    env_file:
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     # restart:"no" is load-bearing, not a default. Any other policy would restart a job that
     # completed successfully, re-running the seed on a loop.
     restart: "no"
@@ -49,7 +61,11 @@ services:
         # Change either one and you must rebuild: `docker compose up -d --build`.
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     depends_on:
       init:
         # The app does not start until init exits 0. A failed migration therefore means no app,

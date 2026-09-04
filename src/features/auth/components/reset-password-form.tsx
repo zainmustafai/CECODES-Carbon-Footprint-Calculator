@@ -8,10 +8,22 @@ import { useResetPassword } from "../hooks/use-reset-password";
 // The token is handed straight to the hook and never to a field, a label or an error. It is a
 // bearer credential: anything that renders it puts it somewhere a screenshot, a support ticket or
 // a browser extension can pick it up.
-export function ResetPasswordForm({ token }: { token?: string }) {
+//
+// requireCurrentPassword comes from the server (ResetPasswordScreen), because whether the old
+// password can be demanded is a fact about the provider and the arrival, not about the browser.
+export function ResetPasswordForm({
+  token,
+  requireCurrentPassword = false,
+}: {
+  token?: string;
+  requireCurrentPassword?: boolean;
+}) {
   const t = useTranslations("auth.reset");
   const tc = useTranslations("auth.common");
-  const { form, onSubmit, isSubmitting, serverError } = useResetPassword({ token });
+  const { form, onSubmit, isSubmitting, serverError } = useResetPassword({
+    token,
+    requireCurrentPassword,
+  });
   const {
     register,
     formState: { errors },
@@ -19,6 +31,17 @@ export function ResetPasswordForm({ token }: { token?: string }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      {requireCurrentPassword ? (
+        <PasswordField
+          label={tc("currentPasswordLabel")}
+          // "current-password", so a manager offers the stored secret here and a new one below.
+          autoComplete="current-password"
+          placeholder={tc("passwordPlaceholder")}
+          toggleLabel={tc("togglePassword")}
+          error={errors.currentPassword?.message}
+          {...register("currentPassword")}
+        />
+      ) : null}
       <PasswordField
         label={tc("passwordLabel")}
         autoComplete="new-password"

@@ -129,9 +129,25 @@ async function gateSupabase(request: NextRequest): Promise<NextResponse> {
   });
 
   // IMPORTANT: keep getUser() immediately after createServerClient.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  //
+  // Wrapped for the reason hasLocalSession is, and it was not: a GoTrue that cannot answer used to
+  // throw out of updateSession, out of proxy, and become a 500 on every matched request. That
+  // fails closed, so it was never a bypass, but "the auth server blipped" reads better as a sign-in
+  // page than as a stack trace on every route, and the two providers had no business handling the
+  // same outage differently.
+  let user: { id: string } | null = null;
+  try {
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch (error) {
+    // The pathname is safe to log. The request's cookies are the session itself and never are.
+    reportError({
+      where: "proxy route gate",
+      error,
+      context: { pathname: request.nextUrl.pathname },
+    });
+  }
 
   return applyDecision(
     request,

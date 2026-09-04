@@ -67,11 +67,11 @@ describe("updatePasswordAction input validation", () => {
   // The documented 8-character minimum lived only in the browser schema. Supabase's own floor is
   // 6, so a direct POST used to set a 6-character password on a real account.
   it("rejects a password below the documented minimum without contacting Supabase", async () => {
-    expect(await updatePasswordAction("1234567")).toEqual({ error: "invalidInput" });
+    expect(await updatePasswordAction({ password: "1234567" })).toEqual({ error: "invalidInput" });
     expect(createClient).not.toHaveBeenCalled();
   });
 
-  it("rejects a non-string payload", async () => {
+  it("rejects a non-object payload", async () => {
     expect(await updatePasswordAction(undefined as never)).toEqual({ error: "invalidInput" });
     expect(createClient).not.toHaveBeenCalled();
   });
@@ -125,7 +125,7 @@ describe("input validation does not depend on the provider", () => {
     expect(await signInAction({ email: "someone@example.com", password: "" })).toEqual({
       error: "invalidInput",
     });
-    expect(await updatePasswordAction("1234567")).toEqual({ error: "invalidInput" });
+    expect(await updatePasswordAction({ password: "1234567" })).toEqual({ error: "invalidInput" });
     await expect(requestPasswordResetAction("not-an-email")).resolves.toBeUndefined();
     expect(createClient).not.toHaveBeenCalled();
   });

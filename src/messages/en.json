@@ -77,6 +77,7 @@
       "emailPlaceholder": "you@company.com",
       "passwordLabel": "Password",
       "passwordPlaceholder": "••••••••",
+      "currentPasswordLabel": "Current password",
       "confirmLabel": "Confirm password",
       "or": "or",
       "togglePassword": "Show or hide password"
@@ -117,6 +118,7 @@
       "emailInvalid": "Enter a valid email.",
       "passwordRequired": "Password is required.",
       "passwordMin": "Password must be at least 8 characters.",
+      "currentPasswordRequired": "Enter your current password.",
       "passwordsMismatch": "Passwords do not match."
     },
     "errors": {
@@ -128,6 +130,7 @@
       "invalidInput": "Check the details you entered and try again.",
       "invalidResetLink": "This link is no longer valid. Request a new one.",
       "sessionExpired": "Your session expired. Sign in again.",
+      "currentPasswordIncorrect": "Your current password is not correct.",
       "generic": "Something went wrong. Please try again."
     },
     "toasts": {

@@ -25,25 +25,35 @@ import { POST_LOGIN_PATH } from "@/lib/routes";
  * password change, not a session. So the token flow finishes at /login, where the new password is
  * typed once to prove it arrived, while the signed-in flow carries on into the app.
  */
-export function useResetPassword({ token }: { token?: string } = {}) {
+export function useResetPassword({
+  token,
+  requireCurrentPassword = false,
+}: { token?: string; requireCurrentPassword?: boolean } = {}) {
   const tv = useTranslations("auth.validation");
   const te = useTranslations("auth.errors");
   const tt = useTranslations("auth.toasts");
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const resolver = useMemo(() => zodResolver(resetPasswordSchema(tv)), [tv]);
+  const resolver = useMemo(
+    () => zodResolver(resetPasswordSchema(tv, { requireCurrent: requireCurrentPassword })),
+    [tv, requireCurrentPassword],
+  );
   const form = useForm<ResetPasswordValues>({
     resolver,
-    defaultValues: { password: "", confirmPassword: "" },
+    defaultValues: { currentPassword: "", password: "", confirmPassword: "" },
   });
 
-  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ password }) => {
+  const { onSubmit, isSubmitting } = useFormSubmit(form, async ({ currentPassword, password }) => {
     setServerError(null);
 
+    // currentPassword is sent only when it was asked for. The action's schema is .strict(), so an
+    // empty string riding along on the flows that never collect one would be rejected outright.
     const { error } = token
       ? await resetPasswordWithTokenAction({ token, password })
-      : await updatePasswordAction(password);
+      : await updatePasswordAction(
+          requireCurrentPassword ? { password, currentPassword } : { password },
+        );
 
     if (error) {
       // Server errors are opaque keys, and an unknown one is still an error a human has to read.

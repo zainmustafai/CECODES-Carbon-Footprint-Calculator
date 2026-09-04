@@ -777,7 +777,9 @@ describe("updatePasswordAction, the signed-in change", () => {
     const user = await signedIn();
     const kept = cookieJar.get(SESSION_COOKIE)!;
 
-    expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({});
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
 
     expect(compareSync(NEW_PASSWORD, users.get(user.id)!.passwordHash!)).toBe(true);
     // Signing someone out of the tab they just typed the new password into reads as a failure,
@@ -799,7 +801,9 @@ describe("updatePasswordAction, the signed-in change", () => {
     };
     resetTokens.set(row.id, row);
 
-    expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({});
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
 
     expect(resetTokens.get(row.id)!.consumedAt).toBeInstanceOf(Date);
     expect(
@@ -812,7 +816,9 @@ describe("updatePasswordAction, the signed-in change", () => {
     seedUser();
     getUser.mockResolvedValue(null);
 
-    expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({ error: "sessionExpired" });
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({ error: "sessionExpired" });
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
   });
 });
@@ -837,7 +843,7 @@ describe("updatePasswordAction while GoTrue still decides", () => {
       const user = seedUser();
       vi.stubEnv("AUTH_PROVIDER", provider);
 
-      expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({});
+      expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({});
 
       expect(updateUser).toHaveBeenCalledWith({ password: NEW_PASSWORD });
       const stored = users.get(user.id)!;
@@ -855,12 +861,12 @@ describe("updatePasswordAction while GoTrue still decides", () => {
     vi.stubEnv("AUTH_PROVIDER", "shadow");
     updateUser.mockResolvedValue({ error: new Error("weak password") });
 
-    expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({ error: "generic" });
+    expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({ error: "generic" });
 
     expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
   });
 
-  it("never touches the local session store, which this mode does not use", async () => {
+  it("retires the local sessions a rollback would otherwise reinstate", async () => {
     const user = await (async () => {
       const row = seedUser();
       vi.stubEnv("AUTH_PROVIDER", "local");
@@ -868,11 +874,23 @@ describe("updatePasswordAction while GoTrue still decides", () => {
       vi.stubEnv("AUTH_PROVIDER", "shadow");
       return row;
     })();
+    // A link the user had asked for before they remembered the password, still live for the hour.
+    resetTokens.set("reset-outstanding", {
+      id: "reset-outstanding",
+      userId: user.id,
+      tokenHash: hashToken("emailed-token"),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      consumedAt: null,
+      createdAt: new Date(),
+    });
 
-    expect(await updatePasswordAction(NEW_PASSWORD)).toEqual({});
+    expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({});
 
-    // GoTrue holds the only session that decides anything here, so the rows this app keeps are not
-    // this action's to revoke: doing so would sign a shadow-mode user out of nothing at all.
-    expect(sessionsOf(user.id)).toHaveLength(1);
+    // This used to assert the opposite, on the reading that GoTrue holds the only session that
+    // decides anything here. True while the flag stays put, and the flag is one variable: the row
+    // sits through the whole Supabase window and is honoured again the moment AUTH_PROVIDER goes
+    // back to local, up to thirty days later, on a password the user retired in the interim.
+    expect(sessionsOf(user.id)).toHaveLength(0);
+    expect(resetTokens.get("reset-outstanding")!.consumedAt).toBeInstanceOf(Date);
   });
 });

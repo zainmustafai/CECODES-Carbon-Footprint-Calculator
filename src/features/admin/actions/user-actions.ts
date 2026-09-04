@@ -343,56 +343,55 @@ export async function resetUserPassword(input: {
     // After the guards, for the reason given in createUser.
     const { hash, algo } = await hashPassword(tempPassword);
 
-    if (authProvider() === "local") {
-      // Rotating the password now ends every session the old one opened, in the transaction that
-      // writes the new hash.
-      //
-      // This comment used to say the opposite, and it was true at the time: supabase-js exposed no
-      // by-user-id revocation, so a rotation blocked the next sign-in and nothing more. An admin
-      // who rotated a password precisely to get somebody out of an account was told it had worked
-      // while that person's open tab kept working for up to SESSION_TTL_MS, thirty days, and the
-      // standing advice was to deactivate the user instead. Sessions live in this database now, so
-      // the two halves of "this password no longer works" finally commit together.
-      await prisma.$transaction(async (tx) => {
-        const updated = await tx.appUser.updateMany({
-          where: { id: userId },
-          data: { passwordHash: hash, passwordAlgo: algo },
-        });
-        if (updated.count !== 1) throw new ScopeError("not-found");
-
-        // Not destroyAllSessionsForUser, and the count is not checked. Same two reasons as in
-        // setUserActive above.
-        await tx.userSession.deleteMany({ where: { userId } });
-
-        // And every outstanding reset link, which is a credential of exactly the same standing as
-        // the password being replaced. Leaving them behind is what would make this rotation a half
-        // measure: an admin rotates precisely because somebody else may be holding the account,
-        // and a link already sitting in that mailbox stays good for one password change of the
-        // holder's choosing for the rest of its hour. The admin, meanwhile, has been told the
-        // credentials are now the ones they just dictated.
-        await tx.passwordResetToken.deleteMany({ where: { userId } });
-      });
-    } else {
+    if (authProvider() !== "local") {
       // GoTrue decides this sign-in, so it is told first and its verdict is what the caller waits
-      // on. The local hash is then written alongside so it does not fall behind before the
+      // on. The local write below then follows, so the column does not fall behind before the
       // cutover. A failure between the two leaves the local column holding the previous password,
       // which costs a disagreement in the shadow log and nothing more, because nothing reads it.
+      //
+      // What this branch still does NOT buy is an immediate lockout: GoTrue's own sessions survive
+      // a rotation, so for that, deactivate the user instead.
       const supabase = createSupabaseAdminClient();
       const { error } = await supabase.auth.admin.updateUserById(userId, {
         password: tempPassword,
         email_confirm: true,
       });
       if (error) return { error: "authFailed" };
+    }
 
-      const updated = await prisma.appUser.updateMany({
+    // One transaction in every provider. Rotating the password ends every session the old one
+    // opened and every reset link it could still be overruled by, in the same statement that
+    // writes the new hash.
+    //
+    // The local sweep used to be conditional on the provider, on the reading that these rows
+    // decide nothing while GoTrue holds the passwords. They decide nothing UNTIL AUTH_PROVIDER
+    // moves: a session or a link minted during a `local` window sits here through the whole
+    // Supabase window and is honoured again the moment the flag goes back, up to thirty days
+    // later. An admin who rotated a password precisely to get somebody out of an account would
+    // find them still in it after a rollback and a roll-forward. Sweeping under the other two
+    // providers costs nothing, because nothing there reads what is being swept.
+    //
+    // Not destroyAllSessionsForUser: it holds the app's own client, so it would run outside this
+    // transaction and could purge the sessions of a hash write that then rolled back. The deleted
+    // counts are not checked either, because unlike a tenant-scoped write, zero here just means a
+    // user who never signed in and never asked for a link.
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.appUser.updateMany({
         where: { id: userId },
         data: { passwordHash: hash, passwordAlgo: algo },
       });
       if (updated.count !== 1) throw new ScopeError("not-found");
 
-      // Under this provider the rotation still does NOT revoke live sessions: it blocks the next
-      // sign-in, nothing more. For an immediate lockout here, deactivate the user instead.
-    }
+      await tx.userSession.deleteMany({ where: { userId } });
+
+      // The outstanding reset links are a credential of exactly the same standing as the password
+      // being replaced. Leaving them behind is what would make this rotation a half measure: an
+      // admin rotates precisely because somebody else may be holding the account, and a link
+      // already sitting in that mailbox stays good for one password change of the holder's
+      // choosing for the rest of its hour. The admin, meanwhile, has been told the credentials are
+      // now the ones they just dictated.
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+    });
 
     // The lockout has to lift with the password, in every provider, or this action does not do the
     // thing it exists for. The support call behind it is "I cannot get in": five wrong guesses put

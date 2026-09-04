@@ -23,6 +23,11 @@ loadEnvConfig(process.cwd());
 import { Client } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/lib/generated/prisma/client";
+import {
+  BCRYPT_HASH_BODY,
+  planCredentialBackfill,
+  type AuthAccount,
+} from "../src/lib/auth/credential-backfill";
 
 // Both connections use the direct URL. This is maintenance run by a person, not app traffic, so
 // the pooler buys nothing and costs a hop. src/lib/prisma.ts is deliberately not reused: it builds
@@ -41,16 +46,9 @@ const authDb = new Client({ connectionString: CONNECTION_STRING });
 
 const USAGE = "usage: bun prisma/backfill-auth-credentials.ts [--apply]";
 
-// GoTrue stores bcrypt, and the Phase 0 audit confirmed every row is a $2a$ hash of length 60. The
-// shape is still checked per row, because this script writes passwordAlgo = "bcrypt" as a
-// statement of fact: copying anything else under that label produces a row that cannot
-// authenticate and carries no clue as to why.
-//
-// One source string, two uses: anchored to validate a single value, unanchored to find one hiding
-// inside a longer piece of text. Two separate literals would drift, and the one that would drift
-// silently is the one that keeps hashes out of the terminal.
-const BCRYPT_HASH_BODY = String.raw`\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}`;
-const BCRYPT_HASH = new RegExp(`^${BCRYPT_HASH_BODY}$`);
+// One source string, two uses: anchored inside credential-backfill.ts to validate a single value,
+// unanchored here to find one hiding inside a longer piece of text. Two separate literals would
+// drift, and the one that would drift silently is the one that keeps hashes out of the terminal.
 
 // Prisma renders the arguments of a failing call into its error message, and every write below
 // carries data.passwordHash, so a mistake as ordinary as running this against a client generated
@@ -66,6 +64,8 @@ function redact(text: string): string {
   return SECRET_SHAPES.reduce((out, [shape, replacement]) => out.replace(shape, replacement), text);
 }
 
+// The row shape the query below returns, in Postgres spelling. It is mapped onto AuthAccount, the
+// shape the classification reads, on the way in.
 type AuthRow = {
   id: string;
   email: string | null;
@@ -138,98 +138,45 @@ async function main() {
     select: { id: true, email: true, passwordHash: true },
   });
 
-  // Matching is on id, and only on id. Both tables were built with the same uuids, so the id is
-  // the real key; email is a second, weaker one that can drift (a change applied on one side only,
-  // a difference in case or in whitespace) and pairing on it would hand one person's password to
-  // another person's profile without anything looking wrong. Email is read purely to report the
-  // mismatch count below.
-  const profileById = new Map(profiles.map((p) => [p.id, p]));
-  const authIds = new Set(authRows.rows.map((row) => row.id));
+  // Every decision about every row on both sides, made in one pure function so that the rules
+  // themselves are testable without a Supabase project standing. See
+  // src/lib/auth/credential-backfill.ts for the ordering argument; what stays here is the writing.
+  const plan = planCredentialBackfill(
+    authRows.rows.map(
+      (row): AuthAccount => ({
+        id: row.id,
+        email: row.email,
+        encryptedPassword: row.encrypted_password,
+        emailConfirmedAt: row.email_confirmed_at,
+        lastSignInAt: row.last_sign_in_at,
+        revoked: row.revoked,
+      }),
+    ),
+    profiles,
+  );
+
+  const {
+    planned,
+    authWithoutProfile: authWithoutProfileIds,
+    profileWithoutAuth: profileWithoutAuthIds,
+    missingHash: missingHashIds,
+    skippedUnknownAlgo: unknownAlgoIds,
+    skippedRevoked: revokedIds,
+    emailMismatch: emailMismatchIds,
+  } = plan;
 
   const counts = {
-    matched: 0,
+    // Everything on the GoTrue side that found a profile, whatever was then decided about it.
+    matched: authRows.rows.length - authWithoutProfileIds.length,
     written: 0,
-    skippedAlreadySet: 0,
-    authWithoutProfile: 0,
-    profileWithoutAuth: 0,
-    missingHash: 0,
-    skippedUnknownAlgo: 0,
-    skippedRevoked: 0,
-    emailMismatch: 0,
+    skippedAlreadySet: plan.skippedAlreadySet.length,
+    authWithoutProfile: authWithoutProfileIds.length,
+    profileWithoutAuth: profileWithoutAuthIds.length,
+    missingHash: missingHashIds.length,
+    skippedUnknownAlgo: unknownAlgoIds.length,
+    skippedRevoked: revokedIds.length,
+    emailMismatch: emailMismatchIds.length,
   };
-
-  const authWithoutProfileIds: string[] = [];
-  const profileWithoutAuthIds: string[] = [];
-  const missingHashIds: string[] = [];
-  const unknownAlgoIds: string[] = [];
-  const revokedIds: string[] = [];
-  const emailMismatchIds: string[] = [];
-
-  type Planned = {
-    id: string;
-    passwordHash: string;
-    emailConfirmedAt: Date | null;
-    lastSignInAt: Date | null;
-  };
-  const planned: Planned[] = [];
-
-  for (const row of authRows.rows) {
-    const profile = profileById.get(row.id);
-    if (!profile) {
-      counts.authWithoutProfile++;
-      authWithoutProfileIds.push(row.id);
-      continue;
-    }
-    counts.matched++;
-
-    if (row.email && profile.email.trim().toLowerCase() !== row.email.trim().toLowerCase()) {
-      counts.emailMismatch++;
-      emailMismatchIds.push(row.id);
-    }
-
-    // A row is counted under the first reason that applies and no other, and a revoked GoTrue
-    // account is checked before the rest so that it is never filed as a routine skip. Refusing to
-    // copy is the safe direction: the worst case is a real person who has to be given a password by
-    // hand, against an account someone deliberately switched off getting one back.
-    if (row.revoked) {
-      counts.skippedRevoked++;
-      revokedIds.push(row.id);
-      continue;
-    }
-
-    // Checked before anything else about the credential, and it skips the whole row rather than
-    // just the hash column. lastSignInAt is maintained by the app once sign-in runs here, so
-    // rewriting it from this frozen copy of auth.users would move a live fact backwards.
-    if (profile.passwordHash !== null) {
-      counts.skippedAlreadySet++;
-      continue;
-    }
-
-    const hash = row.encrypted_password?.trim() ?? "";
-    if (hash === "") {
-      counts.missingHash++;
-      missingHashIds.push(row.id);
-      continue;
-    }
-    if (!BCRYPT_HASH.test(hash)) {
-      counts.skippedUnknownAlgo++;
-      unknownAlgoIds.push(row.id);
-      continue;
-    }
-
-    planned.push({
-      id: row.id,
-      passwordHash: hash,
-      emailConfirmedAt: row.email_confirmed_at,
-      lastSignInAt: row.last_sign_in_at,
-    });
-  }
-
-  for (const profile of profiles) {
-    if (authIds.has(profile.id)) continue;
-    counts.profileWithoutAuth++;
-    profileWithoutAuthIds.push(profile.id);
-  }
 
   let writtenIds: string[] = [];
 
@@ -240,22 +187,22 @@ async function main() {
     writtenIds = await prisma.$transaction(
       async (tx) => {
         const ids: string[] = [];
-        for (const plan of planned) {
+        for (const write of planned) {
           // `passwordHash: null` sits in the WHERE, not only in the scan that built `planned`, so
           // "never overwrite a password" is a property of the write itself rather than of a read
           // that happened earlier. updateMany reports { count } instead of throwing, so the count
           // is the only thing that says whether the row was really ours to write, and the id is
           // only reported as written once that count has said so.
           const result = await tx.appUser.updateMany({
-            where: { id: plan.id, passwordHash: null },
+            where: { id: write.id, passwordHash: null },
             data: {
-              passwordHash: plan.passwordHash,
+              passwordHash: write.passwordHash,
               passwordAlgo: "bcrypt",
-              emailConfirmedAt: plan.emailConfirmedAt,
-              lastSignInAt: plan.lastSignInAt,
+              emailConfirmedAt: write.emailConfirmedAt,
+              lastSignInAt: write.lastSignInAt,
             },
           });
-          if (result.count > 0) ids.push(plan.id);
+          if (result.count > 0) ids.push(write.id);
         }
         return ids;
       },
@@ -272,7 +219,7 @@ async function main() {
 
   printSection(
     apply ? "Credentials written" : "Credentials that would be written",
-    apply ? writtenIds : planned.map((plan) => plan.id),
+    apply ? writtenIds : planned.map((write) => write.id),
   );
   printSection("Matched, but auth.users holds no password (nothing to copy)", missingHashIds);
   printSection("Matched, but the stored hash is not bcrypt (left alone)", unknownAlgoIds);

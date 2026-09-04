@@ -137,14 +137,34 @@ const runtimeSchema = z.object({
     });
   });
 
-/** Additionally required by the init job: migrations, and creating the first admin. */
-const initSchema = runtimeSchema.extend({
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, "SUPABASE_SERVICE_ROLE_KEY is required to create the admin account"),
-  ADMIN_EMAIL: z.email("ADMIN_EMAIL must be an email address"),
-  ADMIN_PASSWORD: z.string().min(12, "ADMIN_PASSWORD must be at least 12 characters"),
-});
+/**
+ * Additionally required by the init job: migrations, and creating the first admin.
+ *
+ * SUPABASE_SERVICE_ROLE_KEY is demanded only while GoTrue is still the store the admin account has
+ * to exist IN. prisma/seed.ts, which this job exists to run, already decides it exactly this way
+ * ("On a self-hosted deployment the two Supabase variables are not merely unused, they are
+ * legitimately absent"), and the two disagreed: the seed would not ask for the key, and the job
+ * that runs the seed refused to start without it. A self-hosted .env with AUTH_PROVIDER=local and
+ * no Supabase project got "[init] FAILED: Environment validation failed", so migrations never
+ * applied and the app container never started, and the only way past it was to invent a key.
+ *
+ * Taken from the same source being validated rather than from process.env, so a caller checking a
+ * candidate .env gets an answer about that file and not about the machine it is running on.
+ */
+function initSchemaFor(source: EnvSource) {
+  const base = runtimeSchema.extend({
+    ADMIN_EMAIL: z.email("ADMIN_EMAIL must be an email address"),
+    ADMIN_PASSWORD: z.string().min(12, "ADMIN_PASSWORD must be at least 12 characters"),
+  });
+
+  if (authProvider(source) === "local") return base;
+
+  return base.extend({
+    SUPABASE_SERVICE_ROLE_KEY: z
+      .string()
+      .min(1, "SUPABASE_SERVICE_ROLE_KEY is required to create the admin account"),
+  });
+}
 
 export type RuntimeEnv = z.infer<typeof runtimeSchema>;
 
@@ -183,7 +203,7 @@ export function validateRuntimeEnv(source: EnvSource = process.env): RuntimeEnv 
 }
 
 export function validateInitEnv(source: EnvSource = process.env) {
-  const parsed = initSchema.safeParse(source);
+  const parsed = initSchemaFor(source).safeParse(source);
   if (!parsed.success) {
     throw new Error(
       `Invalid environment. Database initialization cannot run:\n${formatIssues(parsed.error)}\n\n` +

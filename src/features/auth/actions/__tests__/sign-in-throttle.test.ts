@@ -65,8 +65,18 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+/**
+ * The header shape a reverse proxy actually produces, and the trap in it.
+ *
+ * Caddy and nginx both APPEND: a request that arrives already carrying
+ * "X-Forwarded-For: 203.0.113.7" reaches the app as "203.0.113.7, <the real client>". So the
+ * leading value is whatever the caller typed and the trailing one is what the proxy wrote. This
+ * fixture keeps the forged value in front on purpose, so a return to reading the first hop fails
+ * the test at the bottom of this file rather than passing it.
+ */
+const forwardedFor = { value: "203.0.113.7, 10.0.0.1" };
 vi.mock("next/headers", () => ({
-  headers: async () => new Map([["x-forwarded-for", "203.0.113.7, 10.0.0.1"]]),
+  headers: async () => new Map([["x-forwarded-for", forwardedFor.value]]),
 }));
 
 const { signInAction } = await import("../auth-actions");
@@ -81,6 +91,7 @@ beforeEach(() => {
   rows.clear();
   signInWithPassword.mockReset();
   findUnique.mockClear();
+  forwardedFor.value = "203.0.113.7, 10.0.0.1";
 });
 
 describe("signInAction throttling", () => {
@@ -130,6 +141,30 @@ describe("signInAction throttling", () => {
   it("counts against the calling IP as well as the address", async () => {
     rejectCredentials();
     await signInAction(CREDENTIALS);
-    expect([...rows.keys()].sort()).toEqual(["email:victim@example.com", "ip:203.0.113.7"]);
+    expect([...rows.keys()].sort()).toEqual(["email:victim@example.com", "ip:10.0.0.1"]);
+  });
+
+  it("takes the hop the proxy wrote, not the one the caller sent", async () => {
+    // The whole per-IP allowance used to be opt-in. Reading the FIRST hop meant one header minted
+    // a fresh bucket per request (so IP_MAX_ATTEMPTS never fired) and the same header could point
+    // the lockout at a member company's office address instead.
+    rejectCredentials();
+    forwardedFor.value = "198.51.100.99, 10.0.0.1";
+
+    await signInAction(CREDENTIALS);
+
+    expect([...rows.keys()]).toContain("ip:10.0.0.1");
+    expect([...rows.keys()]).not.toContain("ip:198.51.100.99");
+  });
+
+  it("keeps counting the address when there is no usable IP at all", async () => {
+    // A deployment with the port published directly sees no header, and a crafted one can be junk.
+    // Contributing no IP key is deliberate; dropping the ADDRESS key with it would not be.
+    rejectCredentials();
+    forwardedFor.value = "not-an-address";
+
+    await signInAction(CREDENTIALS);
+
+    expect([...rows.keys()]).toEqual(["email:victim@example.com"]);
   });
 });

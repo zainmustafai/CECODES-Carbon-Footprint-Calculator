@@ -182,8 +182,13 @@ export async function destroyAllSessionsForUser(userId: string): Promise<number>
 /**
  * How the cookie is written.
  *
- * `secure` only in production, because local development runs over plain http and a secure
- * cookie there is simply never sent, which looks exactly like a broken sign-in.
+ * `secure` everywhere EXCEPT development, which is the opposite way round from asking whether
+ * NODE_ENV is exactly "production". Development is the one environment that genuinely needs the
+ * flag off: it runs over plain http, where a secure cookie is simply never sent and the sign-in
+ * looks broken. Every other value is a container someone built or started with NODE_ENV unset, or
+ * set to "staging", or to anything at all, and shipping that deployment a plaintext session cookie
+ * over TLS is a silent downgrade nobody would look for. Naming the exemption fails closed; naming
+ * the one safe value failed open.
  *
  * `sameSite: "lax"` rather than "strict": nothing in this app is a cross-site POST, so strict
  * costs nothing there, but it also withholds the cookie on a top-level navigation that arrived
@@ -200,7 +205,7 @@ export function sessionCookieOptions(expiresAt: Date): {
   return {
     // No client script has any reason to read this, and script cannot be allowed to exfiltrate it.
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV !== "development",
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
