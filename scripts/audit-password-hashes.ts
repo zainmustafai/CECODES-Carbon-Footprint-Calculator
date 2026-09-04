@@ -15,37 +15,10 @@
 import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/lib/generated/prisma/client";
+import { classifyHash, costPrefix } from "../src/lib/auth/hash-shape";
 
-// $2a$ is what GoTrue produced; $2b$ is what bcryptjs produces now; $2y$ is another
-// bcrypt-compatible variant seen in the wild. All three are 60 characters with a two-digit cost.
-// Anything else cannot be verified and would lock its owner out silently.
-const WELL_FORMED = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
-
-export type HashClass = "well-formed" | "missing" | "malformed";
-
-/**
- * Classifies one stored `passwordHash` value with no side effects: no database, no I/O, no
- * randomness. Kept separate from `main` so the classification rule itself, which is the one
- * thing this whole audit rests on, can be tested directly against a table of hash shapes
- * without a database connection.
- *
- * "missing" is survivable, since that user resets their password. "malformed" is not: a
- * malformed value is still read as a credential by verifyPassword and will never match anything,
- * silently locking its owner out.
- */
-export function classifyHash(hash: string | null | undefined): HashClass {
-  if (!hash) return "missing";
-  return WELL_FORMED.test(hash) ? "well-formed" : "malformed";
-}
-
-/**
- * The algorithm and cost prefix of a well-formed hash, for example "$2a$12$". Never call this on
- * anything classifyHash did not already call "well-formed": it assumes the hash is at least 7
- * characters long.
- */
-export function costPrefix(hash: string): string {
-  return hash.slice(0, 7);
-}
+// classifyHash and costPrefix live in src/lib/auth/hash-shape.ts, tested there directly against a
+// table of hash shapes. This file owns only the query and the printing.
 
 async function main() {
   const adapter = new PrismaPg({
@@ -53,7 +26,18 @@ async function main() {
   });
   const prisma = new PrismaClient({ adapter });
 
-  const users = await prisma.appUser.findMany({ select: { passwordHash: true } });
+  // The one place this script could leak something it should not: a query failure surfaces
+  // through pg and the driver adapter, and nothing here controls what text they put on that
+  // error, only that this file must never repeat it. So the caught value itself is never touched,
+  // logged, or included in the process exit path; only a fixed message that names no value is.
+  let users: Array<{ passwordHash: string | null }>;
+  try {
+    users = await prisma.appUser.findMany({ select: { passwordHash: true } });
+  } catch {
+    console.error("FAILED: could not read app_users. Check the database connection and retry.");
+    await prisma.$disconnect();
+    process.exit(1);
+  }
 
   let ok = 0;
   let malformed = 0;
@@ -92,9 +76,9 @@ async function main() {
   console.log("\nOK: every stored credential is verifiable bcrypt.");
 }
 
-// Guarded so the pure classification functions above can be imported (for example by a test)
-// without also opening a database connection. Compared as URLs rather than raw paths because that
-// is what normalizes drive letters and slash direction consistently across platforms.
+// Guarded so this module can be imported without opening a database connection as a side effect.
+// Compared as URLs rather than raw paths because that is what normalizes drive letters and slash
+// direction consistently across platforms.
 const isEntryPoint =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
