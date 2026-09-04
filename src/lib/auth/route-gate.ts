@@ -1,5 +1,8 @@
+import { NextResponse, type NextRequest } from "next/server";
 import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
 import { POST_LOGIN_PATH } from "@/lib/routes";
+import { SESSION_COOKIE, readSession } from "@/lib/auth/session";
+import { reportError } from "@/lib/observability/report-error";
 
 // Which paths a visitor may reach, and where they go when they may not. There is no provider in
 // this file, and no request either: every rule below is a function of a pathname and one boolean.
@@ -122,4 +125,79 @@ export function decideRoute({
   if (signedIn && isAuthPage(pathname)) return { kind: "redirect", to: POST_LOGIN_PATH };
 
   return { kind: "allow" };
+}
+
+/**
+ * Turns a gate decision into the response that is actually sent.
+ *
+ * `refreshed` is the response the provider has been writing cookies onto. A redirect has to take
+ * those cookies with it by hand, because NextResponse.redirect() starts with none: a Supabase
+ * token rotated during this request would otherwise be dropped, and the browser would come back
+ * carrying the stale one it still holds. Under the local provider there is nothing to refresh and
+ * the copy loop finds nothing, which is why this is one helper rather than one per provider.
+ *
+ * Exported so its cookie-carrying behaviour can be proven directly: nothing gate() does today
+ * hands it a refreshed response that actually holds a cookie, so a test that only calls gate()
+ * would never exercise the forEach below.
+ */
+export function applyDecision(
+  request: NextRequest,
+  decision: GateDecision,
+  refreshed: NextResponse,
+): NextResponse {
+  if (decision.kind === "allow") return refreshed;
+
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = decision.to;
+  redirectUrl.search = "";
+  const response = NextResponse.redirect(redirectUrl);
+  refreshed.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
+}
+
+/**
+ * Whether the caller holds a live session of ours.
+ *
+ * A store that cannot answer must not be able to admit anybody, so a lookup that throws reads as
+ * "not signed in" rather than as an exception thrown out of the proxy, whose handling belongs to
+ * the framework and is not ours to depend on. The blast radius of a database outage is then that
+ * everyone looks signed out and no protected path is served; no cookie and no session row is
+ * touched, so the first request after it recovers signs them back in.
+ */
+async function hasLocalSession(request: NextRequest): Promise<boolean> {
+  try {
+    return (await readSession(request.cookies.get(SESSION_COOKIE)?.value)) !== null;
+  } catch (error) {
+    // The pathname is safe to log. The cookie value is the session itself and never is.
+    reportError({
+      where: "proxy route gate",
+      error,
+      context: { pathname: request.nextUrl.pathname },
+    });
+    return false;
+  }
+}
+
+/**
+ * AUTH_PROVIDER=local. The session is a row in our own database (src/lib/auth/session.ts), so
+ * there is no token to refresh, no Supabase client to build and no outbound round trip to make.
+ *
+ * The 503 below deliberately does not apply on this path: nothing here reads
+ * NEXT_PUBLIC_SUPABASE_URL or its anon key, so refusing every request over them would be a
+ * failure the check invented rather than one it caught. They are still REQUIRED at boot in every
+ * mode, though (runtimeSchema in src/lib/env.ts, enforced by src/instrumentation.ts), so a
+ * deployment that omits them never reaches this function; it exits at startup instead. Relaxing
+ * that is the last commit of this migration, and this branch is what has to already be here
+ * before that commit can land.
+ *
+ * The cost is one indexed lookup per matched request, which readSession explains. Reading Prisma
+ * from here is possible at all because Next 16 runs the proxy on the Node runtime.
+ */
+export async function gate(request: NextRequest): Promise<NextResponse> {
+  const signedIn = await hasLocalSession(request);
+  return applyDecision(
+    request,
+    decideRoute({ pathname: request.nextUrl.pathname, signedIn }),
+    NextResponse.next({ request }),
+  );
 }
