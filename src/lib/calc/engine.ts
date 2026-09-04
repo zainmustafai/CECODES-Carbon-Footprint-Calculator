@@ -9,6 +9,15 @@ import { CH4_GWP_RULE, usesNonFossilCh4, type Ch4Rule } from "@/lib/calc/ch4-rul
 // This is the CORE per-source step. The full engine (roll-ups, electricity-by-year,
 // distance/spend-based Scope 3, unit conversions) is built on top and MUST reproduce
 // the Excel's totals (parity - §14).
+//
+// ON `number` HERE, NEXT TO A RULE THAT SAYS NEVER `number`: rule 8 governs storing and moving a
+// quantity, not computing with one. Every value arrives as a Decimal string and is parsed to a
+// double at the call site (parseActivity and toFactorInput in rollup.ts, toNumber in preview.ts
+// and load-report.ts). That is deliberate. Excel is IEEE-754 double precision, and reproducing
+// its totals is the acceptance test, so a Decimal engine would round differently from the
+// workbook it has to agree with. What must never happen is the return trip: a double computed
+// here is for display, export and comparison, and is converted back to a Decimal before it can
+// reach a NUMERIC column. See "Where the Decimal boundary stops" in IMPLEMENTATION.md.
 
 export interface FactorInput {
   co2Factor?: number | null; // kg CO2 / unit

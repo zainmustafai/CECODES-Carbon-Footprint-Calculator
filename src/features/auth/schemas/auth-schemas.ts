@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { PASSWORD_MIN } from "./auth-server-schemas";
+
+// The browser half of the auth rules: same constraints as auth-server-schemas.ts, but phrased for
+// a human and localized. The server does not trust any of it. PASSWORD_MIN is imported rather
+// than repeated so the two halves cannot drift, which is exactly how the documented minimum came
+// to exist only on this side.
 
 // Translator for the "auth.validation" namespace (keeps messages localized).
 type T = (key: string) => string;
@@ -15,7 +21,7 @@ export function registerSchema(t: T) {
   return z
     .object({
       email: z.string().min(1, t("emailRequired")).email(t("emailInvalid")),
-      password: z.string().min(8, t("passwordMin")),
+      password: z.string().min(PASSWORD_MIN, t("passwordMin")),
       confirmPassword: z.string().min(1, t("passwordRequired")),
     })
     .refine((values) => values.password === values.confirmPassword, {
@@ -35,7 +41,7 @@ export type ForgotPasswordValues = z.infer<ReturnType<typeof forgotPasswordSchem
 export function resetPasswordSchema(t: T) {
   return z
     .object({
-      password: z.string().min(8, t("passwordMin")),
+      password: z.string().min(PASSWORD_MIN, t("passwordMin")),
       confirmPassword: z.string().min(1, t("passwordRequired")),
     })
     .refine((values) => values.password === values.confirmPassword, {

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { securityHeaders } from "./src/lib/security-headers";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -21,6 +22,12 @@ const nextConfig: NextConfig = {
   // Pin the workspace root to this project (a stray bun.lock in the home dir confuses Turbopack).
   turbopack: {
     root: import.meta.dirname,
+  },
+  // Clickjacking, protocol downgrade and MIME sniffing defences, applied to every route.
+  // The list itself is in src/lib/security-headers.ts so it can be tested; see the comment
+  // there for why there is no script-src.
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders() }];
   },
 };
 

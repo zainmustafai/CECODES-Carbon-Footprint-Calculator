@@ -212,6 +212,9 @@ Two more, specific to this domain:
 8. **Every quantity and every factor is a Prisma `Decimal`**, which is a Postgres
    `NUMERIC`. Never `Int`, never `Float`, never a JavaScript `number`. The previous
    prototype stored integers and silently destroyed every decimal a company entered.
+   This governs storage, transport, and validation. The calculation engine deliberately
+   works in doubles, and [where the boundary stops](#where-the-decimal-boundary-stops)
+   says exactly where the change of representation is allowed to happen.
 
 9. **Every total shown to a user is in tonnes (`t CO2e`).** Kilograms are an intermediate
    unit only. Convert with `kgToTonnes` before display.
@@ -404,6 +407,26 @@ own it, and the next person who runs a schema tool will lose it.
 
 Never edit an applied migration. Prisma stores its checksum.
 
+### The one-shot correction scripts in `prisma/`
+
+Files named `fix-*`, `reapply-*` and `repoint-*` are historical data corrections, each written
+for one incident and already applied. They are kept rather than deleted because each one is the
+audit trail for a change to real factor values, and its header comment is the only written
+record of why the numbers moved.
+
+Every one of them follows the same two rules, and any new one must:
+
+- **A run with no flag writes nothing.** It prints the plan and stops; `--apply` is required to
+  write. There is no `db:` alias for any of them, deliberately: running one has to be a decision,
+  not a tab-completion.
+- **A second run is a no-op.** Each writes an `EmissionFactorChange` row stamped with its own
+  marker (`correccion-km-1609`, `correccion-nombre-sin-2026-08-24`) and skips any factor that
+  already carries it, or else selects on a condition its own success removes.
+
+So the answer to "what happens if a new maintainer runs one of these?" is: it prints what it
+would have done in 2026 and exits. That is the intended behaviour, and it is what makes them
+safe to keep next to the seeds.
+
 New tenant tables get an RLS policy block mirroring `activity_entries`, for consistency,
 even though RLS is inert through Prisma.
 
@@ -553,6 +576,41 @@ non negative, at most six decimal places, at most fourteen integer digits. It re
 `1e400`, `Infinity`, `NaN`, and `abc` by construction. Postgres silently rounds a seventh
 decimal but raises `22003` past fourteen integer digits, so both are caught before the
 driver. A Colombian decimal comma normalizes to a dot.
+
+### Where the Decimal boundary stops
+
+Rule 8 is about **storing and moving** a number, not about arithmetic. The two halves meet at
+one line per call site, and that line is the whole rule:
+
+```
+Postgres NUMERIC ─ Decimal ─ string ─┬─ Number()  ─ double ─ arithmetic ─ display
+                                     │  the boundary
+                                     └─ back to Decimal for any WRITE
+```
+
+**Decimal owns** the column, the Prisma value, the string that crosses the RSC boundary, the
+form field, the Zod schema, and the value a Server Action writes back. Nothing in that path
+may pass through `Number()`; six decimal places of a company's entry are lost the moment it
+does.
+
+**Doubles own** the arithmetic: `src/lib/calc/engine.ts` and everything built on it
+(`rollup.ts`, `preview.ts`, `fuel.ts`, the report loaders, `build-workbook.ts`). This is
+deliberate, and reversing it would be a bug, not an improvement. Excel is itself IEEE-754
+double precision, and §14 makes reproducing the Excel's totals the acceptance test. A Decimal
+engine would round differently from the workbook it must agree with, and `parity.test.ts`
+would start failing for reasons that have nothing to do with the domain.
+
+The conversion happens in exactly three kinds of place, each of which parses defensively so a
+blank or malformed value contributes zero rather than poisoning a sum with `NaN`:
+`parseActivity` and `toFactorInput` in `rollup.ts`, `toNumber` in `preview.ts` and
+`load-report.ts`, and the cell formatters in the exporters.
+
+**The line you may not cross:** a double that came out of the engine never goes back into a
+`NUMERIC` column. Today nothing writes one - `ResultSnapshot` exists in the schema and has no
+writer - and that is the state to preserve. When a snapshot writer is added, it converts the
+computed total back to a `Decimal` at the boundary (`new Prisma.Decimal(total.toFixed(6))`,
+matching `Decimal(20,6)`) rather than handing Prisma a float. Everything else about rule 8
+follows from that one sentence.
 
 ### Missing grid electricity factor
 

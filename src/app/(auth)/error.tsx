@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { ErrorScreen } from "@/components/feedback/error-screen";
+import { reportError } from "@/lib/observability/report-error";
 
 // Error boundary for the login, register, forgot and reset screens.
 export default function AuthError({
@@ -15,7 +16,7 @@ export default function AuthError({
   const t = useTranslations("errorPages.boundary");
 
   useEffect(() => {
-    console.error("auth error boundary", error.digest, error);
+    reportError({ where: "auth error boundary", error });
   }, [error]);
 
   return (

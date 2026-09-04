@@ -5,6 +5,7 @@ import { loadReport } from "@/features/reports/lib/load-report";
 import { buildCsv, buildWorkbook } from "@/features/reports/lib/build-workbook";
 import { buildPdf } from "@/features/reports/lib/build-pdf";
 import type { Scope } from "@/lib/generated/prisma/client";
+import { reportError } from "@/lib/observability/report-error";
 
 const SCOPES: Scope[] = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof ScopeError) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
-    console.error("[reports/export]", error);
+    reportError({ where: "reports/export", error });
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }
 }

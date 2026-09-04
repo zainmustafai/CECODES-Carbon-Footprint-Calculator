@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportError } from "@/lib/observability/report-error";
 
 // The last resort: this replaces the ROOT layout when it is the root layout that failed.
 //
@@ -30,7 +31,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("global error boundary", error.digest, error);
+    reportError({ where: "global error boundary", error });
   }, [error]);
 
   return (

@@ -120,9 +120,11 @@
     },
     "errors": {
       "invalidCredentials": "Wrong email or password.",
+      "tooManyAttempts": "Too many failed attempts. Wait 15 minutes and try again.",
       "emailInUse": "An account with this email already exists.",
       "accountDisabled": "Your account was deactivated. Contact CECODES.",
       "registrationDisabled": "Registration is managed by CECODES. Write to us to get your account.",
+      "invalidInput": "Check the details you entered and try again.",
       "generic": "Something went wrong. Please try again."
     },
     "toasts": {

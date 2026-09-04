@@ -45,7 +45,10 @@ not evidence a feature works.
    `kgToTonnes`.
 4. **Quantities and factors are Prisma `Decimal` (Postgres NUMERIC).** Never Int, Float, or a
    JavaScript number. Decimals cross the RSC boundary as **strings** (`.toString()`, never
-   `Number()`).
+   `Number()`). That rule governs storage and transport. The calc engine works in doubles on
+   purpose, because Excel does and parity is the acceptance test; IMPLEMENTATION.md "Where the
+   Decimal boundary stops" says where the change of representation is allowed. A computed
+   double never goes back into a NUMERIC column.
 5. **Element names and units come from the factor library** (exact Excel names). Nothing
    hardcoded.
 

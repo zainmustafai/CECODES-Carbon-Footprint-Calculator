@@ -540,3 +540,29 @@ model ResultSnapshot {
   @@index([companyId])
   @@map("result_snapshots")
 }
+
+// ---------------------------------------------------------------------------
+// Sign-in throttling - not tenant data, and deliberately not linked to AppUser
+// ---------------------------------------------------------------------------
+
+// One row per throttled key: "email:<address>" or "ip:<address>". Sign-in runs through a Server
+// Action, so Supabase sees this server's IP for every user in the system and its own per-IP
+// brute-force protection is pooled across all of them. The counting therefore happens here,
+// before the password is forwarded. The arithmetic is in src/lib/auth/throttle-policy.ts.
+//
+// The key is a plain string rather than a foreign key to AppUser on purpose: an address that has
+// no account must be counted too, or an attacker learns which addresses exist by watching which
+// ones can be locked out.
+model AuthThrottle {
+  key             String    @id
+  attempts        Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lockedUntil     DateTime?
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  // Supports pruning rows nobody has touched in a while. Nothing prunes today: a row is reset in
+  // place on its next use, so the table stays proportional to the number of addresses seen, and
+  // a DELETE by this index is a one-liner whenever that stops being true.
+  @@index([updatedAt])
+  @@map("auth_throttle")
+}
