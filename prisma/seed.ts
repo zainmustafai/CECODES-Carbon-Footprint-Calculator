@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Scope, GwpSet, Role } from "../src/lib/generated/prisma/client";
 import { hashPassword, verifyPassword } from "../src/lib/auth/password";
+import { generateTempPassword } from "../src/lib/generate-password";
 
 // Seed starter reference data. Safe to re-run (idempotent).
 // The full emission-factor library is loaded separately once CECODES confirms the dataset.
@@ -96,45 +97,75 @@ async function seedAdmin() {
   // ADMIN_EMAIL carrying a capital would otherwise produce the one row no sign-in can ever reach,
   // on the one account that is the only way into the app.
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.ADMIN_PASSWORD;
+  // "" reads as unset, the same rule env.ts's optionalVar applies: an operator turning this off
+  // empties the line rather than deleting it, and docker compose passes that through as "".
+  const rawPassword = process.env.ADMIN_PASSWORD?.trim();
 
-  // Fail loudly. This used to warn and return, so `db:seed` exited 0 with no admin created - a
-  // deployment could report success while nobody on earth could log in. There is no self-serve
-  // registration (FEATURE_SELF_ONBOARDING is false), so the seeded admin is the ONLY way in.
+  // Fail loudly on a missing email. This used to warn and return, so `db:seed` exited 0 with no
+  // admin created - a deployment could report success while nobody on earth could log in. There
+  // is no self-serve registration (FEATURE_SELF_ONBOARDING is false), so the seeded admin is the
+  // ONLY way in. ADMIN_PASSWORD no longer belongs in this check: an unset password now means
+  // "generate one", handled below.
   //
   // SEED_SKIP_ADMIN=true is the deliberate escape for local work against a database whose admin
   // already exists; it has to be typed on purpose, which is the point.
-  if (!email || !password) {
+  if (!email) {
     if (process.env.SEED_SKIP_ADMIN === "true") {
       console.warn("Admin seed skipped: SEED_SKIP_ADMIN=true was set explicitly.");
       return;
     }
-    const missing = [!email && "ADMIN_EMAIL", !password && "ADMIN_PASSWORD"].filter(Boolean);
     throw new Error(
-      `Cannot seed the admin account. Missing: ${missing.join(", ")}.\n` +
+      `Cannot seed the admin account. Missing: ADMIN_EMAIL.\n` +
         `Without an admin there is no way to sign in, because self-serve registration is off.\n` +
-        `Set these in .env.local, or set SEED_SKIP_ADMIN=true if you know one already exists.`,
+        `Set this in .env.local, or set SEED_SKIP_ADMIN=true if you know one already exists.`,
     );
   }
-
-  // Hashed unconditionally: app_users.passwordHash IS the credential now, there being no other
-  // store for it to defer to.
-  const { hash, algo } = await hashPassword(password);
 
   const existing = await prisma.appUser.findUnique({
     where: { email },
     select: { id: true, emailConfirmedAt: true, passwordHash: true, passwordAlgo: true },
   });
 
+  // The only signal the banner below is allowed to fire on: this run is what brings the row into
+  // existence, not a later restart that merely finds it again.
+  const created = !existing;
   const id = existing?.id ?? randomUUID();
 
   // Recorded once and never moved. Nobody is mailed a link here - the password comes from
-  // .env.local and the account works the moment it exists - so the timestamp says when that
-  // happened. Rewriting it on every run would overwrite the confirmation date the credential
-  // backfill carried across from GoTrue with the date of the last seed.
+  // .env.local (or is generated below) and the account works the moment it exists - so the
+  // timestamp says when that happened. Rewriting it on every run would overwrite the confirmation
+  // date the credential backfill carried across from GoTrue with the date of the last seed.
   const emailConfirmedAt = existing?.emailConfirmedAt ?? new Date();
 
-  // Whether ADMIN_PASSWORD is already the stored password, asked before anything is written.
+  // ADMIN_PASSWORD unset means "generate one". This is the single place in the codebase allowed
+  // to print a credential, and it is a deliberate exception: the alternative is a fixed default
+  // admin password, which on a public VPS is a backdoor. It fires only when the variable is
+  // unset, only when the admin does not already exist, and prints once (see the banner below).
+  const generated = created && !rawPassword;
+
+  if (!rawPassword && !created) {
+    // No password to apply, and an admin that already exists. Regenerating one here on every
+    // restart would silently invalidate the previous run's credential (generated or typed) with
+    // nothing printed to explain it, which is worse than leaving the stored hash exactly as it
+    // is. Role and email confirmation still get enforced, same as the branch below.
+    await prisma.appUser.update({
+      where: { id },
+      data: { role: Role.CECODES_ADMIN, email, emailConfirmedAt },
+    });
+    console.log("Admin ✓  (password unchanged, ADMIN_PASSWORD not set)");
+    return;
+  }
+
+  const adminPassword = rawPassword ?? generateTempPassword(24);
+
+  // Hashed unconditionally: app_users.passwordHash IS the credential now, there being no other
+  // store for it to defer to.
+  const { hash, algo } = await hashPassword(adminPassword);
+
+  // Whether the password already stored is the one now in force, asked before anything is
+  // written. A freshly generated password never matches an existing hash, so this only ever
+  // short-circuits the ADMIN_PASSWORD-set path below; the created path has no existing hash to
+  // compare against and always writes.
   //
   // This runs on EVERY container start (scripts/init-db.ts step 4), and app_users.passwordHash IS
   // the credential, there being no other store for it to defer to. So an unconditional rewrite
@@ -147,7 +178,8 @@ async function seedAdmin() {
   // Reverting to .env stays deliberate: on a self-hosted box .env is how an operator recovers an
   // admin account nobody can get into, and taking that away would leave no way back. What changes
   // is that the revert is now honest about being one.
-  const alreadyCurrent = await verifyPassword(password, existing?.passwordHash, existing?.passwordAlgo);
+  const alreadyCurrent =
+    !created && (await verifyPassword(adminPassword, existing?.passwordHash, existing?.passwordAlgo));
 
   // Force the profile role to CECODES_ADMIN (an existing row may predate this seed and hold the
   // default COMPANY_USER role).
@@ -179,6 +211,23 @@ async function seedAdmin() {
       await tx.passwordResetToken.deleteMany({ where: { userId: id } });
     }
   });
+
+  if (generated && created) {
+    // The one documented exception to this project's rule against printing credentials. A fixed
+    // default admin password on a public VPS is a backdoor; a generated one printed once to a log
+    // the operator must already read (docker compose logs init) is not. Guarded so it can only
+    // ever fire on the run that creates the row, never on a later restart that merely finds it.
+    console.log("");
+    console.log("  ============================================================");
+    console.log("   ADMIN ACCOUNT CREATED");
+    console.log(`   email:    ${email}`);
+    console.log(`   password: ${adminPassword}`);
+    console.log("   Sign in and change this now. It is not shown again.");
+    console.log("   Set ADMIN_PASSWORD in .env to choose your own instead.");
+    console.log("  ============================================================");
+    console.log("");
+    return;
+  }
 
   // ADMIN_EMAIL used to be printed here. Seed output is exactly the sort of text that gets pasted
   // into a chat window to show a deployment worked, and the address belongs to a real person.

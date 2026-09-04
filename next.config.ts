@@ -18,9 +18,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./src/lib/mail/templates/**"],
   },
-  // handlebars compiles templates with new Function, which a bundler cannot follow. Leaving it
-  // external keeps it a plain node_modules require at runtime.
-  serverExternalPackages: ["handlebars"],
+  // handlebars compiles templates with new Function, which a bundler cannot follow. nodemailer
+  // does its own dynamic requires for transport implementations it may never use. Both are
+  // things a bundler cannot follow, so both stay a plain node_modules require at runtime.
+  serverExternalPackages: ["handlebars", "nodemailer"],
   // NOTE ON CACHING (deliberate): cacheComponents (PPR / `use cache`) is NOT enabled. It is a
   // whole-app switch: with it on, every uncached dynamic read must sit under a Suspense boundary
   // or the route fails to prerender. This app reads auth cookies directly in its layouts (the

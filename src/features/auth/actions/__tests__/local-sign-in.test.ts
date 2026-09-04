@@ -444,6 +444,7 @@ describe("signOutAction in local mode", () => {
 
 describe("requestPasswordResetAction in local mode", () => {
   beforeEach(() => {
+    vi.stubEnv("MAIL_TRANSPORT", "resend");
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
     // Without a configured origin the link would be a bare path, which is also what a deployment
@@ -960,6 +961,7 @@ describe("re-authenticating the signed-in password change", () => {
 
 describe("the reset request has its own allowance", () => {
   beforeEach(() => {
+    vi.stubEnv("MAIL_TRANSPORT", "resend");
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
     vi.stubEnv("SITE_URL", "https://huella.example.org");

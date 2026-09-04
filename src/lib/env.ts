@@ -45,6 +45,18 @@ function optionalVar<T extends z.ZodType>(schema: T) {
  */
 type EnvSource = Record<string, string | undefined>;
 
+const MAIL_TRANSPORTS = ["smtp", "resend", "none"] as const;
+
+/**
+ * Where outbound mail goes. Unset means "none", so a deployment that has never configured mail
+ * runs normally and refuses password resets up front rather than accepting one it cannot deliver.
+ */
+export type MailTransport = (typeof MAIL_TRANSPORTS)[number];
+
+const mailTransportSchema = z.enum(MAIL_TRANSPORTS, {
+  message: "MAIL_TRANSPORT must be one of: smtp, resend, none",
+});
+
 /** Variables the app cannot serve a single authenticated request without. */
 const runtimeSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
@@ -80,19 +92,26 @@ const runtimeSchema = z.object({
       message: "MAIL_FROM must contain an email address",
     }),
   ),
+  MAIL_TRANSPORT: optionalVar(mailTransportSchema),
+  SMTP_HOST: optionalVar(z.string()),
+  SMTP_PORT: optionalVar(z.coerce.number().int().positive().max(65535)),
+  SMTP_USER: optionalVar(z.string()),
+  SMTP_PASSWORD: optionalVar(z.string()),
 })
-  // Both or neither, enforced where it can still be seen. Half a mail configuration is always a
-  // mistake and never a state anyone chose, but nothing downstream can raise it: sendMail() warns
-  // to the log only once a user has already asked for a reset, and mailConfigured() simply answers
-  // no. So a key with a misspelt MAIL_FORM beside it boots clean, every page works, and password
-  // reset is dead until somebody reads the logs. This is the one line that says so at boot.
+  // Half a mail configuration is always a mistake and never a state anyone chose, and nothing
+  // downstream can raise it: sendMail() warns only once a user has already asked for a reset.
+  // This is the one line that says so at boot.
   .superRefine((env, ctx) => {
-    if (Boolean(env.RESEND_API_KEY) === Boolean(env.MAIL_FROM)) return;
-    const missing = env.RESEND_API_KEY ? "MAIL_FROM" : "RESEND_API_KEY";
-    ctx.addIssue({
-      code: "custom",
-      message: `${missing} is required whenever the other half of the mail configuration is set`,
-    });
+    const transport = env.MAIL_TRANSPORT ?? "none";
+    if (transport === "none") return;
+
+    const required =
+      transport === "resend" ? (["RESEND_API_KEY", "MAIL_FROM"] as const) : (["SMTP_HOST", "MAIL_FROM"] as const);
+    for (const name of required) {
+      if (!env[name]) {
+        ctx.addIssue({ code: "custom", message: `${name} is required when MAIL_TRANSPORT=${transport}` });
+      }
+    }
   });
 
 /**
@@ -101,7 +120,9 @@ const runtimeSchema = z.object({
 function initSchemaFor() {
   return runtimeSchema.extend({
     ADMIN_EMAIL: z.email("ADMIN_EMAIL must be an email address"),
-    ADMIN_PASSWORD: z.string().min(12, "ADMIN_PASSWORD must be at least 12 characters"),
+    // Optional, because init generates one when it is unset (and prints it once). A value that IS
+    // provided must still be usable, so the length rule stays on the present case only.
+    ADMIN_PASSWORD: optionalVar(z.string().min(12, "ADMIN_PASSWORD must be at least 12 characters")),
   });
 }
 
@@ -152,17 +173,27 @@ export function validateInitEnv(source: EnvSource = process.env) {
   return parsed.data;
 }
 
+/** The transport in force. Unset, or unreadable, answers "none". */
+export function mailTransport(source: EnvSource = process.env): MailTransport {
+  const parsed = mailTransportSchema.safeParse(source.MAIL_TRANSPORT?.trim());
+  return parsed.success ? parsed.data : "none";
+}
+
 /**
- * Whether password-reset mail can be sent at all.
- *
- * Both variables or neither: a key with no From address cannot address a message, and a From
- * address with no key cannot send one. Half a configuration cannot reach a deployed app, because
- * runtimeSchema above refuses to boot on it; this answers the remaining question, whether mail was
- * configured at all. Callers check it before writing a token row, so a deployment with no mail
- * refuses the reset up front rather than telling a user to watch an inbox nothing will arrive in.
+ * Whether mail can be sent at all. Callers check it before writing a token row, so a deployment
+ * with no mail refuses the reset up front rather than telling a user to watch an inbox nothing
+ * will arrive in.
  */
 export function mailConfigured(source: EnvSource = process.env): boolean {
-  return Boolean(source.RESEND_API_KEY?.trim() && source.MAIL_FROM?.trim());
+  const from = Boolean(source.MAIL_FROM?.trim());
+  switch (mailTransport(source)) {
+    case "smtp":
+      return from && Boolean(source.SMTP_HOST?.trim());
+    case "resend":
+      return from && Boolean(source.RESEND_API_KEY?.trim());
+    default:
+      return false;
+  }
 }
 
 /** Variable names the init job reports as present, so a log shows what was configured. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mailConfigured, validateInitEnv, validateRuntimeEnv } from "../env";
+import { mailConfigured, mailTransport, validateInitEnv, validateRuntimeEnv } from "../env";
 
 // This contract is the app's only chance to refuse a bad deployment: src/instrumentation.ts calls
 // validateRuntimeEnv() once and exits non-zero if it throws. Everything it lets through boots and
@@ -20,9 +20,6 @@ describe("validateRuntimeEnv", () => {
     expect(boot()).not.toThrow();
   });
 
-  // MAIL_TRANSPORT is not yet a field this schema reads (that lands with Task 4's transport-aware
-  // mailConfigured()); passed here only to prove that an unrecognized variable never blocks a
-  // boot that is otherwise valid.
   it("boots with no Supabase variables at all", () => {
     expect(() =>
       validateRuntimeEnv({
@@ -105,43 +102,72 @@ describe("validateRuntimeEnv", () => {
     });
   });
 
-  describe("the mail pair", () => {
-    it("boots with both set and with neither", () => {
+  describe("the mail transport", () => {
+    it("boots with no transport selected, and with either transport fully configured", () => {
       expect(boot()).not.toThrow();
       expect(
-        boot({ RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES <no-reply@example.org>" }),
+        boot({
+          MAIL_TRANSPORT: "resend",
+          RESEND_API_KEY: "re_live_key",
+          MAIL_FROM: "CECODES <no-reply@example.org>",
+        }),
+      ).not.toThrow();
+      expect(
+        boot({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "mailpit", MAIL_FROM: "CECODES <no-reply@example.org>" }),
       ).not.toThrow();
     });
 
-    // Half a mail configuration is always a mistake, and it is invisible everywhere else: the app
-    // boots, every page works, and password reset is quietly dead until somebody reads a log line
-    // that only appears once a user has already asked for one.
-    it("refuses half a configuration, naming the missing half", () => {
-      expect(boot({ RESEND_API_KEY: "re_live_key" })).toThrow(/MAIL_FROM/);
-      expect(boot({ MAIL_FROM: "CECODES <no-reply@example.org>" })).toThrow(/RESEND_API_KEY/);
+    // Selecting a transport is what turns its pair into a requirement. Setting the resend
+    // variables with no MAIL_TRANSPORT leaves mail simply off (mailConfigured() answers false),
+    // rather than half-configured: nobody chose resend, so there is nothing to refuse yet.
+    it("boots with mail variables set but no transport selected", () => {
+      expect(boot({ RESEND_API_KEY: "re_live_key" })).not.toThrow();
+    });
+
+    // Half a mail configuration is always a mistake once a transport is chosen, and it is
+    // invisible everywhere else: the app boots, every page works, and password reset is quietly
+    // dead until somebody reads a log line that only appears once a user has already asked for one.
+    it("refuses half a resend configuration, naming the missing half", () => {
+      expect(boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" })).toThrow(/MAIL_FROM/);
+      expect(
+        boot({ MAIL_TRANSPORT: "resend", MAIL_FROM: "CECODES <no-reply@example.org>" }),
+      ).toThrow(/RESEND_API_KEY/);
+    });
+
+    it("refuses half an smtp configuration, naming the missing half", () => {
+      expect(boot({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "mailpit" })).toThrow(/MAIL_FROM/);
+      expect(
+        boot({ MAIL_TRANSPORT: "smtp", MAIL_FROM: "CECODES <no-reply@example.org>" }),
+      ).toThrow(/SMTP_HOST/);
     });
 
     // A From header is normally "Name <address>", which is not an email address by itself, so the
     // only shape worth rejecting is one with no address in it at all.
     it("accepts a display-name From and rejects one with no address", () => {
       expect(
-        boot({ RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES <no-reply@example.org>" }),
+        boot({
+          MAIL_TRANSPORT: "resend",
+          RESEND_API_KEY: "re_live_key",
+          MAIL_FROM: "CECODES <no-reply@example.org>",
+        }),
       ).not.toThrow();
-      expect(boot({ RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES" })).toThrow(/MAIL_FROM/);
+      expect(
+        boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES" }),
+      ).toThrow(/MAIL_FROM/);
     });
   });
 });
 
 describe("validateInitEnv", () => {
-  // ADMIN_PASSWORD stays required here: nothing in this codebase yet generates one. That is
-  // Task 4's job, not this one's.
-  it("requires ADMIN_PASSWORD, with no Supabase variable required alongside it", () => {
+  // ADMIN_PASSWORD is optional: prisma/seed.ts generates one and prints it once when it is
+  // unset. An unset variable must pass here, or that path can never run.
+  it("boots without ADMIN_PASSWORD, so init can generate one", () => {
     expect(() =>
       validateInitEnv({
         DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
         ADMIN_EMAIL: "admin@cecodes.local",
       }),
-    ).toThrow(/ADMIN_PASSWORD/);
+    ).not.toThrow();
   });
 
   it("boots on DATABASE_URL, ADMIN_EMAIL and ADMIN_PASSWORD alone, no Supabase variables", () => {
@@ -165,15 +191,43 @@ describe("validateInitEnv", () => {
   });
 });
 
+describe("mailTransport", () => {
+  it("reads the selected transport", () => {
+    expect(mailTransport({ MAIL_TRANSPORT: "resend" })).toBe("resend");
+    expect(mailTransport({ MAIL_TRANSPORT: "smtp" })).toBe("smtp");
+  });
+
+  it("answers none when unset or unreadable", () => {
+    expect(mailTransport({})).toBe("none");
+    expect(mailTransport({ MAIL_TRANSPORT: "" })).toBe("none");
+    expect(mailTransport({ MAIL_TRANSPORT: "sendgrid" })).toBe("none");
+  });
+});
+
 describe("mailConfigured", () => {
-  it("is true only when both halves carry a value", () => {
-    expect(mailConfigured({ RESEND_API_KEY: "re_live_key", MAIL_FROM: "a@example.org" })).toBe(true);
-    expect(mailConfigured({ RESEND_API_KEY: "re_live_key" })).toBe(false);
-    expect(mailConfigured({ MAIL_FROM: "a@example.org" })).toBe(false);
+  it("is false with no transport selected, even if the resend pair is set", () => {
+    expect(mailConfigured({ RESEND_API_KEY: "re_live_key", MAIL_FROM: "a@example.org" })).toBe(false);
     expect(mailConfigured({})).toBe(false);
   });
 
+  it("is true only when resend is selected and both halves carry a value", () => {
+    expect(
+      mailConfigured({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key", MAIL_FROM: "a@example.org" }),
+    ).toBe(true);
+    expect(mailConfigured({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" })).toBe(false);
+    expect(mailConfigured({ MAIL_TRANSPORT: "resend", MAIL_FROM: "a@example.org" })).toBe(false);
+  });
+
+  it("is true only when smtp is selected and both halves carry a value", () => {
+    expect(
+      mailConfigured({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "mailpit", MAIL_FROM: "a@example.org" }),
+    ).toBe(true);
+    expect(mailConfigured({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "mailpit" })).toBe(false);
+  });
+
   it("does not count a blank value as configuration", () => {
-    expect(mailConfigured({ RESEND_API_KEY: "   ", MAIL_FROM: "a@example.org" })).toBe(false);
+    expect(
+      mailConfigured({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "   ", MAIL_FROM: "a@example.org" }),
+    ).toBe(false);
   });
 });
