@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { MAX_ATTEMPTS } from "@/lib/auth/throttle-policy";
+import { IP_MAX_ATTEMPTS, MAX_ATTEMPTS } from "@/lib/auth/throttle-policy";
 
 // Sign-in checks the credential against this database, so a script working through a password
 // list burns real CPU on bcrypt for every attempt: an unmetered endpoint is a denial of service
@@ -96,7 +96,15 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }),
 }));
 
-const { signInAction } = await import("../auth-actions");
+// requestPasswordResetAction needs a deployment that CAN send mail to get past its own two guards
+// and reach the throttle write this file cares about (AUTH-17). What happens to that mail is not
+// this file's concern (local-sign-in.test.ts already drives the real send), so `after` is stubbed
+// to swallow the task rather than run it: nothing here needs prisma.passwordResetToken or sendMail.
+vi.mock("@/lib/env", () => ({ mailConfigured: () => true }));
+vi.mock("@/lib/site-url", () => ({ siteOrigin: async () => "https://cecodes.example" }));
+vi.mock("next/server", () => ({ after: (task: () => unknown) => void task }));
+
+const { signInAction, requestPasswordResetAction } = await import("../auth-actions");
 
 const CREDENTIALS = { email: "victim@example.com", password: "wrong-password" };
 
@@ -126,7 +134,7 @@ describe("signInAction throttling", () => {
     expect(verifyPassword).toHaveBeenCalledTimes(MAX_ATTEMPTS - 1);
   });
 
-  it("refuses further attempts once the allowance is spent, without checking the password", async () => {
+  it("AUTH-16 refuses further attempts once the allowance is spent, without checking the password", async () => {
     rejectCredentials();
     for (let i = 0; i < MAX_ATTEMPTS; i++) await signInAction(CREDENTIALS);
     verifyPassword.mockClear();
@@ -135,7 +143,7 @@ describe("signInAction throttling", () => {
     expect(verifyPassword).not.toHaveBeenCalled();
   });
 
-  it("locks the address, so switching to another password does not reset the count", async () => {
+  it("AUTH-13 locks the address, so switching to another password does not reset the count", async () => {
     rejectCredentials();
     for (let i = 0; i < MAX_ATTEMPTS; i++) await signInAction(CREDENTIALS);
 
@@ -144,7 +152,7 @@ describe("signInAction throttling", () => {
     });
   });
 
-  it("clears the count on a successful sign-in", async () => {
+  it("AUTH-15 clears the count on a successful sign-in", async () => {
     rejectCredentials();
     for (let i = 0; i < MAX_ATTEMPTS - 1; i++) await signInAction(CREDENTIALS);
 
@@ -194,5 +202,59 @@ describe("signInAction throttling", () => {
     await signInAction(CREDENTIALS);
 
     expect([...rows.keys()]).toEqual(["email:victim@example.com"]);
+  });
+
+  it("AUTH-14 locks the shared IP on its own allowance while no single address under it ever locks", async () => {
+    // One office shares one IP, so a run of failures spread across many different colleagues'
+    // addresses never trips any one address's five-attempt allowance, yet it is exactly the
+    // pattern IP_MAX_ATTEMPTS exists to catch. Twenty distinct addresses, one failure each, proves
+    // the IP key locks on its own count rather than borrowing or waiting on any address's count.
+    rejectCredentials();
+    for (let i = 0; i < IP_MAX_ATTEMPTS; i++) {
+      await signInAction({ email: `guess-${i}@example.com`, password: "wrong-password" });
+    }
+    verifyPassword.mockClear();
+
+    // A brand new address at the same IP, never tried before, is still refused.
+    expect(
+      await signInAction({ email: "never-tried@example.com", password: "irrelevant" }),
+    ).toEqual({ error: "tooManyAttempts" });
+    expect(verifyPassword).not.toHaveBeenCalled();
+
+    // None of the twenty per-address keys came anywhere near its own, much lower, allowance.
+    const emailKeys = [...rows.keys()].filter((key) => key.startsWith("email:"));
+    expect(emailKeys).toHaveLength(IP_MAX_ATTEMPTS);
+    expect(emailKeys.every((key) => rows.get(key)!.lockedUntil === null)).toBe(true);
+  });
+});
+
+describe("password reset throttle uses its own key (AUTH-17)", () => {
+  it("AUTH-17 spending the reset allowance never writes or locks the sign-in key for the same address", async () => {
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await requestPasswordResetAction(CREDENTIALS.email);
+    }
+
+    // The reset allowance for this address is now spent...
+    expect(rows.get("reset:email:victim@example.com")?.lockedUntil).not.toBeNull();
+    // ...but a shared key would have created "email:victim@example.com" too. It was never written.
+    expect(rows.has("email:victim@example.com")).toBe(false);
+
+    // So /login is untouched: the real credential check still runs for this address.
+    rejectCredentials();
+    expect(await signInAction(CREDENTIALS)).toEqual({ error: "invalidCredentials" });
+    expect(verifyPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("AUTH-17 a sign-in lockout does not block a password-reset request for the same address", async () => {
+    rejectCredentials();
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await signInAction(CREDENTIALS);
+    // Confirms /login really is locked before checking the reset path is unaffected by it.
+    expect(await signInAction(CREDENTIALS)).toEqual({ error: "tooManyAttempts" });
+
+    // The reset request reads its OWN, still-empty key rather than the locked sign-in one, so it
+    // is metered from a clean slate: one recorded attempt, not a carried-over lockout.
+    await requestPasswordResetAction(CREDENTIALS.email);
+    expect(rows.get("reset:email:victim@example.com")?.attempts).toBe(1);
+    expect(rows.get("reset:email:victim@example.com")?.lockedUntil).toBeNull();
   });
 });

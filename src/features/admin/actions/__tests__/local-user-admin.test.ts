@@ -102,7 +102,7 @@ function writtenHash(call: { data?: Record<string, unknown> }): string {
 }
 
 describe("createUser", () => {
-  it("writes one row carrying a usable hash", async () => {
+  it("AUTH-45 writes credential and profile in the same insert, never as two separate writes", async () => {
     const result = await actions.createUser({
       email: "Nueva@Empresa.CO",
       tempPassword: "temporal-1234",
@@ -111,15 +111,22 @@ describe("createUser", () => {
     });
 
     expect(result.error).toBeUndefined();
+    // One statement only: a design with a separate credential write and a separate profile
+    // write could fail between the two and leave one without the other. There is only ever
+    // this one call to prove that against.
+    expect(appUser.create).toHaveBeenCalledTimes(1);
 
     const data = appUser.create.mock.calls[0][0].data;
     // Canonical casing, or the sign-in lookup (which lowercases) would never reach this row.
     expect(data.email).toBe("nueva@empresa.co");
+    // Profile columns, alongside the credential columns asserted below: proof the two are one row.
+    expect(data.role).toBe("COMPANY_USER");
+    expect(data.companyId).toBe(COMPANY_ID);
     expect(data.active).toBe(true);
     expect(compareSync("temporal-1234", writtenHash({ data }))).toBe(true);
   });
 
-  it("reports a duplicate address as emailInUse rather than leaking the driver's error", async () => {
+  it("AUTH-46 reports a duplicate address as emailInUse and leaves no orphan row behind", async () => {
     appUser.create.mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "P2002" }));
 
     const result = await actions.createUser({
@@ -130,6 +137,10 @@ describe("createUser", () => {
     });
 
     expect(result).toEqual({ error: "emailInUse" });
+    // The one statement that would have written credential and profile together is the one
+    // that failed, so there is nothing partial left over to orphan.
+    expect(appUser.create).toHaveBeenCalledTimes(1);
+    expect(sendMail).not.toHaveBeenCalled();
   });
 
   // The admin screen keeps showing the temporary password and offering the credentials file
@@ -147,7 +158,7 @@ describe("createUser", () => {
     expect(passwordResetToken.create).not.toHaveBeenCalled();
   });
 
-  it("sends a welcome mail carrying a set-password link, never the temporary password", async () => {
+  it("AUTH-48 sends a welcome mail carrying a set-password link, never the temporary password", async () => {
     vi.stubEnv("MAIL_TRANSPORT", "resend");
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
@@ -194,7 +205,7 @@ describe("createUser", () => {
 });
 
 describe("resetUserPassword", () => {
-  it("stores the new hash and ends every session, in one transaction", async () => {
+  it("AUTH-49 replaces the hash and ends every session, in one transaction", async () => {
     const result = await actions.resetUserPassword({
       userId: TARGET_ID,
       tempPassword: "nueva-clave-1",
@@ -228,13 +239,14 @@ describe("resetUserPassword", () => {
     });
   });
 
-  it("notifies the account that an admin changed its password", async () => {
+  it("AUTH-49 sends the password-changed message with byAdmin true", async () => {
     await actions.resetUserPassword({ userId: TARGET_ID, tempPassword: "nueva-clave-1" });
 
     expect(sendMail).toHaveBeenCalledTimes(1);
     const message = sendMail.mock.calls[0]![0] as { to: string; html: string };
     expect(message.to).toBe(TARGET_EMAIL);
-    // Distinguishes this from the self-service change: the account holder did not ask for it.
+    // passwordChangedMessage only renders this word when byAdmin is true (mail/messages.ts);
+    // it distinguishes this from the self-service change, where the holder asked for it.
     expect(message.html).toContain("administrador");
   });
 
@@ -252,7 +264,7 @@ describe("resetUserPassword", () => {
 });
 
 describe("setUserActive", () => {
-  it("deactivating ends the sessions and the reset links together with the flag", async () => {
+  it("AUTH-28 deactivating ends the sessions and the reset links together with the flag", async () => {
     const result = await actions.setUserActive({ userId: TARGET_ID, active: false });
 
     expect(result).toEqual({});
@@ -320,18 +332,69 @@ describe("an admin cannot lock themselves out", () => {
 });
 
 describe("deleteUser", () => {
-  it("deletes the profile in one statement", async () => {
+  it("AUTH-50 deletes the profile in one statement", async () => {
     const result = await actions.deleteUser({ userId: TARGET_ID });
 
     expect(result).toEqual({});
     expect(appUser.deleteMany).toHaveBeenCalledWith({ where: { id: TARGET_ID } });
+    // The dependents (user_sessions, password_reset_tokens) are FK onDelete: Cascade in
+    // prisma/schema.prisma rather than a second statement here, so there is nothing this
+    // fake can assert about them; the schema is what proves that half of this case.
   });
 
-  it("refuses a row that is not there instead of reporting a delete that touched nobody", async () => {
+  it("AUTH-50 refuses a row that is not there instead of reporting a delete that touched nobody", async () => {
     appUser.deleteMany.mockResolvedValueOnce({ count: 0 });
 
     const result = await actions.deleteUser({ userId: TARGET_ID });
 
     expect(result).toEqual({ error: "forbidden" });
+  });
+});
+
+// Every server input above is re-validated against a `.strict()` Zod schema
+// (src/features/admin/schemas/user-schemas.ts), independently of what the client already
+// checked. An unknown key has to be refused before it reaches Prisma, not merely ignored, or a
+// client (or an old build) could pass extra fields as a way to smuggle a column the UI never
+// exposes.
+describe("input validation", () => {
+  it("AUTH-51 rejects an unexpected field on every admin action, before any write is attempted", async () => {
+    const withExtra = <T extends object>(input: T) => ({ ...input, unexpected: "smuggled" });
+
+    expect(
+      await actions.createUser(
+        withExtra({
+          email: "nueva@empresa.co",
+          tempPassword: "temporal-1234",
+          role: "COMPANY_USER" as const,
+          companyId: COMPANY_ID,
+        }),
+      ),
+    ).toEqual({ error: "generic" });
+
+    expect(
+      await actions.updateUser(
+        withExtra({ userId: TARGET_ID, role: "COMPANY_USER" as const, companyId: COMPANY_ID }),
+      ),
+    ).toEqual({ error: "generic" });
+
+    expect(
+      await actions.setUserActive(withExtra({ userId: TARGET_ID, active: true })),
+    ).toEqual({ error: "generic" });
+
+    expect(await actions.deleteUser(withExtra({ userId: TARGET_ID }))).toEqual({
+      error: "generic",
+    });
+
+    expect(
+      await actions.resetUserPassword(
+        withExtra({ userId: TARGET_ID, tempPassword: "nueva-clave-1" }),
+      ),
+    ).toEqual({ error: "generic" });
+
+    // Rejected at the schema, before resolveAdminScope or any Prisma call.
+    expect(appUser.create).not.toHaveBeenCalled();
+    expect(appUser.updateMany).not.toHaveBeenCalled();
+    expect(appUser.deleteMany).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

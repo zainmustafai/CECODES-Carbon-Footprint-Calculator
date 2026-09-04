@@ -305,7 +305,7 @@ afterEach(() => {
 });
 
 describe("signInAction in local mode", () => {
-  it("issues a session cookie for the right password", async () => {
+  it("AUTH-01 issues a session cookie for the right password", async () => {
     const user = seedUser();
 
     expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({});
@@ -320,7 +320,7 @@ describe("signInAction in local mode", () => {
     expect(users.get(user.id)!.lastSignInAt).toBeInstanceOf(Date);
   });
 
-  it("accepts the address however it was capitalised", async () => {
+  it("AUTH-10 accepts the address however it was capitalised", async () => {
     seedUser();
 
     expect(await signInAction({ email: ` ${EMAIL.toUpperCase()} `, password: PASSWORD })).toEqual(
@@ -328,7 +328,7 @@ describe("signInAction in local mode", () => {
     );
   });
 
-  it("refuses the wrong password, issues nothing, and counts the attempt", async () => {
+  it("AUTH-02 refuses the wrong password, issues nothing, and counts the attempt", async () => {
     seedUser();
 
     expect(await signInAction({ email: EMAIL, password: WRONG })).toEqual({
@@ -339,7 +339,7 @@ describe("signInAction in local mode", () => {
     expect(throttles.size).toBeGreaterThan(0);
   });
 
-  it("answers an unknown address exactly as it answers a wrong password", async () => {
+  it("AUTH-03 AUTH-04 answers an unknown address exactly as it answers a wrong password", async () => {
     seedUser();
     const wrongPassword = await signInAction({ email: EMAIL, password: WRONG });
     throttles.clear();
@@ -356,7 +356,7 @@ describe("signInAction in local mode", () => {
     expect(throttles.size).toBeGreaterThan(0);
   });
 
-  it("refuses a row that has no hash, whatever password is offered", async () => {
+  it("AUTH-06 refuses a row that has no hash, whatever password is offered", async () => {
     const user = seedUser({ passwordHash: null, passwordAlgo: null });
 
     expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({
@@ -366,7 +366,7 @@ describe("signInAction in local mode", () => {
     expect(cookieJar.size).toBe(0);
   });
 
-  it("refuses a deactivated account and does not count the attempt against it", async () => {
+  it("AUTH-05 refuses a deactivated account and does not count the attempt against it", async () => {
     const user = seedUser({ active: false });
 
     expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({
@@ -379,7 +379,7 @@ describe("signInAction in local mode", () => {
     expect(throttles.size).toBe(0);
   });
 
-  it("upgrades a legacy hash on the sign-in that proves the password", async () => {
+  it("AUTH-08 upgrades a legacy hash on the sign-in that proves the password", async () => {
     const user = seedUser({ passwordHash: LEGACY_HASH });
     expect(getRounds(LEGACY_HASH)).toBeLessThan(BCRYPT_COST);
 
@@ -426,7 +426,7 @@ describe("signInAction in local mode", () => {
 });
 
 describe("signOutAction in local mode", () => {
-  it("destroys the session behind the cookie and clears the cookie", async () => {
+  it("AUTH-25 destroys the session behind the cookie and clears the cookie", async () => {
     seedUser();
     await signInAction({ email: EMAIL, password: PASSWORD });
     expect(sessions.size).toBe(1);
@@ -437,7 +437,7 @@ describe("signOutAction in local mode", () => {
     expect(cookieJar.size).toBe(0);
   });
 
-  it("does not throw when there is no cookie to sign out", async () => {
+  it("AUTH-26 does not throw when there is no cookie to sign out", async () => {
     await expect(signOutAction()).resolves.toBeUndefined();
   });
 });
@@ -452,7 +452,7 @@ describe("requestPasswordResetAction in local mode", () => {
     vi.stubEnv("SITE_URL", "https://huella.example.org");
   });
 
-  it("writes one token and mails a link that carries it", async () => {
+  it("AUTH-32 writes one token and mails a link that carries it", async () => {
     const user = seedUser();
 
     await requestPasswordResetAction(EMAIL);
@@ -472,7 +472,7 @@ describe("requestPasswordResetAction in local mode", () => {
     expect(rows[0]!.tokenHash).not.toBe(token);
   });
 
-  it("writes nothing and sends nothing for an address with no account", async () => {
+  it("AUTH-33 writes nothing and sends nothing for an address with no account", async () => {
     await requestPasswordResetAction("nadie@empresa.com");
     await flushAfter();
 
@@ -498,7 +498,7 @@ describe("requestPasswordResetAction in local mode", () => {
     expect(throttles.size).toBeGreaterThan(0);
   });
 
-  it("writes no token when the deployment cannot send mail", async () => {
+  it("AUTH-34 writes no token when the deployment cannot send mail", async () => {
     seedUser();
     vi.stubEnv("RESEND_API_KEY", "");
     vi.stubEnv("MAIL_FROM", "");
@@ -527,7 +527,7 @@ describe("requestPasswordResetAction in local mode", () => {
     expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({});
   });
 
-  it("sends nothing when no public origin is configured, rather than mailing a bare path", async () => {
+  it("AUTH-55 sends nothing when no public origin is configured, rather than mailing a bare path", async () => {
     seedUser();
     // What a self-hosted deployment looks like before anyone sets DOMAIN: .env.example ships it
     // commented out, and the compose default of "localhost" is deliberately ignored.
@@ -574,7 +574,7 @@ describe("resetPasswordWithTokenAction", () => {
     return { token, row };
   }
 
-  it("sets the new password, consumes the link, and signs the user out everywhere", async () => {
+  it("AUTH-36 sets the new password, consumes the link, and signs the user out everywhere", async () => {
     const user = seedUser();
     await signInAction({ email: EMAIL, password: PASSWORD });
     expect(sessionsOf(user.id)).toHaveLength(1);
@@ -623,7 +623,7 @@ describe("resetPasswordWithTokenAction", () => {
     expect(cookieJar.size).toBe(0);
   });
 
-  it("refuses the second use of a link", async () => {
+  it("AUTH-37 refuses the second use of a link", async () => {
     seedUser();
     const { token } = seedToken();
 
@@ -636,7 +636,7 @@ describe("resetPasswordWithTokenAction", () => {
     expect(compareSync(NEW_PASSWORD, stored.passwordHash!)).toBe(true);
   });
 
-  it("retires the other links the account had outstanding", async () => {
+  it("AUTH-36 retires the other links the account had outstanding", async () => {
     seedUser();
     // Asking twice is ordinary: nothing arrives in the first few seconds and the user presses the
     // button again. The unused link must not survive to set a third password afterwards.
@@ -677,7 +677,7 @@ describe("resetPasswordWithTokenAction", () => {
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
   });
 
-  it("refuses an expired link", async () => {
+  it("AUTH-38 refuses an expired link", async () => {
     seedUser();
     const { token } = seedToken({ expiresAt: new Date(Date.now() - 1000) });
 
@@ -707,12 +707,31 @@ describe("resetPasswordWithTokenAction", () => {
     expect(sessionsOf(user.id)).toHaveLength(1);
   });
 
-  it("refuses a token nobody ever issued, in the same words", async () => {
+  it("AUTH-39 refuses a token nobody ever issued, in the same words", async () => {
     seedUser();
 
     expect(
       await resetPasswordWithTokenAction({ token: "inventado", password: NEW_PASSWORD }),
     ).toEqual({ error: "invalidResetLink" });
+  });
+
+  it("AUTH-40 every reset failure returns the identical opaque result", async () => {
+    seedUser();
+    const { token: expiredToken } = seedToken({ expiresAt: new Date(Date.now() - 1000) });
+    const { token: consumedToken } = seedToken({ consumedAt: new Date() });
+
+    // Three different reasons a link can be no good: never issued, past its TTL, already spent.
+    // A caller (or an attacker probing which is true) must not be able to tell them apart.
+    const unknown = await resetPasswordWithTokenAction({ token: "inventado", password: NEW_PASSWORD });
+    const expired = await resetPasswordWithTokenAction({ token: expiredToken, password: NEW_PASSWORD });
+    const consumed = await resetPasswordWithTokenAction({
+      token: consumedToken,
+      password: NEW_PASSWORD,
+    });
+
+    expect(unknown).toEqual({ error: "invalidResetLink" });
+    expect(expired).toEqual(unknown);
+    expect(consumed).toEqual(unknown);
   });
 
   it("refuses a password below the documented minimum before touching the token", async () => {
@@ -761,7 +780,7 @@ describe("updatePasswordAction, the signed-in change", () => {
     expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(kept)]);
   });
 
-  it("notifies the account once the change commits", async () => {
+  it("AUTH-44 notifies the account once the change commits", async () => {
     const user = await signedIn();
 
     expect(
@@ -784,7 +803,7 @@ describe("updatePasswordAction, the signed-in change", () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
-  it("retires a reset link that was still outstanding", async () => {
+  it("AUTH-42 retires a reset link that was still outstanding", async () => {
     const user = await signedIn();
     // The ordinary story: they asked for a link, remembered the password before it arrived, signed
     // in and changed it here. That mail must not still be able to overrule the password they chose.
@@ -839,7 +858,7 @@ describe("the session a sign-in issues", () => {
     expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(issued)]);
   });
 
-  it("issues a fresh token on every sign-in, so two devices are two sessions", async () => {
+  it("AUTH-09 issues a fresh token on every sign-in, so two devices are two sessions", async () => {
     const user = seedUser();
 
     await signInAction({ email: EMAIL, password: PASSWORD });
@@ -898,7 +917,7 @@ describe("the password rules the server enforces on its own", () => {
   // told they set a 100 character password, the column holds a hash of the first 72, and typing
   // only those 72 opens the account afterwards. PASSWORD_MAX was declared and enforced in the
   // schemas, and nothing anywhere sent a password longer than it.
-  it("refuses a password past the bcrypt ceiling on the signed-in change", async () => {
+  it("AUTH-43 refuses a password past the bcrypt ceiling on the signed-in change", async () => {
     const user = seedUser();
     await signInAction({ email: EMAIL, password: PASSWORD });
     getUser.mockResolvedValue({ id: user.id, email: user.email });
@@ -969,7 +988,7 @@ describe("re-authenticating the signed-in password change", () => {
     expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(cookie)]);
   });
 
-  it("refuses an omitted one in the same words, spending the same bcrypt", async () => {
+  it("AUTH-41 refuses an omitted one in the same words, spending the same bcrypt", async () => {
     const user = await signedIn();
 
     expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({

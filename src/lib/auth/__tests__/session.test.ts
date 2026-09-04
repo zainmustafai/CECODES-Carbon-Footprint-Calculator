@@ -108,7 +108,7 @@ describe("createSession", () => {
 
   // The one property a leaked database backup turns on: a stolen table must not contain
   // anything that can be pasted into a cookie.
-  it("stores the digest of the token and never the token itself", async () => {
+  it("AUTH-18 stores the digest of the token and never the token itself", async () => {
     const { token } = await createSession(ANA.id);
 
     const stored = rowFor(token);
@@ -176,7 +176,7 @@ describe("readSession", () => {
     expect(await readSession("forged-cookie-value")).toBeNull();
   });
 
-  it("refuses an expired session and deletes the row it was presented with", async () => {
+  it("AUTH-20 AUTH-21 refuses an expired session and deletes the row it was presented with", async () => {
     const { token } = await createSession(ANA.id);
     const stored = rowFor(token)!;
     rows.set(stored.id, { ...stored, expiresAt: new Date(Date.now() - 1) });
@@ -230,7 +230,7 @@ describe("readSession", () => {
     expect(rowFor(token)!.lastUsedAt).toBe(first);
   });
 
-  it("writes lastUsedAt once it has gone stale, so a session's age stays roughly right", async () => {
+  it("AUTH-24 writes lastUsedAt once it has gone stale, so a session's age stays roughly right", async () => {
     const { token } = await createSession(ANA.id);
     const stored = rowFor(token)!;
     const stale = new Date(Date.now() - 3 * 60 * 60 * 1000);
@@ -298,7 +298,7 @@ describe("hashToken", () => {
 });
 
 describe("sessionCookieOptions", () => {
-  it("hides the cookie from script and sends it for the whole app until the session expires", () => {
+  it("AUTH-19 hides the cookie from script and sends it for the whole app until the session expires", () => {
     const expiresAt = new Date("2026-10-04T12:00:00.000Z");
     expect(sessionCookieOptions(expiresAt)).toMatchObject({
       httpOnly: true,
@@ -315,7 +315,7 @@ describe("sessionCookieOptions", () => {
   // container serves this cookie over TLS: keying on `=== "production"` shipped it in plaintext,
   // silently, on exactly the deployments this migration is aimed at.
   it.each(["production", "test", "staging", undefined])(
-    "marks the cookie secure with NODE_ENV=%s",
+    "AUTH-19 marks the cookie secure with NODE_ENV=%s",
     (nodeEnv) => {
       const expiresAt = new Date("2026-10-04T12:00:00.000Z");
       vi.stubEnv("NODE_ENV", nodeEnv as string);
@@ -324,7 +324,7 @@ describe("sessionCookieOptions", () => {
     },
   );
 
-  it("leaves it off in development, where plain http is the whole point", () => {
+  it("AUTH-19 leaves it off in development, where plain http is the whole point", () => {
     const expiresAt = new Date("2026-10-04T12:00:00.000Z");
     vi.stubEnv("NODE_ENV", "development");
 

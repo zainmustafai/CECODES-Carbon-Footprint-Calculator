@@ -263,7 +263,7 @@ describe("a company user cannot edit another company's PROFILE", () => {
 // ever switched to the latter, a company user could administer companies. These are the tests that
 // would catch it.
 describe("a company user cannot reach ANY admin action", () => {
-  it("refuses every company administration action", async () => {
+  it("AUTH-31 refuses every company administration action", async () => {
     expect(await adminCompanies.createCompany({ name: "Mia" })).toEqual({ error: "forbidden" });
     // The widened create input (contactEmail) goes through the same boundary.
     expect(
@@ -340,9 +340,12 @@ describe("a company user cannot reach ANY admin action", () => {
   });
 });
 
-// A deactivated user keeps a valid Supabase session: `active` lives in Postgres, not in the JWT.
-// Server Actions run no layout, so the /account-disabled redirect never fires for them. Refusing
-// inside the resolvers is the only thing that makes deactivation immediate.
+// A deactivated user keeps a valid session cookie: `active` lives in Postgres and is looked up
+// fresh (via getAppUser) on every call, never cached in the session itself. AUTH-27: that fresh
+// lookup is what makes deactivation take effect on the very next request, rather than waiting for
+// the session to expire. Server Actions run no layout, so the /account-disabled redirect never
+// fires for them; refusing inside the resolvers is the only thing that makes deactivation
+// immediate.
 describe("a DEACTIVATED user is refused everywhere, even on their OWN company", () => {
   beforeEach(() => {
     getAppUser.mockResolvedValue({ ...USER_A, active: false });
@@ -357,7 +360,7 @@ describe("a DEACTIVATED user is refused everywhere, even on their OWN company", 
     prismaMock.company.findUnique.mockResolvedValue({ id: COMPANY_A, active: true });
   });
 
-  it("cannot create a facility on their own company", async () => {
+  it("AUTH-27 cannot create a facility on their own company", async () => {
     const result = await createFacility({
       companyId: COMPANY_A,
       name: "Planta",

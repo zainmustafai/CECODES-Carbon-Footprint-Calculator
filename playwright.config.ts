@@ -51,5 +51,20 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     // Turbopack plus the React Compiler makes a cold start slow.
     timeout: 180_000,
+    // Without this the dev server inherits only what loadEnvConfig found in .env.local, which
+    // names no mail transport: password-reset.spec.ts is the only spec that needs one, and it
+    // needs mail actually delivered rather than merely handed to a transport.
+    env: {
+      // Mailpit is reached from the HOST here (this process, and the dev server it starts, both
+      // run on the host), not from inside the compose network, so this is 127.0.0.1 rather than
+      // the "mailpit" service name the app containers use.
+      MAIL_TRANSPORT: "smtp",
+      SMTP_HOST: "127.0.0.1",
+      SMTP_PORT: "1025",
+      MAIL_FROM: "CECODES <no-reply@localhost>",
+      // Pinned, rather than left to fall back to the request Host header: password-reset.spec.ts
+      // asserts the emailed link starts with exactly this.
+      SITE_URL: BASE_URL,
+    },
   },
 });

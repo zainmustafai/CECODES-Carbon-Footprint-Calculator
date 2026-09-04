@@ -74,6 +74,7 @@ and why.
 - AUTH-32 a request for a real address writes exactly one token row and sends exactly one message
 - AUTH-33 a request for an unknown address returns void, writes no row, and sends nothing
 - AUTH-34 a request with mail unconfigured is refused up front and writes no row
+- AUTH-55 a request with no public site origin configured is refused up front, and writes no row
 - AUTH-35 the link origin follows the fallback order SITE_URL, then DOMAIN, then VERCEL_URL, then the request host in development
 - AUTH-36 consuming a valid token sets the new hash, marks the token consumed, revokes all sessions, and invalidates that user's other outstanding tokens, in one transaction
 - AUTH-37 a consumed token cannot be reused

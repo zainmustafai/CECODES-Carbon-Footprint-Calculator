@@ -1,6 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { POST_LOGIN_PATH } from "@/lib/routes";
+import { config as proxyConfig } from "@/proxy";
 
 // The route gate is the only thing between an anonymous request and a page nobody remembered to
 // guard. So it is tested as what most of it is: a pathname and a boolean in, a decision out, with
@@ -243,11 +245,26 @@ beforeEach(() => {
 });
 
 describe("gate", () => {
-  it("sends an anonymous visitor to the sign-in page", async () => {
+  it("AUTH-52 sends an anonymous visitor to the sign-in page", async () => {
     const response = await gate(request(A_PROTECTED_PATH));
 
     expect(response.status).toBe(307);
     expect(location(response)).toBe(SIGN_IN);
+  });
+
+  // decideRoute's own comment says the redirect keeps no part of the original URL, not even as
+  // ?next=: an earlier version of the register wrongly claimed the destination survived, and this
+  // is the test that would catch that claim coming back. Checked on the actual Response, past
+  // decideRoute, because applyDecision is what builds the URL and could reintroduce the query on
+  // its own even if decideRoute never mentions one.
+  it("AUTH-52 keeps no part of the original URL in the redirect, not even as ?next=", async () => {
+    const response = await gate(request(`${A_PROTECTED_PATH}?next=%2Fadmin&secret=1`));
+
+    const header = response.headers.get("location");
+    expect(header).not.toBeNull();
+    const redirectUrl = new URL(header!);
+    expect(redirectUrl.pathname).toBe(SIGN_IN);
+    expect(redirectUrl.search).toBe("");
   });
 
   it("resolves the session cookie against the session store", async () => {
@@ -259,7 +276,7 @@ describe("gate", () => {
     expect(readSession).toHaveBeenCalledWith(TOKEN);
   });
 
-  it("forwards a signed-in visitor off a sign-in page", async () => {
+  it("AUTH-53 forwards a signed-in visitor off a sign-in page", async () => {
     readSession.mockResolvedValue(SESSION_USER);
 
     const response = await gate(request(SIGN_IN, TOKEN));
@@ -295,7 +312,7 @@ describe("applyDecision", () => {
   // could carry a cookie set earlier in the same request onto a redirect. Losing it logs a visitor
   // out on every gated navigation that also happens to redirect. gate() itself never hands this a
   // refreshed response that holds a cookie, so this is proven directly rather than through gate().
-  it("carries a cookie from the refreshed response onto a redirect", () => {
+  it("AUTH-54 carries a cookie from the refreshed response onto a redirect", () => {
     const req = request(A_PROTECTED_PATH);
     const refreshed = NextResponse.next({ request: req });
     refreshed.cookies.set("carried", "value");
@@ -311,5 +328,31 @@ describe("applyDecision", () => {
     const refreshed = NextResponse.next({ request: req });
 
     expect(applyDecision(req, { kind: "allow" }, refreshed)).toBe(refreshed);
+  });
+});
+
+// The other half of AUTH-54: the exclusion is not decided by anything in this file. It is
+// src/proxy.ts's `config.matcher`, read at build time by Next itself, so gate() never sees a
+// request for /api/health/* at all. A hand-rolled RegExp built from that matcher string would
+// only prove that OUR reading of Next's matcher syntax excludes the path, which can silently
+// diverge from how Next actually compiles it. `unstable_doesMiddlewareMatch` is Next's own
+// testing utility for exactly this (see the "Unit testing (experimental)" section of the Proxy
+// docs), so this runs the real compiler against the real exported config.
+describe("the proxy matcher, config.matcher in src/proxy.ts", () => {
+  function reachesGate(pathname: string): boolean {
+    return unstable_doesMiddlewareMatch({ config: proxyConfig, url: `http://localhost${pathname}` });
+  }
+
+  it("AUTH-54 excludes every /api/health/* path from ever reaching the gate", () => {
+    expect(reachesGate("/api/health")).toBe(false);
+    expect(reachesGate("/api/health/live")).toBe(false);
+    expect(reachesGate("/api/health/ready")).toBe(false);
+  });
+
+  // Not part of AUTH-54 itself, but without this the test above could pass by excluding
+  // everything, which would be a gate that protects nothing rather than one that skips a probe.
+  it("still sends an ordinary protected path through to the gate", () => {
+    expect(reachesGate("/dashboard")).toBe(true);
+    expect(reachesGate("/login")).toBe(true);
   });
 });

@@ -39,13 +39,27 @@ describe("signInAction input validation", () => {
     });
   });
 
-  it("rejects unknown fields, so no extra key can ride along to the credential check", async () => {
+  it("AUTH-11 rejects unknown fields, so no extra key can ride along to the credential check", async () => {
     const input = {
       email: "someone@example.com",
       password: "supersecret",
       options: { data: { role: "ADMIN" } },
     };
     expect(await signInAction(input as never)).toEqual({ error: "invalidInput" });
+  });
+
+  // The other half of AUTH-11: EMAIL_MAX (auth-server-schemas.ts) bounds the address itself, not
+  // only its shape, because auth_throttle.key is built as "email:" plus this same string and is a
+  // TEXT PRIMARY KEY. RED, deliberately, before this assertion: expecting the WRONG result first
+  // (`.not.toEqual({ error: "invalidInput" })`) failed with the actual value `{ error:
+  // "invalidInput" }`, which is only possible if the schema really does reject this input before
+  // signInWithCredentials ever runs (prisma is `{}`, so reaching the credential store throws and
+  // answers "generic", never "invalidInput"). That confirms this assertion is not vacuously true.
+  it("AUTH-11 rejects an oversized email without touching the database", async () => {
+    const oversizedEmail = `${"a".repeat(300)}@example.com`;
+    expect(await signInAction({ email: oversizedEmail, password: "supersecret" })).toEqual({
+      error: "invalidInput",
+    });
   });
 });
 
