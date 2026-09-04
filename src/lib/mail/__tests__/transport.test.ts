@@ -210,5 +210,83 @@ describe("sendMail", () => {
       const { sendMail } = await import("@/lib/mail/transport");
       await expect(sendMail(MESSAGE)).resolves.toEqual({ ok: false, reason: "failed" });
     });
+
+    // The guard this covers is the one an operator actually trips: SMTP_HOST or MAIL_FROM absent
+    // (or blank, which a shell that empties rather than deletes a .env line produces the same as
+    // absent) must refuse up front, before nodemailer is ever asked to do anything, and must say
+    // which variable is missing without ever attempting a send.
+    describe("refuses to attempt a send when required configuration is missing", () => {
+      it("names SMTP_HOST when it is unset, and does not mention MAIL_FROM, which is present", async () => {
+        stubSmtpEnv();
+        vi.stubEnv("SMTP_HOST", undefined);
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const { sendMail } = await import("@/lib/mail/transport");
+        expect(await sendMail(MESSAGE)).toEqual({ ok: false, reason: "not-configured" });
+
+        expect(createTransportMock).not.toHaveBeenCalled();
+        expect(sendMailMock).not.toHaveBeenCalled();
+        const logged = warn.mock.calls.flat().map(String).join(" ");
+        expect(logged).toContain("SMTP_HOST");
+        expect(logged).not.toContain("MAIL_FROM");
+        // Same rule as every other path through this transport: nothing about the message,
+        // recipient included, belongs in a log that a container operator reads.
+        expect(logged).not.toContain(MESSAGE.to);
+      });
+
+      it("names MAIL_FROM when it is blank, and does not mention SMTP_HOST, which is present", async () => {
+        stubSmtpEnv();
+        vi.stubEnv("MAIL_FROM", "   ");
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const { sendMail } = await import("@/lib/mail/transport");
+        expect(await sendMail(MESSAGE)).toEqual({ ok: false, reason: "not-configured" });
+
+        expect(createTransportMock).not.toHaveBeenCalled();
+        expect(sendMailMock).not.toHaveBeenCalled();
+        const logged = warn.mock.calls.flat().map(String).join(" ");
+        expect(logged).toContain("MAIL_FROM");
+        expect(logged).not.toContain("SMTP_HOST");
+        expect(logged).not.toContain(MESSAGE.to);
+      });
+    });
+
+    // SMTP_USER/SMTP_PASSWORD are optional (Mailpit needs neither), but a real relay behind this
+    // transport does, and the comment above the `auth` field explains why an empty user is not
+    // sent as empty credentials: it has to be genuinely absent (undefined), or omitted entirely.
+    // This is the other side of that guard: BOTH configured must actually reach nodemailer.
+    it("passes SMTP_USER and SMTP_PASSWORD through to nodemailer as auth when both are set", async () => {
+      stubSmtpEnv({ SMTP_USER: "relay-user", SMTP_PASSWORD: "relay-pass" });
+      sendMailMock.mockResolvedValue(undefined);
+
+      const { sendMail } = await import("@/lib/mail/transport");
+      expect(await sendMail(MESSAGE)).toEqual({ ok: true });
+
+      expect(createTransportMock).toHaveBeenCalledTimes(1);
+      const config = createTransportMock.mock.calls[0] as unknown as [
+        { auth?: { user: string; pass: string } },
+      ];
+      expect(config[0].auth).toEqual({ user: "relay-user", pass: "relay-pass" });
+    });
+
+    // The comment above `code`/`responseCode` in smtp.ts says both are read defensively "since a
+    // synchronous throw from createTransport ... may not be a nodemailer SMTPError at all", i.e.
+    // `code` is not guaranteed to be nodemailer's usual string classification (ECONNREFUSED, ...).
+    // Every other test in this file only ever produces a string `code`, so the numeric branch of
+    // that check has never run. Nothing stops a thrown error from carrying a numeric one instead.
+    it("still classifies the failure when the thrown error's code is a number rather than nodemailer's usual string", async () => {
+      stubSmtpEnv();
+      const oddError = Object.assign(new Error("connection reset"), { code: 104 });
+      sendMailMock.mockRejectedValue(oddError);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const { sendMail } = await import("@/lib/mail/transport");
+      expect(await sendMail(MESSAGE)).toEqual({ ok: false, reason: "failed" });
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      const reported = JSON.parse(errorSpy.mock.calls[0]![0] as string);
+      expect(reported.code).toBe(104);
+      expect(errorSpy.mock.calls.flat().map(String).join("\n")).not.toContain(MESSAGE.to);
+    });
   });
 });

@@ -490,6 +490,24 @@ describe("requestPasswordResetAction in local mode", () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
+  it("reports a failure inside the deferred lookup without leaking who it was for", async () => {
+    // Everything past the response is wrapped in its own try/catch (the docblock above the after()
+    // call spells out why: it is the only place a failure on this path can surface at all once the
+    // response has gone out). A database blip during the deferred lookup must not escape as an
+    // unhandled rejection, and the report it produces must say where, never who asked.
+    seedUser();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(appUser, "findUnique").mockRejectedValueOnce(new Error("connection terminated"));
+
+    await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged.mock.calls[0]![0]).not.toContain(EMAIL);
+    expect(sendMail).not.toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
   it("returns the same nothing whatever the address, and meters the endpoint", async () => {
     seedUser();
 
@@ -621,6 +639,65 @@ describe("resetPasswordWithTokenAction", () => {
 
     expect(sessions.size).toBe(0);
     expect(cookieJar.size).toBe(0);
+  });
+
+  it("refuses the link when the consuming write loses a race to another request", async () => {
+    // The row read above showed an unspent token, but `consumedAt: null` in the update's WHERE is
+    // what actually makes the token single use: two requests carrying the same token race in the
+    // database, and the loser's updateMany matches nothing. This drives that race directly, without
+    // a second concurrent call, by making the one statement that matters answer as the loser would.
+    seedUser();
+    const { token, row } = seedToken();
+    vi.spyOn(passwordResetToken, "updateMany").mockResolvedValueOnce({ count: 0 });
+
+    expect(await resetPasswordWithTokenAction({ token, password: NEW_PASSWORD })).toEqual({
+      error: "invalidResetLink",
+    });
+
+    // Nothing else in the transaction ran: the password is untouched and nothing was mailed.
+    expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
+    expect(sendMail).not.toHaveBeenCalled();
+    // The real row was never reached by the spied call, so it is still exactly as seeded.
+    expect(resetTokens.get(row.id)!.consumedAt).toBeNull();
+  });
+
+  it("answers generic and reports the failure when the transaction itself throws", async () => {
+    // "update, not updateMany: a user row that has vanished throws here", per the comment beside
+    // it. This forces that throw directly (the row exists throughout this test; only the write is
+    // made to fail) rather than trying to delete a user the schema's ON DELETE CASCADE would also
+    // have taken the token down with.
+    seedUser();
+    const { token } = seedToken();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(appUser, "update").mockRejectedValueOnce(new Error("P2025: record to update not found"));
+
+    expect(await resetPasswordWithTokenAction({ token, password: NEW_PASSWORD })).toEqual({
+      error: "generic",
+    });
+
+    expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged.mock.calls[0]![0]).not.toContain(EMAIL);
+    logged.mockRestore();
+  });
+
+  it("keeps the reset committed even when clearing the throttle afterwards fails", async () => {
+    // Deliberately NOT folded into the try above, which answers "generic" on failure: everything
+    // that matters (the new password, the spent token, the swept sessions) has already committed
+    // by the time this step runs, so a failure here must not turn a reset that already succeeded
+    // into one the caller is told failed.
+    seedUser();
+    const { token } = seedToken();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(authThrottle, "deleteMany").mockRejectedValueOnce(new Error("connection terminated"));
+
+    expect(await resetPasswordWithTokenAction({ token, password: NEW_PASSWORD })).toEqual({});
+
+    expect(compareSync(NEW_PASSWORD, users.get("user-1")!.passwordHash!)).toBe(true);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged.mock.calls[0]![0]).not.toContain(EMAIL);
+    logged.mockRestore();
   });
 
   it("AUTH-37 refuses the second use of a link", async () => {
@@ -836,6 +913,50 @@ describe("updatePasswordAction, the signed-in change", () => {
       await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
     ).toEqual({ error: "sessionExpired" });
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
+  });
+
+  it("answers generic when the write inside the transaction matches nobody", async () => {
+    // "updateMany calls a write that matched nothing a success. Telling someone their password
+    // changed when nothing was stored is worse than any error." This drives that race (the account
+    // deleted or deactivated a moment after re-authentication passed) directly on the one write
+    // that matters, rather than trying to delete the row out from under a live session.
+    const user = await signedIn();
+    vi.spyOn(appUser, "updateMany").mockResolvedValueOnce({ count: 0 });
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({ error: "generic" });
+
+    // Nothing past the failed write ran: the stored hash is untouched and nothing was mailed.
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("sweeps every session for the account when no session cookie accompanies the request", async () => {
+    // getUser() and the raw cookie read at the top of changeSignedInPassword normally come from the
+    // very same request, so `current` is truthy whenever getUser() resolves a user: this drives the
+    // cookie-less path directly, the way the anonymous-caller test above drives getUser()
+    // independently of a real sign-in. What it proves: with no current token to exempt, the NOT
+    // filter is dropped and every session for the account is swept, not just the others.
+    const user = seedUser();
+    getUser.mockResolvedValue({ id: user.id, email: user.email });
+    const stray: SessionRow = {
+      id: "stray-session",
+      userId: user.id,
+      tokenHash: hashToken("a-token-nobody-in-this-request-is-carrying"),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      createdAt: new Date(),
+      lastUsedAt: new Date(),
+      ip: null,
+      userAgent: null,
+    };
+    sessions.set(stray.id, stray);
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
+
+    expect(sessionsOf(user.id)).toHaveLength(0);
   });
 });
 

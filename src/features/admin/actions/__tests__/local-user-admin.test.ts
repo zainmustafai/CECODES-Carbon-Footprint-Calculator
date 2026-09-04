@@ -203,6 +203,92 @@ describe("createUser", () => {
     expect(result.userId).toBeTruthy();
     expect(sendMail).not.toHaveBeenCalled();
   });
+
+  it("AUTH-46 reports the raw Postgres duplicate code the same as Prisma's own P2002", async () => {
+    // isUniqueViolation matches both: 23505 is what reaches the caller when a failure does not go
+    // through Prisma's own translation layer, and this action must not distinguish the two.
+    appUser.create.mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "23505" }));
+
+    const result = await actions.createUser({
+      email: "repetida@empresa.co",
+      tempPassword: "temporal-1234",
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({ error: "emailInUse" });
+  });
+
+  it("reports companyNotFound and creates no account for a company that does not exist", async () => {
+    company.findUnique.mockResolvedValueOnce(null);
+
+    const result = await actions.createUser({
+      email: "nueva@empresa.co",
+      tempPassword: "temporal-1234",
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({ error: "companyNotFound" });
+    expect(appUser.create).not.toHaveBeenCalled();
+  });
+
+  it("stores no company for a COMPANY_USER created with none chosen, and never looks one up", async () => {
+    const result = await actions.createUser({
+      email: "sinempresa@empresa.co",
+      tempPassword: "temporal-1234",
+      role: "COMPANY_USER",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(company.findUnique).not.toHaveBeenCalled();
+    expect(appUser.create.mock.calls[0][0].data.companyId).toBeNull();
+  });
+
+  it("skips the welcome mail when the deployment can send mail but has no public origin", async () => {
+    // The two deployment guards are independent: MAIL_TRANSPORT/RESEND_API_KEY/MAIL_FROM say mail
+    // CAN go out, but with no SITE_URL (and no DOMAIN or VERCEL_URL, and this fixture's headers()
+    // stand-in never has a Host to fall back to in development) there is no origin to build a link
+    // against, and mailing a bare path is the same undeliverable-credential trade the mail guard
+    // itself exists to refuse.
+    vi.stubEnv("MAIL_TRANSPORT", "resend");
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
+
+    const result = await actions.createUser({
+      email: "nueva@empresa.co",
+      tempPassword: "un-secreto-temporal",
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(passwordResetToken.create).not.toHaveBeenCalled();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("greets nobody by name in the welcome mail when none was given", async () => {
+    vi.stubEnv("MAIL_TRANSPORT", "resend");
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
+    vi.stubEnv("SITE_URL", "https://huella.example.org");
+
+    const result = await actions.createUser({
+      email: "nueva@empresa.co",
+      tempPassword: "un-secreto-temporal",
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+      // name deliberately omitted.
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    const message = sendMail.mock.calls[0]![0] as { text: string };
+    // welcomeMessage's greeting reads "Hola <name>: se creó" only when a name was given; with none
+    // it falls back to "Se creó", never "Hola undefined" or "Hola null".
+    expect(message.text).toContain("Se creó una cuenta para ti");
+    expect(message.text).not.toContain("Hola");
+  });
 });
 
 describe("resetUserPassword", () => {
@@ -261,6 +347,109 @@ describe("resetUserPassword", () => {
     expect(appUser.updateMany).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
     expect(authThrottle.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a profile that is not there, before ever opening the transaction", async () => {
+    appUser.findUnique.mockResolvedValueOnce(null);
+
+    const result = await actions.resetUserPassword({
+      userId: TARGET_ID,
+      tempPassword: "nueva-clave-1",
+    });
+
+    expect(result).toEqual({ error: "forbidden" });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("refuses the rotation instead of reporting success when the hash write matches nobody", async () => {
+    // The row was there a moment ago (the read above found it), but updateMany inside the
+    // transaction is what actually writes, and a race (the account deleted or deactivated in
+    // between) has to answer the same opaque "forbidden" rather than telling the admin the
+    // rotation worked.
+    appUser.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await actions.resetUserPassword({
+      userId: TARGET_ID,
+      tempPassword: "nueva-clave-1",
+    });
+
+    expect(result).toEqual({ error: "forbidden" });
+    // Nothing past the failed write ran: no session sweep, no mail, no lockout cleared.
+    expect(userSession.deleteMany).not.toHaveBeenCalled();
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(authThrottle.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateUser", () => {
+  it("writes the new role, company and contact fields for somebody else", async () => {
+    const result = await actions.updateUser({
+      userId: TARGET_ID,
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+      name: "Nueva Persona",
+      phone: "3001234567",
+      position: "Analista",
+    });
+
+    expect(result).toEqual({});
+    expect(company.findUnique).toHaveBeenCalledWith({
+      where: { id: COMPANY_ID },
+      select: { id: true },
+    });
+    expect(appUser.updateMany).toHaveBeenCalledWith({
+      where: { id: TARGET_ID },
+      data: {
+        role: "COMPANY_USER",
+        companyId: COMPANY_ID,
+        name: "Nueva Persona",
+        phone: "3001234567",
+        position: "Analista",
+      },
+    });
+  });
+
+  it("forces companyId to null when promoting to CECODES_ADMIN, and never looks a company up", async () => {
+    // An admin owns no company; the invariant is enforced here too, never only in the schema, and
+    // a companyId supplied alongside the promotion must not survive into the write.
+    const result = await actions.updateUser({
+      userId: TARGET_ID,
+      role: "CECODES_ADMIN",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({});
+    expect(company.findUnique).not.toHaveBeenCalled();
+    expect(appUser.updateMany).toHaveBeenCalledWith({
+      where: { id: TARGET_ID },
+      data: { role: "CECODES_ADMIN", companyId: null, name: null, phone: null, position: null },
+    });
+  });
+
+  it("reports companyNotFound and writes nothing for a company that does not exist", async () => {
+    company.findUnique.mockResolvedValueOnce(null);
+
+    const result = await actions.updateUser({
+      userId: TARGET_ID,
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({ error: "companyNotFound" });
+    expect(appUser.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses instead of reporting success when the write matches nobody", async () => {
+    appUser.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await actions.updateUser({
+      userId: TARGET_ID,
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({ error: "forbidden" });
   });
 });
 

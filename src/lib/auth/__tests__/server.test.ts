@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 let cookieValue: string | undefined;
 const readSession = vi.fn();
 const appUserFindUnique = vi.fn();
+const companyFindUnique = vi.fn();
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -24,10 +25,16 @@ vi.mock("@/lib/auth/session", async (importActual) => ({
   readSession: (token: string | null | undefined) => readSession(token),
 }));
 
-// Only appUser.findUnique is faked, and only because getAppUser (requireAdmin's route to a role)
-// reads it. Every other query this module makes (companyIsActive) is untouched by the tests below
-// and would throw if it were ever reached, the same way the bare `{}` used to.
-vi.mock("@/lib/prisma", () => ({ prisma: { appUser: { findUnique: appUserFindUnique } } }));
+// appUser.findUnique is faked because getAppUser (requireAdmin's route to a role) reads it, and
+// company.findUnique is faked because companyIsActive reads it. Every other query this module
+// might make is untouched by the tests below and would throw if it were ever reached, the same
+// way the bare `{}` used to.
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    appUser: { findUnique: appUserFindUnique },
+    company: { findUnique: companyFindUnique },
+  },
+}));
 
 // requireAdmin() answers a non-admin with notFound(), never a redirect (see the comment on
 // requireAdmin in server.ts): a 404 does not confirm the admin area exists, and it cannot loop.
@@ -52,6 +59,7 @@ beforeEach(() => {
   cookieValue = undefined;
   readSession.mockResolvedValue(null);
   appUserFindUnique.mockResolvedValue(null);
+  companyFindUnique.mockResolvedValue(null);
 });
 
 describe("getUser", () => {
@@ -77,6 +85,44 @@ describe("getUser", () => {
   });
 });
 
+describe("requireUser", () => {
+  it("redirects an anonymous caller to /login rather than returning one", async () => {
+    const { requireUser } = await import("@/lib/auth/server");
+    cookieValue = undefined;
+
+    await expect(requireUser()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(redirect).toHaveBeenCalledWith("/login");
+  });
+});
+
+describe("getAppUser", () => {
+  it("resolves to null without querying the profile row when there is no session", async () => {
+    const { getAppUser } = await import("@/lib/auth/server");
+    cookieValue = undefined;
+
+    expect(await getAppUser()).toBeNull();
+    expect(appUserFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("requireAppUser", () => {
+  it("redirects a deactivated user to /account-disabled instead of returning their profile", async () => {
+    const { requireAppUser } = await import("@/lib/auth/server");
+    cookieValue = "token-abc";
+    readSession.mockResolvedValue(USER);
+    appUserFindUnique.mockResolvedValue({
+      id: USER.id,
+      email: USER.email,
+      role: "COMPANY_USER",
+      active: false,
+      companyId: "company-1",
+    });
+
+    await expect(requireAppUser()).rejects.toThrow("NEXT_REDIRECT:/account-disabled");
+    expect(redirect).toHaveBeenCalledWith("/account-disabled");
+  });
+});
+
 describe("requireAdmin", () => {
   it("AUTH-30 refuses a signed-in company user through notFound(), not a redirect", async () => {
     const { requireAdmin } = await import("@/lib/auth/server");
@@ -96,5 +142,49 @@ describe("requireAdmin", () => {
 
     expect(notFound).toHaveBeenCalledTimes(1);
     expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("resolves an active CECODES admin instead of refusing them", async () => {
+    const { requireAdmin } = await import("@/lib/auth/server");
+    cookieValue = "token-abc";
+    readSession.mockResolvedValue(USER);
+    const admin = {
+      id: USER.id,
+      email: USER.email,
+      role: "CECODES_ADMIN",
+      active: true,
+      companyId: null,
+    };
+    appUserFindUnique.mockResolvedValue(admin);
+
+    await expect(requireAdmin()).resolves.toEqual(admin);
+    expect(notFound).not.toHaveBeenCalled();
+  });
+});
+
+describe("companyIsActive", () => {
+  it("is true for a company on record as active", async () => {
+    const { companyIsActive } = await import("@/lib/auth/server");
+    companyFindUnique.mockResolvedValue({ active: true });
+
+    expect(await companyIsActive("company-1")).toBe(true);
+    expect(companyFindUnique).toHaveBeenCalledWith({
+      where: { id: "company-1" },
+      select: { active: true },
+    });
+  });
+
+  it("is false for a deactivated company", async () => {
+    const { companyIsActive } = await import("@/lib/auth/server");
+    companyFindUnique.mockResolvedValue({ active: false });
+
+    expect(await companyIsActive("company-1")).toBe(false);
+  });
+
+  it("is false, rather than throwing, when the company row does not exist", async () => {
+    const { companyIsActive } = await import("@/lib/auth/server");
+    companyFindUnique.mockResolvedValue(null);
+
+    expect(await companyIsActive("ghost")).toBe(false);
   });
 });

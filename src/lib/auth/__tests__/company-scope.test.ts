@@ -25,6 +25,7 @@ const {
   ScopeError,
   resolveAdminScope,
   resolveCompanyScope,
+  resolveFacilityScope,
   resolveOnboardingScope,
   resolveReportingYearScope,
   scopeErrorKey,
@@ -237,6 +238,19 @@ describe("resolveOnboardingScope", () => {
 
     expect(scope.appUser).toMatchObject({ companyId: "company-a" });
   });
+
+  // AuthUser.email is typed as a plain string everywhere it is produced for real, but this
+  // function reads it off whatever the session store handed back rather than assuming the type
+  // holds at runtime. A session with no email must still resolve to a usable scope rather than
+  // handing "undefined" (the string) down to a caller that persists it.
+  it("falls back to an empty string when the session carries no email", async () => {
+    getUser.mockResolvedValue({ id: "u-x", email: undefined });
+    getAppUser.mockResolvedValue(UNONBOARDED);
+
+    const scope = await resolveOnboardingScope();
+
+    expect(scope.email).toBe("");
+  });
 });
 
 describe("resolveReportingYearScope", () => {
@@ -292,6 +306,27 @@ describe("resolveReportingYearScope", () => {
     const scope = await resolveReportingYearScope("ry-b");
 
     expect(scope).toMatchObject({ companyId: "company-b", isAdmin: true });
+  });
+});
+
+describe("resolveFacilityScope", () => {
+  it("derives the company from the facility row and authorizes against it", async () => {
+    getAppUser.mockResolvedValue(USER_A);
+    findUniqueFacility.mockResolvedValue({ companyId: "company-a" });
+    findUniqueCompany.mockResolvedValue(ACTIVE_COMPANY);
+
+    const scope = await resolveFacilityScope("f-a");
+
+    expect(scope).toMatchObject({ companyId: "company-a", isAdmin: false });
+  });
+
+  it("refuses a facility that does not exist, rather than authorizing a null companyId", async () => {
+    getAppUser.mockResolvedValue(USER_A);
+    findUniqueFacility.mockResolvedValue(null);
+
+    await expect(resolveFacilityScope("ghost")).rejects.toThrow(ScopeError);
+    // Never falls through to resolveCompanyScope with whatever a missing row would coerce to.
+    expect(findUniqueCompany).not.toHaveBeenCalled();
   });
 });
 

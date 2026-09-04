@@ -90,7 +90,10 @@ export function isPublicPath(pathname: string): boolean {
   return (
     isAuthPage(pathname) ||
     PUBLIC_PAGES.includes(pathname) ||
-    PUBLIC_PREFIXES.some((prefix) => isUnder(pathname, prefix))
+    // PUBLIC_PREFIXES is empty by design (see its comment above), so .some() never invokes this
+    // callback: there is nothing in the array to iterate. Unreachable until a prefix is actually
+    // added, which is the day this line stops being dead and this ignore should come out with it.
+    PUBLIC_PREFIXES.some(/* v8 ignore next */ (prefix) => isUnder(pathname, prefix))
   );
 }
 

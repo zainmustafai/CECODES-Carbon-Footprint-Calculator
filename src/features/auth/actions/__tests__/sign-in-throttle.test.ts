@@ -90,9 +90,13 @@ vi.mock("@/lib/auth/password", () => ({
  * fixture keeps the forged value in front on purpose, so a return to reading the first hop fails
  * the test at the bottom of this file rather than passing it.
  */
-const forwardedFor = { value: "203.0.113.7, 10.0.0.1" };
+const forwardedFor: { value: string | undefined } = { value: "203.0.113.7, 10.0.0.1" };
 vi.mock("next/headers", () => ({
-  headers: async () => new Map([["x-forwarded-for", forwardedFor.value]]),
+  // undefined models the header being entirely absent (a request with the port published
+  // directly, never one that arrived but was empty): Map#get then answers undefined exactly as
+  // it would for a header nobody sent, rather than an empty string a proxy never writes.
+  headers: async () =>
+    new Map(forwardedFor.value === undefined ? [] : [["x-forwarded-for", forwardedFor.value]]),
   cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }),
 }));
 
@@ -198,6 +202,18 @@ describe("signInAction throttling", () => {
     // Contributing no IP key is deliberate; dropping the ADDRESS key with it would not be.
     rejectCredentials();
     forwardedFor.value = "not-an-address";
+
+    await signInAction(CREDENTIALS);
+
+    expect([...rows.keys()]).toEqual(["email:victim@example.com"]);
+  });
+
+  it("keeps counting the address when the proxy sends no x-forwarded-for header at all", async () => {
+    // The other way a request can arrive with no usable IP: not a malformed value, but no header
+    // at all. headers().get() then answers undefined, so the `?.split(",") ?? []` fallback has to
+    // run, and requestIp has to fall through the same "!nearest" refusal a malformed value takes.
+    rejectCredentials();
+    forwardedFor.value = undefined;
 
     await signInAction(CREDENTIALS);
 
