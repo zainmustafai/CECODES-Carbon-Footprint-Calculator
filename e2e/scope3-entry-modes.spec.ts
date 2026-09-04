@@ -16,7 +16,7 @@ import {
 
 test.describe.configure({ mode: "serial" });
 // See clean-tech.spec.ts: the data-entry screen ships the whole factor picker, and a cold
-// Turbopack compile plus the Supabase pooler round trip can push a first navigation well past
+// Turbopack compile plus a real database round trip can push a first navigation well past
 // the 5s default on a slow night. Generous on purpose; these assert existence, not speed.
 test.setTimeout(300_000);
 

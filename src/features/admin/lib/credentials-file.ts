@@ -1,6 +1,7 @@
 // Builds the downloadable credentials .txt the admin hands to a new user. Passwords exist in
-// plaintext only at the moment of generation (auth.users stores a hash), so this file can only
-// be produced right then; there is no "download again later" without regenerating.
+// plaintext only at the moment of generation (app_users keeps a bcrypt hash and nothing else), so
+// this file can only be produced right then; there is no "download again later" without
+// regenerating.
 
 export type CredentialsFileLabels = {
   title: string;

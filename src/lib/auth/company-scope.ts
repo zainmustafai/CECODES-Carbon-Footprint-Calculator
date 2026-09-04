@@ -44,8 +44,10 @@ export async function resolveCompanyScope({
 }): Promise<CompanyScope> {
   const appUser = await getAppUser();
   if (!appUser) throw new ScopeError("no-profile");
-  // A deactivated user may still hold a valid Supabase session. The role and this flag live
-  // in Postgres, not in the JWT, so refusing here is what makes deactivation immediate.
+  // A deactivated user may still hold a live session cookie: deactivating does not reach into
+  // user_sessions, and the cookie is an opaque token that carries no claims of its own. The role
+  // and this flag live only in app_users and are re-read on every request, so refusing here is
+  // what makes deactivation immediate rather than something that waits for a token to expire.
   if (!appUser.active) throw new ScopeError("forbidden");
 
   if (appUser.role === "CECODES_ADMIN") {
@@ -79,7 +81,16 @@ export async function resolveCompanyScope({
 export type OnboardingScope = {
   userId: string;
   email: string;
-  /** Null when the signup trigger has not written the profile row yet. */
+  /**
+   * Null when the session resolves to an id that has no app_users row.
+   *
+   * That was a real window once: a trigger on the old provider's auth.users wrote the profile
+   * after the account existed, so the two could be seen out of step. The trigger was dropped in
+   * migration 20260905120100_rls_session_identity, and user_sessions now cascades from app_users,
+   * so a session cannot outlive its profile and readSession reads the address off that very row.
+   * It should be unreachable. Kept nullable, and handled below, because an unreachable state is a
+   * poor thing to dereference on the strength of an argument.
+   */
   appUser: AppUser | null;
 };
 
@@ -87,17 +98,20 @@ export type OnboardingScope = {
 // apply: there is no companyId to authorize against. It still belongs in this module, because
 // this is the only place that decides who may act.
 //
-// The check that matters is `active`. A deactivated user may still hold a valid Supabase
-// session, and createCompanyAction is a public POST endpoint that runs no layout, so the
-// /account-disabled redirect in requireAppUser never fires for it. Without this guard a
-// deactivated user who was never onboarded could create a company and link themselves to it.
+// The check that matters is `active`. A deactivated user may still hold a live session cookie,
+// because the cookie is an opaque token that says nothing about the account behind it and
+// deactivating does not delete it. createCompanyAction is a public POST endpoint that runs no
+// layout, so the /account-disabled redirect in requireAppUser never fires for it. Without this
+// guard a deactivated user who was never onboarded could create a company and link themselves
+// to it.
 export async function resolveOnboardingScope(): Promise<OnboardingScope> {
   const user = await getUser();
   if (!user) throw new ScopeError("no-profile");
 
   const appUser = await getAppUser();
-  // A missing profile row is legitimate here: the signup trigger may not have run, and the
-  // action self-heals it. A profile that exists and is deactivated is not legitimate.
+  // A missing profile row is tolerated rather than refused, and the caller self-heals it; see
+  // OnboardingScope.appUser for why that no longer describes anything that happens. A profile
+  // that EXISTS and is deactivated is a different fact entirely, and not tolerated.
   if (appUser && !appUser.active) throw new ScopeError("forbidden");
 
   // Already having a company is NOT an authorization failure; the caller reports it as

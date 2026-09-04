@@ -39,14 +39,17 @@ export function forgotPasswordSchema(t: T) {
 export type ForgotPasswordValues = z.infer<ReturnType<typeof forgotPasswordSchema>>;
 
 /**
- * `requireCurrent` is the signed-in change under AUTH_PROVIDER=local, and only that.
+ * `requireCurrent` marks the signed-in password change, and only that.
  *
- * The same form serves three arrivals: a self-hosted recovery link (?token, anonymous), a Supabase
- * recovery link (a session, and the user by definition does not know the old password), and the
- * account menu's "change my password" (a session, and they do). Only the last one can be asked to
- * re-authenticate, so the field is optional in the shape and made required by this flag. The
- * server decides the same thing independently in changeSignedInPassword; this half is so the box
- * appears and so an empty one is caught before a round trip.
+ * The same form now serves two arrivals: the self-hosted recovery link (?token, anonymous, and the
+ * user by definition does not know the old password), and the account menu's "change my password"
+ * (a session, and they do). There was a third, a recovery link from the hosted auth provider,
+ * which arrived WITH a session and still without knowledge of the old password; that is why the
+ * distinction is carried by a flag rather than simply read off "is there a session". Only the
+ * signed-in change can be asked to re-authenticate, so the field is optional in the shape and made
+ * required by this flag. The server decides the same thing independently in
+ * changeSignedInPassword; this half is so the box appears and so an empty one is caught before a
+ * round trip.
  */
 export function resetPasswordSchema(t: T, { requireCurrent = false } = {}) {
   return z

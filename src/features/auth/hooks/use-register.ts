@@ -34,7 +34,12 @@ export function useRegister() {
       return;
     }
 
-    // Supabase requires email confirmation (no session yet).
+    // Unreachable as it stands. signUpAction returns { error: "registrationDisabled" }
+    // unconditionally, so the guard above always returns first and needsConfirmation is never
+    // set. Kept rather than deleted because this is the branch self-registration needs if it
+    // comes back, and it no longer carries a provider's answer: the old flow set the flag because
+    // the auth provider required the address to be confirmed and issued no session until it was.
+    // Whatever reopens /register decides that on its own terms.
     if (needsConfirmation) {
       setSubmittedEmail(email);
       toast.success(tt("registerCheckEmail"));

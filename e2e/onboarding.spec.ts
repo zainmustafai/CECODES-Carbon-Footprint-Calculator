@@ -6,8 +6,9 @@ import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, createE2EUser, db, deleteE2EUser } from
 // create a DUPLICATE company instead of joining their own, so CECODES provisions every account.
 // A brand new user with no company is provisioned by createE2EUser, signs in through the real
 // /login UI, is routed to /onboarding by the dashboard guard, and must be told to contact CECODES
-// rather than shown a company-creation form. Under the Supabase modes the profile is NOT removed
-// by deleting the auth user, so both stores are cleaned up explicitly; deleteE2EUser does both.
+// rather than shown a company-creation form. There is one store to clean up now: deleteE2EUser is
+// a single DELETE from app_users, and the sessions and reset tokens that account opened go with it
+// by cascade.
 
 test.describe.configure({ mode: "serial" });
 

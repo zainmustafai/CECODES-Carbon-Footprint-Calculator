@@ -135,11 +135,27 @@ export function useCompanyOnboarding() {
     });
   }
 
-  // Sequential, best-effort, deliberately NOT transactional: createUser goes through the
-  // Supabase admin HTTP API and cannot join a Postgres transaction anyway, so full atomicity
-  // is impossible and partial outcomes must be reported honestly either way. A company without
-  // a sede is a legitimate supported state; the summary plus the company workspace (full CRUD)
-  // are the retry path.
+  // Sequential, best-effort, deliberately NOT transactional.
+  //
+  // This used to be forced. createUser went through the auth provider's admin HTTP API, which
+  // could not join a Postgres transaction, so full atomicity was impossible and the only open
+  // question was how honestly the partial outcome got reported. That constraint is GONE:
+  // createUser is now a single prisma.appUser.create against the same database as the other
+  // three writes, so all four could in principle commit or roll back together.
+  //
+  // So this is a choice now rather than a limitation, and it rests on the product argument
+  // instead of the technical one. Steps 2 to 4 are optional. A company with no sede, no
+  // reporting year and no user is a legitimate supported state, and the admin fills it in later
+  // from the company workspace. Under one transaction a duplicate year or an address already in
+  // use would throw away a company that was created correctly and make the admin retype the
+  // whole wizard, which is the worse outcome of the two. The summary screen reports each step
+  // separately for exactly this reason, and it plus the workspace's full CRUD are the retry path.
+  //
+  // What atomicity would take, for whoever revisits this: one new Server Action taking the whole
+  // wizard payload, authorizing once with resolveAdminScope and doing the four writes inside a
+  // prisma.$transaction, because a client cannot hold one transaction across four separate action
+  // calls. The welcome mail createUser sends would have to move after the commit, since a sent
+  // message does not roll back.
   async function createAll(values: CompanyOnboardingValues) {
     setServerError(null);
 

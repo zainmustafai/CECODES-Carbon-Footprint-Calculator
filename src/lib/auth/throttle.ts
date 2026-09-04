@@ -12,7 +12,9 @@ import {
 //
 // Postgres rather than process memory because the counter has to outlive a container restart and
 // hold across replicas. It costs one small indexed read per sign-in and one write per failure,
-// which is nothing next to the round trip to Supabase it guards.
+// which is nothing next to the quarter second of bcrypt every attempt spends anyway (password.ts,
+// BCRYPT_COST). That work is now done in this process rather than by a provider upstream, so this
+// counter is also what keeps a public sign-in endpoint from being a way to spend the server's CPU.
 
 /**
  * The keys one sign-in attempt counts against.
@@ -39,10 +41,13 @@ export function signInThrottleKeys(email: string, ip: string | null): string[] {
  * address out of /login for fifteen minutes, and the person doing the pressing is by definition
  * someone who cannot sign in. They locked themselves out by asking for the way back in.
  *
- * Under the Supabase providers that would have been worse still, because nothing there lifts the
- * lock: resetPasswordWithTokenAction refuses outside local mode, so the recovery that GoTrue mails
- * never reaches clearSignInThrottle, and this deployment's GoTrue may not send mail at all
- * (user-actions.ts, resetUserPassword: "a recovery mail may simply never arrive").
+ * Sharing was worse still under the hosted provider this replaced, and the reason is worth
+ * recording: nothing there could lift the lock at all. The token path refused to run outside local
+ * mode, so the recovery mail the provider sent never reached clearSignInThrottle, and that
+ * deployment might not have sent the mail in the first place. Someone who pressed the button five
+ * times waited out the full window with no way back in. That constraint is gone. There is one
+ * password path now, and consuming a real link clears BOTH allowances at the end of
+ * resetPasswordWithTokenAction, so the release valve named above is a real one.
  *
  * The prefix rather than a separate table: one store, one policy, and the rows still prune the
  * same way. registerFailure's per-key limit reads the shape below, so an ip key stays an ip key.

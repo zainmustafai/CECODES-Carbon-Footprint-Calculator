@@ -42,8 +42,10 @@ test.afterAll(async () => {
   // Defensive cleanup: the email-domain sweep in teardown covers this too, but delete now in
   // case a step bailed before the delete test ran.
   const client = await db();
-  // The id is read first because it is the only handle on the GoTrue half, which deleteE2EUser
-  // removes when there is one. email is unique, so there is at most one row to find.
+  // The id is read first because deleteE2EUser takes both handles and matches on either. It used
+  // to be the only handle on the provider-side half of the account, which no longer exists; with
+  // one store the address alone would do, since app_users.email is unique and this spec never
+  // changes it. Kept as belt and braces, at the cost of one query in teardown.
   const rows = await client.query<{ id: string }>(`SELECT id FROM app_users WHERE email = $1`, [
     userEmail,
   ]);

@@ -20,7 +20,8 @@ function refineAdminHasNoCompany(
 // ---------------------------------------------------------------------------
 // Server input schemas. The server NEVER trusts the client's schema: it re-validates every
 // action argument with its own .strict() schema so an unknown key cannot ride into a write.
-// AppUser.id and Company.id are Supabase/Postgres uuids, so z.uuid() everywhere, consistently.
+// AppUser.id and Company.id are uuids (AppUser's were issued by the auth provider this replaced
+// and carried across byte-identical), so z.uuid() everywhere, consistently.
 // ---------------------------------------------------------------------------
 
 // Identity/contact fields for traceability (CECODES, 2026-07-18). All optional: an admin may
@@ -35,8 +36,10 @@ const optionalContact = z
 
 export const createUserInput = z
   .object({
-    // Trim and lowercase so the app_users.email unique check and the auth user agree on one
-    // canonical form ("Foo@Bar.com" and "foo@bar.com" must not create two accounts).
+    // Trim and lowercase so this address arrives in the one canonical form everything else uses:
+    // the app_users.email unique index, the sign-in lookup and the throttle keys are all built
+    // from it ("Foo@Bar.com" and "foo@bar.com" must not create two accounts, and must not buy a
+    // second allowance either).
     //
     // Bounded for the reason EMAIL_MAX gives: this address becomes an auth_throttle primary key
     // the first time resetUserPassword clears the lockout on it, and that column is a btree entry.

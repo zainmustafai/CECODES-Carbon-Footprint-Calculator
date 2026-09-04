@@ -12,14 +12,17 @@ import {
 
 // THE LOGOUT TEST MUST OWN ITS USER. Do not point it at the shared fixture session.
 //
-// Under the Supabase modes, signOut() revokes the refresh token SERVER SIDE, and globally: it
-// kills every session that user has, not just this browser context. This test used to run against
-// the shared company-user storageState (e2e/.auth/user.json), so the moment it logged out, that
-// token was dead, and every spec Playwright ran afterwards (alphabetically: company-profile,
-// cross-tenant, data-entry, facilities-crud, meta) loaded an invalid session and got bounced.
-// They then failed on assertions that had nothing to do with what they were testing, or, worse,
-// passed VACUOUSLY: an isolation test asserting "the victim's name is not on this page" passes
-// beautifully when the page is the login screen.
+// signOutAction DELETES the user_sessions row behind the cookie it is handed. The shared
+// company-user storageState (e2e/.auth/user.json) is exactly one such cookie, so pointing this
+// test at it destroys the very row every later spec reuses. Under the hosted provider this was
+// worse still, because signOut revoked the refresh token globally and took every session that user
+// had; the blast radius is one session now, and one session is all it ever took. This test did run
+// against the shared state once, so the moment it logged out that session was dead, and every spec
+// Playwright ran afterwards (alphabetically: company-profile, cross-tenant, data-entry,
+// facilities-crud, meta) loaded an invalid session and got bounced. They then failed on assertions
+// that had nothing to do with what they were testing, or, worse, passed VACUOUSLY: an isolation
+// test asserting "the victim's name is not on this page" passes beautifully when the page is the
+// login screen.
 //
 // So this provisions a disposable user of its own, linked to the fixture company so the landing
 // page has something to render, signs it in through the real /login UI, and logs THAT one out.
@@ -34,8 +37,8 @@ test.describe("session", () => {
     const fixture = loadFixture();
 
     // Linked to the fixture company so the landing page renders instead of redirecting to
-    // /onboarding. createE2EUser writes the credential the app under test will actually be asked
-    // for, whichever store that is.
+    // /onboarding. createE2EUser writes a bcrypt hash straight into app_users, which is the one
+    // credential /login checks.
     const client = await db();
     userId = await createE2EUser(client, logoutEmail, { companyId: fixture.companyId });
     await client.end();

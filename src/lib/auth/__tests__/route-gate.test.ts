@@ -213,9 +213,9 @@ describe("/register, gated by FEATURE_SELF_ONBOARDING", () => {
 });
 
 // Moved here from the deleted src/lib/supabase/__tests__/middleware.test.ts, which tested the same
-// guarantees through updateSession() when there were two providers to gate on. Now there is one,
-// and gate() is it: a pathname and a cookie in, a NextResponse out, with a real session store
-// mocked underneath.
+// guarantees through updateSession() back when the configured auth provider was something the
+// middleware had to branch on. There is no provider now, and gate() is the whole of it: a pathname
+// and a cookie in, a NextResponse out, with a real session store mocked underneath.
 //
 // Two failures can only be caught here, not in the decideRoute suite above. A session store that
 // cannot answer letting somebody through: the lookup is a database query in front of every

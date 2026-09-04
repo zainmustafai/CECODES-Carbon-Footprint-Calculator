@@ -3,7 +3,9 @@ import { z } from "zod";
 // The server's own copy of the auth rules. IMPLEMENTATION.md §8: "the server re-validates with
 // its own schema and never trusts the client's". Every tenant action already did this; the auth
 // actions did not, which meant the documented password policy lived only in the browser and a
-// direct POST to updatePasswordAction fell through to Supabase's own 6-character floor.
+// direct POST to updatePasswordAction fell through to the auth provider's own 6-character floor.
+// That floor went away with the provider: these schemas are now the only length rule anywhere on
+// the server side, so there is nothing underneath them to catch a request that gets past.
 //
 // These schemas carry no messages. Auth errors return opaque i18n keys (never sentences, never
 // field-level detail), so there is nothing here for a translator to phrase: a rejection is always
@@ -11,7 +13,7 @@ import { z } from "zod";
 // in auth-schemas.ts need, which is why they are separate objects rather than a shared base.
 //
 // Every object is .strict(): an unexpected key is a rejection, not a silently dropped field, so
-// no hand-crafted request can smuggle an extra property through to a Supabase call.
+// no hand-crafted request can smuggle an extra property through to a database write.
 
 /** The one place the password policy is written down. Both sides of the boundary import it. */
 export const PASSWORD_MIN = 8;

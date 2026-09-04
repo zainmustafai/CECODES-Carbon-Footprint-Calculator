@@ -26,12 +26,12 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 // Creates the user's company plus its first facility, and links the user to it.
-// Returns an i18n error key on failure. Server-only (no Supabase/DB from the browser).
+// Returns an i18n error key on failure. Server-only; nothing here ever reaches the browser.
 //
 // This is a public POST endpoint that runs no layout, so it authorizes itself through
-// resolveOnboardingScope. It previously called requireUser(), which validates the Supabase
-// session but never reads app_users.active: a deactivated user who had never been onboarded
-// could create a company and link themselves to it.
+// resolveOnboardingScope. It previously called requireUser(), which establishes that the session
+// is real but never reads app_users.active: a deactivated user who had never been onboarded could
+// create a company and link themselves to it.
 export async function createCompanyAction(input: {
   companyName: string;
   sector?: string;
@@ -61,7 +61,10 @@ export async function createCompanyAction(input: {
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Self-heal a missing profile row (normally created by the signup trigger).
+      // Self-heal a missing profile row. The trigger that used to write it was dropped along with
+      // the old auth provider, and a session cannot outlive its app_users row, so in practice the
+      // upsert always takes the update path. It stays because creating the row is cheaper than
+      // failing the flow over one that is missing.
       await tx.appUser.upsert({
         where: { id: userId },
         update: {},

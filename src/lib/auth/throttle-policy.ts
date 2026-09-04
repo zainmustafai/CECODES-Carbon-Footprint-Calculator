@@ -1,9 +1,15 @@
 // The sign-in throttle's arithmetic, with no clock and no database of its own.
 //
-// Why any of this exists: every sign-in goes through a Server Action, so Supabase sees one source
-// IP - the server's - for every user of the app. Its per-IP brute-force protection is therefore
-// pooled across the whole tenant base, which is the same as not having it. The counting has to
-// happen on this side of that call, before the password is ever forwarded.
+// Why any of this exists: nothing else counts. A password is a bcrypt hash in app_users and a
+// sign-in is verified in this process, so there is no provider behind the app with brute-force
+// protection of its own. This module is not a second line of defence, it is the only one, and a
+// gap here is not softened by anything.
+//
+// It was never much more than that. Every sign-in goes through a Server Action, so the hosted
+// provider this replaced saw one source IP - the server's - for every user of the app, and its
+// per-IP protection was therefore pooled across the whole tenant base, which is the same as not
+// having it. Removing that provider did not weaken the case for counting here; it removed the
+// last reason anyone might think something upstream would catch what this misses.
 //
 // Keeping the arithmetic separate from storage is what makes the windows and lockouts testable
 // without a database, and keeps throttle.ts down to reading a row, applying a function, and

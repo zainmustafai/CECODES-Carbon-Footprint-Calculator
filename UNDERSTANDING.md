@@ -10,7 +10,7 @@ the product and gets the most detail.
 ## 1. The one-sentence answer
 
 You are building a **web app that lets Colombian companies calculate how much greenhouse
-gas they emit each year, see it on a dashboard, and (soon) export a report.**
+gas they emit each year, see it on a dashboard, and export a report.**
 
 That yearly number is called a **carbon footprint** (huella de carbono). Today companies
 calculate it with a giant, fragile Excel file. Your app replaces that Excel.
@@ -199,9 +199,10 @@ they type the year number, and the app tells them which GWP table it will lock i
    you can still record your kWh, and emissions compute the moment the admin loads the factor.
    It refuses to show a fake zero.
 
-9. **Meta de reducción (reduction target).** At the bottom of each scope tab, a card to set a
-   reduction target in t CO2e for that scope. Clearing the field deletes the target (an empty
-   target is not a target of zero). This drives the "avance hacia la meta" progress on the
+9. **Meta de reducción (reduction target).** Not on this screen: it lives on the company page,
+   as a **single percentage for the whole company** ("reduce our total footprint by 5%"),
+   measured against the company's first reported year. Clearing the field deletes the target (an
+   empty target is not a target of zero). This drives the "avance hacia la meta" progress on the
    dashboard.
 
 ### 6.3 Why it feels instant and never loses data
@@ -256,22 +257,23 @@ shows:
 
 - **Three KPI cards:** the total footprint in t CO2e; the year-over-year variation (green with
   a down arrow when emissions fell, red when they rose); and progress toward the reduction
-  target (green under target, red over).
+  target, which compares the reduction actually achieved since the company's first reported
+  year against the percentage it set itself (green under target, red over).
 - **A scope donut:** the split across Alcance 1 (green), 2 (amber), and 3 (blue), with the
   grand total in the middle.
 - **Category bars:** a ranked list of the biggest categories, each tinted by its scope color.
 - **A monthly electricity trend:** the Scope 2 line month by month, with unreported months
   shown as gaps, not zeros.
-- **A year comparison** bar chart and a **Meta vs. real** chart (actual emissions with a dashed
-  target line).
+- **A year comparison** bar chart and a **Meta vs. real** card: this year's total drawn as a bar
+  with a marker where the target sits, so under it reads green and over it reads red.
 - **Filters** for facility, year, scope, and category, all written into the URL so a shared
   link reproduces the exact view.
 
-**Worked example.** A company at **559 t CO2e for 2024**, down from **617 in 2023**: the
-variation card shows `(559 - 617) / 617 = -9.4%` in green ("Reducción"); if it set a Scope 2
-target of 610 t and actuals are 559, the target card shows 92%; the donut splits the 559 into
-its three scopes; and the year-comparison bars make the decline obvious. This is exactly what
-the seeded demo company "Demo Alimentos del Valle" renders today.
+**Worked example.** A company at **559 t CO2e for 2024**, down from **617 in 2023**, its first
+reported year: the variation card shows `(559 - 617) / 617 = -9.4%` in green ("Reducción"); with
+a **10%** reduction goal set, the target card shows 9.4% achieved against 10%, just short; the
+donut splits the 559 into its three scopes; and the year-comparison bars make the decline
+obvious. This is exactly what the seeded demo company "Demo Alimentos del Valle" renders today.
 
 ---
 
@@ -394,8 +396,15 @@ some code comments, are out of date and understate what exists).
 
 **Built and working:**
 
-- **Auth** (register, login, password reset) via Supabase, with the real multi-tenant
-  authorization layer (`src/lib/auth/company-scope.ts`).
+- **Accounts and sign-in, built into the app itself.** Logging in, signing out, changing a
+  password, and the "olvidé mi contraseña" email all run on this system's own database. There is
+  no outside account service to sign up with or pay for: a password is stored scrambled (bcrypt)
+  in the app's own user table, and being signed in is a random token the browser holds, which the
+  app looks up on every request. That last part is why deactivating someone takes effect on their
+  very next click. Signing up is deliberately closed: CECODES creates every account from the
+  admin screens, so a second employee cannot accidentally create a duplicate of their own
+  company. Behind all of it sits the real multi-tenant authorization layer
+  (`src/lib/auth/company-scope.ts`).
 - **The full setup chain:** onboarding (company plus first facility), facilities management,
   reporting-year creation.
 - **Data Entry**, the core screen: scope tabs, factor-library source picker, monthly grid for
@@ -408,26 +417,38 @@ some code comments, are out of date and understate what exists).
 - **The full factor library** (about 1,700 factors) loaded from the client's Excel via
   `prisma/import-factors.ts` (idempotent, never overwrites an admin's edit).
 - **Admin tools:** factor library with version history and change log, grid factors, company
-  and user management (real Supabase account creation).
-- **Reduction targets (Meta)** end to end, behind a feature flag pending formal client sign-off.
+  and user management (creating a real login account, with its password, right there).
+- **Reduction targets (Meta)** end to end: one reduction percentage per company, measured
+  against its first reported year.
+- **Report export**, both **PDF** and **Excel/CSV**, downloadable from the Reportes screen.
 - **Demo data** (four seeded companies covering rich, empty, mid-progress, and deactivated
   scenarios), a **dark theme** toggle, and a **Spanish/English** toggle.
+- **A one-command install.** `docker compose up -d --build` brings up the app, its own Postgres,
+  and a mail catcher so the "forgot my password" email is readable without paying a mail
+  provider. Nothing has to be signed up for first, and the whole thing can live on a server
+  CECODES controls.
 
 **Partial:**
 
 - **Results are computed live, not stored.** A `ResultSnapshot` table exists for pinned,
   reproducible results but nothing writes to it yet. Fine at current volumes; a known gap for
   long-term reproducibility.
-- **Scope 3 breadth.** Spend-based (per-peso, per-dollar) and distance-based conversions do not
-  have dedicated engine paths yet, and seven Scope 3 categories are deliberately skipped until
-  CECODES supplies their methods.
+- **Scope 3 breadth.** Money-based and distance-based sources now have their own entry modes
+  (money divided by that year's fuel price to get gallons; a passenger count times a distance in
+  km), but seven Scope 3 categories are still deliberately skipped until CECODES supplies their
+  methods.
+
+**The parity test now exists.** CECODES sent a filled-in calculation sheet on 2026-07-24, and an
+automated test re-computes that company-year and compares it, line by line, against the numbers
+the Excel itself produced. That is the acceptance test, and it passes for that workbook.
 
 **Genuinely not built yet:**
 
-- **PDF and Excel/CSV report export** (required by the requirements; no export code exists yet).
-- **The Excel-parity acceptance test.** The tests reproduce the requirements' worked examples,
-  but there is no automated diff against the client's actual spreadsheet, which is the real
-  definition of done.
+- **Parity for the newer kinds of source.** The client workbook that parity is checked against
+  predates the money-based and distance-based entry modes and the per-gas and trip rows, so
+  those still rest on hand-derived tests rather than on the Excel. A second filled-in workbook
+  covering them is the missing piece.
+- **Stored results.** See "Partial" above: every number is recomputed on demand.
 
 **Waiting on the client** (requirements section 12): which factor table is authoritative;
 corrected Scope 3 travel factors; some implausibly high factors to verify; whether COP/USD is

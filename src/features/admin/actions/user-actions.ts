@@ -120,7 +120,8 @@ export async function createUser(input: {
 }
 
 // Changes a user's role, company, and contact details. Email and the password are not editable
-// here, so this action is the same in every provider: none of it is credential material.
+// here, so none of this is credential material: a plain profile update, with no hash to write and
+// no sessions to sweep.
 export async function updateUser(input: {
   userId: string;
   role: "COMPANY_USER" | "CECODES_ADMIN";
@@ -178,18 +179,19 @@ export async function setUserActive(input: {
     // Self-lockout guard: an admin cannot deactivate themselves.
     if (userId === scope.appUser.id) return { error: "cannotEditSelf" };
 
-    // Deactivation is immediate under every provider, and always was: `active` lives in Postgres
-    // rather than in a token, and every entry point re-reads it (requireAppUser redirects to
+    // Deactivation is immediate on its own, and always was: `active` lives in app_users rather
+    // than in a token, and every entry point re-reads it (requireAppUser redirects to
     // /account-disabled; resolveCompanyScope and resolveAdminScope throw ScopeError; the sign-in
     // action returns "accountDisabled"). So the flag alone is what enforces this.
     //
-    // The sessions end too, in the same transaction as the flag, and this no longer branches on
-    // the provider. It used to, on the reading that rows nothing currently honours are not this
-    // action's to delete. What that missed is that AUTH_PROVIDER is one variable: a session minted
-    // during a `local` window survives a rollback to `supabase` untouched, and is honoured again
-    // the moment the flag goes back, up to thirty days later. So an account deactivated during the
-    // Supabase window would come back with its old sessions live. Deleting them costs nothing
-    // under the other two providers, which do not read these rows at all.
+    // The sessions end too, in the same transaction as the flag. This used to branch on which
+    // auth provider was configured, on the reading that rows nothing currently honours are not
+    // this action's to delete; there is one session store now, so the branch is gone. The reason
+    // to delete survives that intact, and it is reactivation. A session row is good for thirty
+    // days and nothing on the way back in clears it, so an account deactivated at 10:00 and
+    // reactivated weeks later would hand its old browser straight back, still signed in, without
+    // the password being typed once. It is the same argument as the reset links below: the flag
+    // is what makes deactivation immediate, and this is what stops the reactivation undoing it.
     //
     // destroyAllSessionsForUser is deliberately not called: it holds the app's own client, so it
     // would run outside this transaction and could purge the sessions of a flag update that then

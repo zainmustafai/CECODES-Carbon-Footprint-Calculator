@@ -20,31 +20,52 @@ without a reason gets discarded by the next person who finds it inconvenient.
 
 ## 1. Getting started
 
-Requirements: [bun](https://bun.sh), and access to the project's Supabase instance.
+Requirements: [bun](https://bun.sh), and a Postgres to point at. There is no third-party
+account to provision: `docker compose up -d --build` brings up its own Postgres, applies the
+migrations, seeds, and starts the app, with a Mailpit container catching the password-reset
+mail. That path is [docs/DOCKER_DEPLOYMENT.md](./docs/DOCKER_DEPLOYMENT.md); this section is
+the one for working on the code.
 
 ```bash
 bun install          # also runs `prisma generate` via postinstall
 cp .env.example .env.local
-# fill in .env.local with the real Supabase values
+# set DATABASE_URL, DIRECT_URL, ADMIN_EMAIL, ADMIN_PASSWORD
+bun run db:bootstrap # objects the migration chain needs. Idempotent. See section 7
 bun run db:deploy    # apply migrations
 bun run db:seed      # reference data + the single admin user
 bun run dev
 ```
 
+Self-serve registration is off ([FEATURE_SELF_ONBOARDING](src/lib/feature-flags.ts)), so the
+seeded admin is the only way into a fresh system. With `ADMIN_PASSWORD` unset, `prisma/seed.ts`
+generates one and prints it once, the first time it creates the row.
+
 ### Environment variables
 
-All of them live in `.env.local`, which is git ignored. `.env.example` is tracked and holds
-placeholders only. Never commit real values.
+All of them live in `.env.local`, which is git ignored. `.env.example` is tracked, documents
+every variable, and holds nothing but local defaults and placeholders. Never commit real values.
+Its `ADMIN_PASSWORD` placeholder is the one to watch: it is long enough to pass validation, so a
+copied `.env` that keeps it hands the admin account that string as its real password.
+[src/lib/env.ts](src/lib/env.ts) is the contract: `validateRuntimeEnv()` runs from
+[src/instrumentation.ts](src/instrumentation.ts) at boot and exits non-zero on anything wrong,
+naming the variable and never its value. `validateInitEnv()` adds what initialization needs.
 
 | Variable | Used by | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase clients | Public |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase clients | Public |
-| `SUPABASE_SERVICE_ROLE_KEY` | Seed script, E2E harness | **Server only.** Bypasses all auth |
-| `DATABASE_URL` | App runtime ([src/lib/prisma.ts](src/lib/prisma.ts)) | Pooled connection, port 6543 |
-| `DIRECT_URL` | Prisma CLI ([prisma.config.ts](prisma.config.ts)) | Direct connection, port 5432 |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | [prisma/seed.ts](prisma/seed.ts) | Creates the single CECODES admin |
+| `DATABASE_URL` | App runtime ([src/lib/prisma.ts](src/lib/prisma.ts)) | **The one required variable.** Pooled connection where there is a pooler |
+| `DIRECT_URL` | Prisma CLI ([prisma.config.ts](prisma.config.ts)) | Unpooled, for migrations. Falls back to `DATABASE_URL` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | [prisma/seed.ts](prisma/seed.ts) | Creates the single CECODES admin. Required to initialize; the password is generated when absent |
+| `SITE_URL` | [src/lib/site-url.ts](src/lib/site-url.ts) | Absolute origin for the links in reset mail. Falls back to `DOMAIN`, then `VERCEL_URL`. Never the request's Host header, which an attacker controls |
+| `MAIL_TRANSPORT` | [src/lib/mail/transport.ts](src/lib/mail/transport.ts) | `smtp`, `resend`, or unset for none |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | The SMTP transport | `SMTP_HOST` is required with `MAIL_TRANSPORT=smtp` |
+| `RESEND_API_KEY` | The Resend transport | Required with `MAIL_TRANSPORT=resend` |
+| `MAIL_FROM` | Both transports | A From header, so `Name <address>` is valid and `z.email()` is deliberately not used |
+| `DOMAIN` | `docker-compose.yml`, `Caddyfile` | Public hostname for the optional TLS proxy |
 | `DEMO_SEED_ALLOWED`, `DEMO_PASSWORD` | [prisma/seed-demo.ts](prisma/seed-demo.ts) | **Local only.** The flag is the production brake |
+
+Half a mail configuration is the failure this schema exists to catch: a transport with no
+`MAIL_FROM`, or a `RESEND_API_KEY` still holding the `.env.example` placeholder, would otherwise
+be discovered only after a user had been told to watch an inbox. It is refused at boot instead.
 
 If the database password contains characters that are reserved in a URI, such as `@` or
 `:`, percent encode them inside `DATABASE_URL` and `DIRECT_URL`. An `@` becomes `%40`.
@@ -58,29 +79,36 @@ If the database password contains characters that are reserved in a URI, such as
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run lint` | ESLint. The React Hooks rules are strict: `reactCompiler` is on |
 | `bun run test` | Vitest unit tests |
-| `bun run test:e2e` | Playwright. **Writes to the shared database.** See section 10 |
+| `bun run test:e2e` | Playwright. **Writes to whatever database `.env.local` names.** See section 10 |
+| `bun run db:init` | Bootstrap, migrate and seed, in order. What the `init` container runs |
+| `bun run db:bootstrap` | Apply `scripts/bootstrap-db.sql`. Idempotent. Must precede the migrations on a new database |
 | `bun run db:deploy` | Apply pending migrations |
 | `bun run db:seed` | Idempotent. Safe to run repeatedly |
+| `bun run db:seed:prod` | The real library, the reference data and the travel-factor correction. Dry run without `--apply` |
 | `bun run db:import-factors` | Import the factor library from the Excel. `--dry-run` previews. Idempotent |
 | `bun run db:seed:demo` | Demo tenants. Refuses to run unless `DEMO_SEED_ALLOWED=true` |
+| `bun run db:verify-fresh` | Prove a virgin Postgres initializes from nothing, twice. **Throwaway database only** |
+| `bun run db:audit-hashes` | Read-only. Assert every stored credential is a well-formed bcrypt hash |
 | `bun run db:studio` | Prisma Studio |
 
-> **Trap:** `bun run db:migrate` (`prisma migrate dev`) **does not work here.** Supabase's
-> pooler exposes no shadow database. Use the migration workflow in section 7 instead.
+> **Trap:** `prisma migrate dev` **does not work here**, and there is deliberately no `db:migrate`
+> script for it. It builds a shadow database that never sees `scripts/bootstrap-db.sql`, which
+> the migration chain depends on. Use the migration workflow in section 7 instead.
 
 ---
 
 ## 2. Architecture at a glance
 
-Next.js 16 App Router, full stack, deployed on Vercel. There is no separate API layer:
-Server Components read, and Server Actions write.
+Next.js 16 App Router, full stack, deployed on Vercel or as a container image. There is no
+separate API layer: Server Components read, and Server Actions write.
 
 ```
 Browser
   |
-  |  (no Supabase client, ever. See rule 6.)
+  |  (no database client, ever. See rule 6.)
   v
-src/proxy.ts ................ session refresh + authenticated/public gating
+src/proxy.ts ................ Next 16's middleware, one line, delegating to:
+lib/auth/route-gate.ts ...... resolve the session cookie, then authenticated/public gating
   |
   v
 app/(app)/**/page.tsx ....... thin routes: guard, then render a feature screen
@@ -95,7 +123,8 @@ lib/auth/company-scope.ts ... the single authorization boundary
 lib/prisma.ts ............... Prisma 7 with the pg driver adapter
   |
   v
-Supabase Postgres
+Postgres .................... identity included: app_users, user_sessions,
+                              password_reset_tokens, auth_throttle
 ```
 
 Two things are load bearing and easy to miss:
@@ -115,56 +144,79 @@ prisma/
   schema.prisma            Domain model. Comments here are normative
   migrations/              Hand authored SQL. See section 7
   seed.ts                  Reference data and the single admin. Idempotent
+  seed-prod.ts             The real library + reference data + the travel correction. --apply to write
+  seed-demo.ts             Four demo tenants. Gated on DEMO_SEED_ALLOWED
+
+scripts/
+  bootstrap-db.sql         Objects the migration chain needs, applied before it. Section 7
+  init-db.ts               The `init` container: validate, wait, bootstrap, migrate, seed
+  verify-fresh-db.ts       Proves a virgin Postgres initializes from nothing, twice
+  audit-password-hashes.ts Read only. Every stored credential is a well formed bcrypt hash
 
 src/
   app/
-    (auth)/                Login, register, forgot, reset. Redirects away if signed in
+    (auth)/                Login, register, forgot password. Redirects away if signed in
+    reset-password/        Outside (auth): reached with a token signed out, and without one
+                           signed in, so that layout's redirect would strand one of the two
+    account-disabled/      Where a deactivated user lands
     (app)/                 Everything behind a session
       layout.tsx           SidebarProvider + AppSidebar + AppTopbar + skip link
-      dashboard/           Company user home. Admins are redirected to /admin/companies
-      data-entry/          Company user route
-      facilities/          Company user route
-      onboarding/          Company + first facility
+      data-entry/          Company user route, and where a sign in lands (lib/routes.ts)
+      dashboard/  company/  preview/  reports/
+      onboarding/          Company + first facility. Closed while FEATURE_SELF_ONBOARDING is false
       admin/
         layout.tsx         requireAdmin(). Rendering guard only
-        companies/[companyId]/{dashboard,data-entry,facilities}
-        users/  factors/
-    auth/                  Supabase code exchange route handlers
+        companies/[companyId]/{company,dashboard,data-entry,preview,reports}
+        users/  factors/  traceability/
+    api/health/{live,ready}  Liveness, and readiness that runs SELECT 1 through Prisma
+    api/reports/export/    The Excel/CSV and PDF download
     globals.css            The design tokens. Nothing else defines colour
     layout.tsx             Fonts, TooltipProvider, NextIntlClientProvider, Toaster
-    page.tsx               Gateway: redirects to /dashboard or /login
+    page.tsx               Gateway: redirects to POST_LOGIN_PATH or /login
 
   components/
     ui/                    shadcn primitives. Vendored, edit sparingly
     form/                  TextField, PasswordField. RHF compatible via forwardRef
+    feedback/              Toast action helper, confirm dialog, navigation progress
 
   features/
     admin/                 Companies, users, factor library (CRUD + audit), onboarding wizard
     app-shell/             Sidebar, topbar, breadcrumbs, nav config
-    auth/                  Sign in, sign up, password reset
+    auth/                  Sign in, sign up, password reset. All server actions
     company/               The company page: profile + the Sedes section
     data-entry/            The core feature. See section 9
     dashboard/             Real computed numbers. See src/lib/calc/rollup.ts
     facilities/            Sedes CRUD. Rendered inside the company page, not its own route
     localization/          Language toggle
-    onboarding/            First company + first sede, for a self-signed-up user
+    onboarding/            First company + first sede
     preview/               Read-only spreadsheet of everything entered
-    onboarding/            Company and first facility
+    reports/               build-workbook.ts (exceljs), build-pdf.tsx (@react-pdf/renderer)
+    theme/                 Light/dark toggle
 
   hooks/use-mobile.ts      matchMedia at 1024px, read via useSyncExternalStore
   i18n/                    next-intl request config. Cookie based, no URL prefix
   lib/
     auth/company-scope.ts  THE authorization boundary
-    auth/server.ts         getUser, requireUser, getAppUser, requireAppUser, requireAdmin
-    auth/safe-redirect.ts  Blocks open redirects in the auth callbacks
-    calc/engine.ts         computeCo2eKg for a single source. Roll ups do not exist yet
+    auth/server.ts         getUser, requireUser, getAppUser, requireAppUser, requireAdmin,
+                           companyIsActive
+    auth/session.ts        Opaque session tokens: 32 random bytes in the cookie, SHA-256 in
+                           user_sessions. Deliberately not a JWT
+    auth/password.ts       bcryptjs hashing and verification
+    auth/password-reset.ts Single use reset tokens, hashed the same way
+    auth/route-gate.ts     The whole public/protected redirect policy, as a pure function
+    auth/throttle.ts       Sign in and reset rate limiting, in auth_throttle
+    mail/                  Handlebars templates, plus the smtp and resend transports
+    calc/engine.ts         computeCo2eKg for a single source. rollup.ts aggregates it
+    env.ts                 The environment contract. Read at boot by src/instrumentation.ts
     gwp.ts                 GWP tables, resolveGwpSet, kgToTonnes
     prisma.ts              The Prisma client
-    supabase/              Server client and the proxy session refresh
   messages/{es,en}.json    All user facing copy
-  proxy.ts                 Next 16's middleware. Named `proxy`, not `middleware`
+  proxy.ts                 Next 16's middleware. Named `proxy`, not `middleware`. Calls the gate
+  instrumentation.ts       Validates the environment once per process, and exits if it is wrong
 
 e2e/                       Playwright: fixture tenant, setup, teardown, specs
+docker-compose.yml         db + init + app + mailpit, and Caddy behind the `edge` profile
+Dockerfile                 deps -> builder -> migrator (the init job) -> runner
 ```
 
 ---
@@ -199,10 +251,11 @@ problem.
 
 5. **All code under `src/`.** The import alias `@/*` maps to `./src/*`.
 
-6. **Never call Supabase from the browser.** There is no browser client in this repo, and
-   there must not be one. Every Supabase call happens in a Server Action or a Server
-   Component. This keeps the anon key off the critical path and makes every mutation a
-   place where authorization can be enforced.
+6. **No database client may exist in browser code.** There is none in this repo, and there
+   must not be one. Every query and every write happens in a Server Action or a Server
+   Component. This is what makes every mutation pass a place where authorization can be
+   enforced; a client that could reach the database directly would be a second access path
+   that `company-scope.ts` does not sit in front of.
 
 7. **Never use an em dash.** Anywhere. Use a period, a comma, a colon, or a hyphen. This
    applies to code comments, commit messages, and user facing copy.
@@ -270,9 +323,16 @@ the English file: Alcance, Categoría, Sede, Planta, Huella de Carbono. All copy
 ## 5. Roles and routing
 
 Two roles, in the Prisma `Role` enum: `COMPANY_USER` and `CECODES_ADMIN`. The role lives in
-Postgres on `app_users`, **not in the Supabase JWT**. This is why the proxy cannot gate on
-it: `src/proxy.ts` only distinguishes authenticated from public, and role checks happen in
-the Node and RSC layer.
+Postgres on `app_users`, and **nowhere else**. There is no token carrying it: a session is 32
+random bytes in a cookie, stored as its SHA-256 digest in `user_sessions`
+([session.ts](src/lib/auth/session.ts)), and it identifies a user and says nothing about them.
+
+So `role`, `companyId` and `active` are re-read from `app_users` on every request, which is
+what makes a deactivation take effect on the user's very next click rather than at token
+expiry. The proxy deliberately does not gate on any of them: `route-gate.ts` answers exactly
+one question, authenticated or public, and every role and active check happens in the Node and
+RSC layer where the row is being read anyway. A second, quieter authorization boundary in the
+proxy would be one more place to keep in step with `company-scope.ts`.
 
 An admin has `companyId = null`. They own no company.
 
@@ -380,7 +440,21 @@ value would silently restate history.
 
 ## 7. Migrations
 
-Supabase's pooler exposes no shadow database, so **`prisma migrate dev` cannot be used.**
+**`prisma migrate dev` cannot be used.** Migrations are hand authored SQL, applied forward only
+with `prisma migrate deploy`.
+
+The reason is the chain's own history. Prisma checksums a migration the moment it is applied, so
+migration 2, `20260709120320_rls_and_auth`, can never be edited: it grants to a role named
+`authenticated`, resolves `auth.uid()` inside function bodies that Postgres validates at CREATE
+time, and attaches a trigger to `auth.users`. None of those objects exist in a plain Postgres.
+[scripts/bootstrap-db.sql](scripts/bootstrap-db.sql) supplies all four, guarded per object and
+idempotent forever, and `bun run db:bootstrap` (or `db:init`, or the `init` container) runs it
+before `migrate deploy`. `migrate dev` builds a shadow database that never sees it and fails on
+migration 2.
+
+That file is **not** a migration: it is not in the ledger, it has no checksum, and every object
+it creates is guarded so it is a no-op on a database that already has one. Read its header
+before changing anything in it.
 
 To add a migration:
 
@@ -668,9 +742,25 @@ authorization matrix:
   a nonexistent id, and no id; company user with their own id, another company's id, and no
   company; a session with no profile row; and `resolveOnboardingScope`, which refuses a
   deactivated user who was never onboarded.
+- `action-authorization.test.ts`: the same question one layer up. `company-scope` proves the
+  resolvers refuse a foreign company; this proves the actions **call** them. The real
+  company-scope is used, only the database is stubbed, and each case asserts both an opaque
+  `forbidden` and that nothing was written.
+- The auth suite: `session.test.ts`, `password.test.ts` (including the canonical OpenBSD bcrypt
+  vectors), `password-reset.test.ts`, `route-gate.test.ts`, `throttle.test.ts` and
+  `throttle-policy.test.ts`, `hash-shape.test.ts`, and `server.test.ts`.
+- `use-case-coverage.test.ts`: a gate, not a test of behaviour. Every registered auth use case
+  in `docs/auth/USE-CASES.md` must appear in the title of a test that actually runs; a
+  `.skip`, a `.todo` or an `.only` fails it rather than satisfying it.
+- `env.test.ts` and `env-precedence.test.ts`: what boots and what refuses to, including half a
+  mail configuration and a shell export losing to `.env.local`.
+- `parity.test.ts`: **the acceptance test.** See section 12 for what its fixture does and does
+  not cover.
 
-Still missing, and worth knowing: there is no `engine.test.ts` (the engine is only exercised
-transitively), no test for any Server Action, and no cross-tenant test at the HTTP layer.
+Still missing, and worth knowing: the engine's non-QUANTITY entry modes, and the gas, fuel and
+trip rows added after the client's workbook arrived, rest on hand-derived unit tests alone.
+`parity.test.ts`'s own header lists exactly what its fixture does not reach; read it before
+claiming a change is parity-safe.
 
 ### End to end, Playwright
 
@@ -678,22 +768,35 @@ transitively), no test for any Server Action, and no cross-tenant test at the HT
 bun run test:e2e
 ```
 
-> **This writes to the shared Supabase database.** There is one project and no local
-> Postgres.
+> **This writes to whatever database `DIRECT_URL`, or failing that `DATABASE_URL`, names in
+> `.env.local`.** Run the default way, on a developer machine, that is the one shared database
+> everybody else is also using, and the suite creates and hard deletes rows in it. The Docker
+> stack ships a local Postgres, so pointing the run at a throwaway database is now possible;
+> until the two variables actually say so, assume every run touches real data.
 
-The harness provisions its own throwaway tenant: a company named `E2E <uuid>`, a facility,
-and a dedicated Supabase auth user. Teardown purges the whole `E2E ` namespace, and setup
-sweeps it first so a crashed run cannot leak. Nothing outside that namespace is ever
-touched. `workers: 1`.
+The harness provisions its own throwaway tenant: a company named `E2E <uuid>`, a facility, a
+company user and a disposable admin, plus a second company nobody signs in as, which exists
+only so `cross-tenant.spec.ts` has real foreign ids to attack with. "Not found" and "not yours"
+must be indistinguishable to the caller, and only a real foreign row can tell the two apart.
+Accounts are created as `app_users` rows with a bcrypt hash, through the same
+`hashPassword` the app uses, and every spec signs in by typing the password into the real login
+form. Teardown purges the whole `E2E ` namespace, and setup sweeps it first so a crashed run
+cannot leak. Nothing outside that namespace is ever touched. `workers: 1`.
 
 Two traps, both already hit:
 
 - **Playwright transpiles as CommonJS**, and the generated Prisma client uses
   `import.meta`. The harness talks to Postgres through `pg` directly. Do not import Prisma
   into `e2e/`.
-- **Deleting a Supabase auth user does not remove its `app_users` row.** The signup trigger
-  fires only on `INSERT`, and `app_users.id` carries no foreign key to `auth.users`. Delete
-  both, or orphan the row forever.
+- **Deleting a user is one delete now, not two.** Identity lives in `app_users` and nowhere
+  else, so the old two-store cleanup problem is gone. What replaced it is a wider sweep:
+  teardown also clears `auth_throttle` keys and the global reference data the admin specs
+  create (factors, library versions, grid years), each by its own `E2E` prefix. A new spec that
+  writes outside the company namespace has to add its rows to that sweep.
+
+`password-reset.spec.ts` needs mail actually delivered, so `playwright.config.ts` points the
+dev server it starts at Mailpit on `127.0.0.1:1025` and pins `SITE_URL`. Bring the compose
+stack up first, or that spec has nowhere to deliver.
 
 **Never** run `prisma migrate reset`, `TRUNCATE`, or the Prisma MCP `migrate-reset` tool
 against this database.
@@ -731,7 +834,8 @@ A list of things that have already cost someone an hour.
 - `updateMany` and `deleteMany` return `{ count: 0 }`; they do not throw. Always check the
   count, or a cross tenant write returns HTTP 200.
 - `where: { companyId: null }` matches rows whose column is null. It does not mean "any".
-- `migrate dev` needs a shadow database. Supabase's pooler has none.
+- `migrate dev` builds a shadow database, which never sees `scripts/bootstrap-db.sql` and so
+  fails on migration 2. Hand author the SQL and use `migrate deploy`. Section 7.
 - Decimals are `decimal.js` instances and cannot cross the RSC boundary.
 
 **Next.js 16**
@@ -788,10 +892,13 @@ real computed numbers from it. Also built: the factor library with its audit tra
 
 Genuinely not built:
 
-- **Excel parity**, which is the project's actual acceptance test (docs section 14.1). It is not
-  merely untested, it is currently **untestable**: `docs/reference/` holds the factor library
-  workbook only. There is no filled in sample company spreadsheet with totals to compare against.
-  Obtaining one is item 0 of [docs/CLIENT_DECISION_MEMO.md](docs/CLIENT_DECISION_MEMO.md).
+- ~~**Excel parity**, the project's acceptance test (docs section 14.1).~~ **PARTLY PROVEN.**
+  CECODES sent a filled-in calculation workbook on 2026-07-24;
+  `src/lib/calc/__tests__/fixtures/parity/cecodes-dashboard-principal-2024.json` transcribes its
+  PRINCIPAL sheet, inputs and the Excel's own cached results, cell by cell, and `parity.test.ts`
+  diffs `rollupYear` against it. What that fixture does **not** cover is listed in the test's own
+  header: the non-QUANTITY entry modes, gas, fuel and trip rows, and the 2026-09-03 factor
+  correction. A workbook exercising any of those is worth transcribing as a second fixture.
 - ~~**Reports**, PDF and Excel export.~~ **BUILT.** Excel/CSV (`exceljs`, `build-workbook.ts`) and
   PDF (`@react-pdf/renderer`, `build-pdf.tsx`) all ship through `src/app/api/reports/export/route.ts`.
   The PDF adds a per-element uncertainty list, per CECODES's decision to disclose uncertainty in the
@@ -803,8 +910,9 @@ Genuinely not built:
 - **`ResultSnapshot`.** The model exists and nothing writes it. The dashboard recomputes per
   request, so results are always fresh and never reproducible.
 - **RLS through Prisma.** Documented as inert. Making it real means a non owner role,
-  `SET LOCAL role`, per transaction JWT claims, and `FORCE ROW LEVEL SECURITY`. It is a
-  large change and is not required while `resolveCompanyScope` holds.
+  `SET LOCAL role`, `SET LOCAL app.current_user_id` per transaction (which is what the policies
+  already read, see section 8), and `FORCE ROW LEVEL SECURITY`. It is a large change and is not
+  required while `resolveCompanyScope` holds.
 
 > The preview is **display only** and says so on screen. It parses to `number` because nothing it
 > computes is ever stored. Do not copy that pattern into a persisted engine.
@@ -820,8 +928,11 @@ Genuinely not built:
   row, and guessing one would silently pick a CH4 GWP. Explicit beats implied.
 - **Spend based factors** land in `co2eFactor` with unit `USD`. `co2eFactorCop` and
   `co2eFactorUsd` stay reserved until CECODES answers the currency question, docs 12.4.
-- **Per scope Meta** ships behind [FEATURE_SCOPE_TARGETS](src/lib/feature-flags.ts). CECODES
-  said "almost certainly yes" but has not confirmed. Flipping the flag is the whole revert.
+- **Meta is one percentage per company**, not one per Alcance or per Sede.
+  `CompanyTarget.reductionPct` is a percentage of the company's total footprint, measured
+  against the first reported year, computed live as `MIN(ReportingYear.year)` and never
+  snapshotted. The earlier per-scope tonnes design was removed because the client's own
+  decision memo (2026-07-28) never asked for it. Requirements 12.9 is still formally open.
 
 ### The Excel's kilogram columns, and why we read them
 

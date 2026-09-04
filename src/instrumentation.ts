@@ -11,7 +11,8 @@ import { validateRuntimeEnv } from "@/lib/env";
  * Runs once per server process, on Vercel and in a container alike.
  */
 export function register() {
-  // The edge runtime has no database and no Supabase admin client; nothing to validate there.
+  // The edge runtime never opens the database and never sends mail, which is all
+  // validateRuntimeEnv checks; there is nothing to validate there.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   try {
