@@ -29,6 +29,20 @@ describe("formatErrorReport", () => {
     expect(parsed.where).toBe("reports/export");
   });
 
+  // Context comes from a call site that is, by definition, already going wrong. It must not be
+  // able to rewrite the parts of the report an operator reads first.
+  it("does not let a context key overwrite the error's own message", () => {
+    const parsed = JSON.parse(
+      formatErrorReport({
+        where: "reports/export",
+        error: new Error("the real failure"),
+        context: { message: "something harmless", where: "somewhere else" },
+      }),
+    );
+    expect(parsed.message).toBe("the real failure");
+    expect(parsed.where).toBe("reports/export");
+  });
+
   it("survives a thrown value that is not an Error at all", () => {
     const parsed = JSON.parse(formatErrorReport({ where: "somewhere", error: "just a string" }));
     expect(parsed.message).toBe("just a string");

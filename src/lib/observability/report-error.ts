@@ -36,7 +36,10 @@ export function formatErrorReport({ where, error, context }: ErrorReport): strin
   };
 
   try {
-    return JSON.stringify({ ...base, ...context });
+    // Context first, so the fields above always win. A caller reporting a failure is already
+    // having a bad day; a context key called `message` or `where` must not quietly replace the
+    // two fields an operator reads first.
+    return JSON.stringify({ ...context, ...base });
   } catch {
     // A context value that cannot be serialized (a cycle, a BigInt) must not cost us the report.
     // The caller's context is the only part that can fail, so it is the only part dropped: `base`
