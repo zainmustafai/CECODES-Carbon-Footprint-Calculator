@@ -65,11 +65,15 @@ enum FactorChangeAction {
 }
 
 // ---------------------------------------------------------------------------
-// Identity (Supabase Auth owns auth.users; we mirror role + company link here)
+// Identity. Credentials live HERE, in this database, alongside the profile.
+//
+// They used to live in Supabase's auth.users, and the ids in this table are the uuids GoTrue
+// issued: they were kept byte-identical through the migration precisely so the two audit tables
+// that reference them, and every z.uuid() validation, kept working untouched.
 // ---------------------------------------------------------------------------
 
 model AppUser {
-  id        String   @id // = Supabase auth user id (uuid)
+  id        String   @id // uuid; originally issued by Supabase GoTrue, now ours
   email     String   @unique
   // Contact and identity for traceability. CECODES asked for these (2026-07-18) so that when a
   // company has several people using the tool and a figure is wrong, they know who to reach.
@@ -87,11 +91,32 @@ model AppUser {
   // and this flag live in Postgres, not in the JWT, so every request re-reads them and a
   // deactivation takes effect immediately without revoking a session.
   active    Boolean  @default(true)
+
+  // ---- Credentials -------------------------------------------------------------------------
+  // Nullable because they arrived by backfill from auth.users, and because a row created before
+  // that backfill (or by a future invite flow) legitimately has no password yet. A null hash can
+  // never authenticate: verifyPassword refuses it rather than treating it as "no password
+  // required", which is the failure mode this comment exists to prevent.
+  passwordHash     String?
+  // Which algorithm produced passwordHash. Every row starts as "bcrypt" because that is what
+  // GoTrue stored, and keeping the label lets a future move to another algorithm be additive
+  // rather than a forced reset for everyone.
+  passwordAlgo     String?
+  // Mirrored from auth.users.email_confirmed_at at backfill. Every account this app creates is
+  // confirmed at creation (an admin sets a temporary password and dictates it), so this is
+  // provenance rather than a gate.
+  emailConfirmedAt DateTime?
+  // Updated on each successful sign-in. The only fact that lived solely in Supabase and had no
+  // equivalent here, so it was worth carrying across.
+  lastSignInAt     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   factorChanges EmissionFactorChange[]
   entryChanges  ActivityEntryChange[]
+  sessions      UserSession[]
+  resetTokens   PasswordResetToken[]
 
   @@index([companyId])
   @@map("app_users")
@@ -565,4 +590,56 @@ model AuthThrottle {
   // a DELETE by this index is a one-liner whenever that stops being true.
   @@index([updatedAt])
   @@map("auth_throttle")
+}
+
+// ---------------------------------------------------------------------------
+// Sessions and password resets - credential material, not tenant data
+// ---------------------------------------------------------------------------
+
+// One row per signed-in browser. The cookie carries a random opaque token; this table stores only
+// its SHA-256, so a leaked database backup hands over no live session.
+//
+// Opaque and server-side rather than a JWT, deliberately. role, companyId and active live in
+// app_users and are re-read on every request, which is what makes a deactivation take effect
+// immediately (see the comment on AppUser.active). Signing them into a token would quietly turn
+// that into "takes effect whenever the token expires".
+//
+// It also buys back something Supabase could not do: by-user session revocation. Deactivating or
+// deleting a user deletes their sessions in the same transaction.
+model UserSession {
+  id         String   @id @default(uuid())
+  user       AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  // SHA-256 (hex) of the cookie value. Unique so a token can be looked up directly, and so a
+  // collision is a constraint violation rather than a silent session takeover.
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  // Recorded for support and incident review, never for authorization. Both are client-influenced.
+  ip         String?
+  userAgent  String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// Single-use password reset. Same rule as UserSession: only the SHA-256 of the emailed token is
+// stored, so the row is worthless to anyone reading the table.
+//
+// consumedAt rather than deleting the row on use: a consumed token must be distinguishable from
+// one that never existed, so a replayed link can be refused deliberately instead of by absence.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  user       AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
