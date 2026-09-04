@@ -22,24 +22,33 @@ export const TEMPLATE_NAMES = [
 // anywhere useful.
 const TEMPLATE_DIR = join(process.cwd(), "src", "lib", "mail", "templates");
 
-// An isolated environment, not the shared module singleton, so the escaper override below cannot
-// leak into any other future consumer of the "handlebars" package in this process.
+// An isolated environment, not the shared module singleton. registerHelper/registerPartial land
+// only on this `engine` (confirmed against the installed handlebars@4.7.9: two `create()`
+// results have distinct `helpers`/`partials` objects). `Utils` is NOT isolated the same way:
+// `create()` assigns `Utils` from one module-scope object shared by every environment, so
+// `engine.Utils === Handlebars.Utils`. An earlier version of this file mutated
+// `engine.Utils.escapeExpression`, believing that was scoped to `engine`; it was not, and it
+// silently rewrote HTML escaping for the process-wide default `Handlebars` export too, for the
+// life of the server, the moment this module was imported. Nothing here touches `Utils` for that
+// reason. render.test.ts's "does not weaken the shared Handlebars singleton" test is the
+// regression guard: it imports this module, then compiles a template with the default export and
+// asserts "=" still comes out as "&#x3D;".
 const engine = Handlebars.create();
 
-// Handlebars' default {{ }} escaping HTML-encodes seven characters: & < > " ' ` and =. The last
-// two exist to defend an unquoted HTML attribute (<a href={{url}}>): without them, a value
-// containing a space or another "=" could inject a second attribute. Every attribute in these
-// templates is double-quoted, so that defence is not buying anything here, and its cost is real:
-// our reset URLs are themselves query strings like "?token=abc", so the default escaper turns
-// every emailed link's href into "...&#x3D;abc". That is valid HTML and a compliant client
-// decodes it, but email clients are some of the least compliant renderers in existence, and a
-// link an inbox fails to decode is a user who cannot reset their password. Deliverability of a
-// link we already control beats defending against an injection vector these templates do not
-// expose, so escaping is narrowed to the five standard entities instead, mirroring Handlebars'
-// own implementation (handlebars/dist/cjs/handlebars/utils.js) minus ` and =. This is why the
-// templates below must keep every interpolated attribute quoted; see render.test.ts's "guards
-// unquoted attributes" test, which fails the build if one stops being.
-const HTML_ESCAPE: Record<string, string> = {
+// Handlebars' default {{ }} escaping HTML-encodes seven characters: & < > " ' ` and =, and that
+// full strength is exactly right for every ordinary value these templates render - title, expiry,
+// name, email, changedAt all keep the default, including its defence against an unquoted
+// attribute. The one place the default is actively wrong is a URL: our reset and set-password
+// links are themselves query strings like "?token=abc", so the default escaper turns every
+// emailed href into "...&#x3D;abc". That is valid HTML and a compliant client decodes it, but
+// email clients are some of the least compliant renderers that exist, and a link an inbox fails
+// to decode is a user who cannot reset their password. Deliverability of a link this app already
+// builds and controls beats defending against an injection vector these templates do not expose
+// for that one value, so the `url` helper below narrows escaping to the five standard entities
+// (still escaped, just not encoded further) for URL values only, nowhere else, and only ever
+// behind a double-stache inside a quoted attribute or as ordinary text; render.test.ts's "guards
+// unquoted attributes" test enforces the quoting half of that.
+const URL_ESCAPE: Record<string, string> = {
   "&": "&amp;",
   "<": "&lt;",
   ">": "&gt;",
@@ -49,23 +58,19 @@ const HTML_ESCAPE: Record<string, string> = {
 const HAS_ESCAPABLE_CHAR = /[&<>"']/;
 const ESCAPABLE_CHARS = /[&<>"']/g;
 
-function standardEscapeExpression(value: unknown): string {
-  if (typeof value !== "string") {
-    // Mirrors upstream: pass SafeStrings through untouched, render null/undefined as "", and
-    // stringify everything else before testing for characters that need escaping.
-    if (value && typeof (value as { toHTML?: unknown }).toHTML === "function") {
-      return (value as { toHTML: () => string }).toHTML();
-    }
-    if (value == null) return "";
-    if (!value) return `${value}`;
-    value = `${value}`;
-  }
-  const str = value as string;
+function escapeUrl(value: unknown): string {
+  if (value == null) return "";
+  const str = String(value);
   if (!HAS_ESCAPABLE_CHAR.test(str)) return str;
-  return str.replace(ESCAPABLE_CHARS, (char) => HTML_ESCAPE[char]!);
+  return str.replace(ESCAPABLE_CHARS, (char) => URL_ESCAPE[char]!);
 }
 
-engine.Utils.escapeExpression = standardEscapeExpression;
+// A SafeString is Handlebars' own "already escaped, do not touch again" marker, recognised by
+// `{{ }}` via the `.toHTML()` duck-type it exposes. Wrapping escapeUrl's output in one is what
+// lets `{{url resetUrl}}` stay a double-stache: without the wrapper, Handlebars would run its own
+// (stronger) escaping over an already-escaped string. Registered as a helper on `engine`, not a
+// mutation of anything shared, so isolation holds for real this time.
+engine.registerHelper("url", (value: unknown) => new engine.SafeString(escapeUrl(value)));
 
 // Compiled once per process. Templates cannot change under a running container without a restart,
 // so a cache is free correctness rather than a risk.

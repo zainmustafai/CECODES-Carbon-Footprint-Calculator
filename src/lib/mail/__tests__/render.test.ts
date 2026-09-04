@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import Handlebars from "handlebars";
 import { describe, expect, it } from "vitest";
 import { TEMPLATE_NAMES, renderTemplate } from "@/lib/mail/render";
 
@@ -18,6 +19,11 @@ describe("renderTemplate", () => {
     const html = renderTemplate("reset-password", { resetUrl: "https://x.test/r", expiry: "30 minutos" });
     expect(html).toContain("<!doctype html>");
     expect(html).toContain("https://x.test/r");
+    // The layout's inline partial-block wiring passes `title` through a hash argument
+    // (`{{#> layout title="..."}}`) into `{{title}}` inside layout.hbs. Doctype and body presence
+    // alone would still pass even if that hash argument silently stopped reaching the partial, so
+    // assert the heading text itself renders too.
+    expect(html).toContain("Restablece tu contraseña");
   });
 
   it("escapes interpolated values", () => {
@@ -25,8 +31,11 @@ describe("renderTemplate", () => {
       resetUrl: "https://x.test/r?a=1&b=2",
       expiry: "30 minutos",
     });
-    // Handlebars {{ }} escapes by default. A token is the one part of this document that is not
-    // a literal written by us, so it must never be emitted through {{{ }}}.
+    // reset-password.hbs renders resetUrl through the `url` helper (`{{url resetUrl}}`), not a
+    // bare `{{resetUrl}}`: a bare interpolation would encode "=" as "&#x3D;" under Handlebars'
+    // default escaping (see render.ts's top-of-file comments for why that specifically breaks a
+    // reset link), so the helper narrows escaping to the five standard entities for URLs only.
+    // The token must still never reach the page unescaped, so "&" is still "&amp;" here.
     expect(html).toContain("a=1&amp;b=2");
     expect(html).not.toContain("a=1&b=2");
   });
@@ -57,15 +66,33 @@ function findUnquotedAttributeInterpolations(html: string): string[] {
   return offenders;
 }
 
+describe("Handlebars environment isolation", () => {
+  it("does not weaken the shared Handlebars singleton", () => {
+    // Regression guard for a real bug: Handlebars.create() does NOT give each environment its own
+    // Utils object. Utils is assigned from one module-scope object shared by every environment
+    // (confirmed against the installed handlebars@4.7.9), so an earlier version of render.ts,
+    // which mutated `engine.Utils.escapeExpression` believing it was scoped to its own `engine`,
+    // was actually rewriting escaping for the process-wide default `Handlebars` export too, for
+    // the life of the server, the moment render.ts was imported. render.ts now reaches its
+    // narrower URL escaping through a helper registered on its own isolated engine instead (which
+    // IS correctly isolated), and touches nothing shared. This test imports render.ts (above) and
+    // then exercises the plain default export directly: if render.ts, or a future edit to it, ever
+    // mutates something shared again, this is what would catch it.
+    const html = Handlebars.compile("{{value}}")({ value: "a=1&b=2" });
+    expect(html).toBe("a&#x3D;1&amp;b&#x3D;2");
+  });
+});
+
 describe("template source guards", () => {
   it("guards unquoted attributes", () => {
-    // render.ts narrows Handlebars' escaper to the five standard HTML entities (see its top-of-
-    // file comment): unlike Handlebars' default, it does not encode "=" or a backtick, which is
-    // what upstream normally uses to stop an unquoted attribute value from injecting a second
-    // attribute. These .hbs files are edited on disk by design (an operator can `docker cp` a fix
-    // into a running container without a rebuild), so nothing at compile time stops a future edit
-    // from writing `href={{resetUrl}}` instead of `href="{{resetUrl}}"`. This test is the guard
-    // that catches that at test time instead of leaving it an assumption.
+    // Every ordinary {{ }} interpolation still gets Handlebars' full default escaping, including
+    // its defence against an unquoted attribute. The one exception is the `url` helper (see
+    // render.ts's top-of-file comments), whose output is intentionally narrower, so `{{url x}}`
+    // used unquoted would not be protected the way a bare `{{x}}` is. These .hbs files are edited
+    // on disk by design (an operator can `docker cp` a fix into a running container without a
+    // rebuild), so nothing at compile time stops a future edit from writing `href={{url x}}`
+    // instead of `href="{{url x}}"`. This test is the guard that catches that at test time instead
+    // of leaving it an assumption.
     const files = readdirSync(TEMPLATES_DIR).filter((file) => file.endsWith(".hbs"));
     expect(files.length).toBeGreaterThan(0);
 
