@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  IP_MAX_ATTEMPTS,
   LOCKOUT_MS,
   MAX_ATTEMPTS,
   WINDOW_MS,
@@ -17,10 +18,10 @@ const T0 = new Date("2026-09-04T12:00:00.000Z");
 const at = (ms: number) => new Date(T0.getTime() + ms);
 
 /** Fails `count` times in a row, starting at T0, one millisecond apart. */
-function failRepeatedly(count: number, from = T0): ThrottleState {
+function failRepeatedly(count: number, limit = MAX_ATTEMPTS, from = T0): ThrottleState {
   let state: ThrottleState | null = null;
   for (let i = 0; i < count; i++) {
-    state = registerFailure(state, new Date(from.getTime() + i));
+    state = registerFailure(state, new Date(from.getTime() + i), limit);
   }
   return state as ThrottleState;
 }
@@ -50,6 +51,21 @@ describe("registerFailure", () => {
     const state = registerFailure(stale, at(WINDOW_MS + 1));
     expect(state.attempts).toBe(1);
     expect(isLockedOut(state, at(WINDOW_MS + 1))).toBe(false);
+  });
+
+  // A whole company reaches this app from one office address. Counting an IP as strictly as an
+  // address would let five typos spread across thirty colleagues lock the building out, so the
+  // shared key gets its own, looser allowance.
+  it("allows an IP more attempts than a single address, because an IP is shared", () => {
+    expect(IP_MAX_ATTEMPTS).toBeGreaterThan(MAX_ATTEMPTS);
+
+    const state = failRepeatedly(MAX_ATTEMPTS, IP_MAX_ATTEMPTS);
+    expect(isLockedOut(state, T0)).toBe(false);
+  });
+
+  it("still locks a shared IP once its own allowance is spent", () => {
+    const state = failRepeatedly(IP_MAX_ATTEMPTS, IP_MAX_ATTEMPTS);
+    expect(isLockedOut(state, T0)).toBe(true);
   });
 
   it("gives a full fresh window after a lockout expires, rather than relocking on one failure", () => {

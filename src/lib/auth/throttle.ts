@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { isLockedOut, registerFailure, type ThrottleState } from "./throttle-policy";
+import {
+  IP_MAX_ATTEMPTS,
+  MAX_ATTEMPTS,
+  isLockedOut,
+  registerFailure,
+  type ThrottleState,
+} from "./throttle-policy";
 
 // Storage for the sign-in throttle. The arithmetic is in throttle-policy.ts; this file only reads
 // a row, applies it, and writes the result back.
@@ -51,7 +57,9 @@ export async function recordSignInFailure(keys: string[], now = new Date()): Pro
   const byKey = new Map(current.map((row) => [row.key, row]));
 
   for (const key of keys) {
-    const next: ThrottleState = registerFailure(byKey.get(key) ?? null, now);
+    // An IP is shared by a whole office; an address is one person. They cannot share a limit.
+    const limit = key.startsWith("ip:") ? IP_MAX_ATTEMPTS : MAX_ATTEMPTS;
+    const next: ThrottleState = registerFailure(byKey.get(key) ?? null, now, limit);
     await prisma.authThrottle.upsert({
       where: { key },
       create: { key, ...next },
