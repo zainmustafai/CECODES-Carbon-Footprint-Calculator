@@ -28,12 +28,16 @@ import {
   planCredentialBackfill,
   type AuthAccount,
 } from "../src/lib/auth/credential-backfill";
+import { datasourceUrl } from "../scripts/datasource";
 
 // Both connections use the direct URL. This is maintenance run by a person, not app traffic, so
 // the pooler buys nothing and costs a hop. src/lib/prisma.ts is deliberately not reused: it builds
 // its client while it is being imported, which under ESM is before the loadEnvConfig above has had
-// a chance to run, and it aims at the pooled URL by design.
-const CONNECTION_STRING = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// a chance to run, and it aims at the pooled URL by design. Which URL that is, though, is not
+// this file's decision: scripts/datasource.ts settles the DATABASE_URL/DIRECT_URL pair as one
+// choice, so exporting one half to name a throwaway database cannot leave the other half at
+// .env.local's production value for `??` to prefer.
+const CONNECTION_STRING = datasourceUrl();
 if (!CONNECTION_STRING) {
   // Named, never printed: the URL carries the database password.
   console.error("Neither DIRECT_URL nor DATABASE_URL is set. There is nothing to connect to.");

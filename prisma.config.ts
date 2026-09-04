@@ -2,20 +2,29 @@
 // npm install --save-dev prisma dotenv
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "prisma/config";
-import { restoreShellEnv } from "./src/lib/env-precedence";
+import { resolveDatasourceUrl, restoreShellEnv } from "./src/lib/env-precedence";
 
 // Snapshot the shell's own environment before dotenv touches anything. See restoreShellEnv for
 // why this exists: without it, a shell-exported DATABASE_URL/DIRECT_URL meant for a throwaway
-// verification database gets silently replaced by .env.local's committed production connection
-// string, and the command that follows runs against the shared production database instead.
+// verification database gets silently replaced by .env.local's production connection string, and
+// the command that follows runs against the shared production database instead.
 const shellSnapshot = { ...process.env };
 
-// Load .env then .env.local (the latter wins) so the Prisma CLI sees the Supabase creds.
+// Load .env then .env.local (the latter wins) so the Prisma CLI sees this machine's database
+// credentials. A prisma.config.ts turns off Prisma's own .env loading, so nothing else does it.
 loadEnv({ path: ".env", quiet: true });
 loadEnv({ path: ".env.local", override: true, quiet: true });
 
 // Shell exports win over both files. Precedence is now: shell env > .env.local > .env.
 restoreShellEnv(process.env, shellSnapshot);
+
+// DATABASE_URL and DIRECT_URL are one decision, not two independent lookups. restoreShellEnv can
+// only put back keys the shell actually set, so exporting just one of the pair used to leave the
+// other at .env.local's production value, and a plain `DIRECT_URL ?? DATABASE_URL` here then
+// preferred exactly that leftover. resolveDatasourceUrl settles the pair together, normalises
+// process.env so spawned commands (the seed below, any bun script under prisma/) see the same
+// answer, and throws rather than guess when the two halves disagree about the host.
+const datasourceUrl = resolveDatasourceUrl(process.env, shellSnapshot);
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -24,8 +33,9 @@ export default defineConfig({
     seed: "bun ./prisma/seed.ts",
   },
   datasource: {
-    // Migrations/CLI use the DIRECT (non-pooled) Supabase connection.
-    // The app runtime connects via the pg driver adapter using DATABASE_URL (pooled) — see lib/prisma.ts.
-    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
+    // Migrations and the rest of the CLI want DIRECT_URL, the non-pooled session connection, and
+    // fall back to DATABASE_URL when only that half is named. The app runtime connects through
+    // the pg driver adapter using DATABASE_URL - see src/lib/prisma.ts.
+    url: datasourceUrl,
   },
 });

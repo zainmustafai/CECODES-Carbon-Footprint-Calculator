@@ -15,10 +15,9 @@ loadEnvConfig(process.cwd());
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, FactorChangeAction } from "../src/lib/generated/prisma/client";
+import { datasourceUrl } from "../scripts/datasource";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 const APPLY = process.argv.includes("--apply");

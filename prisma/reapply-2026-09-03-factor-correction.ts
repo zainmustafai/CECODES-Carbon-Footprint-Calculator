@@ -34,10 +34,9 @@ import {
   type FactorSnapshot,
 } from "@/features/admin/lib/factor-diff";
 import { mapRow, cellText, type MappedFactor, type RawRowCells } from "@/lib/factor-import/map-row";
+import { datasourceUrl } from "../scripts/datasource";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 // The marker that makes this script idempotent and traceable in the audit trail.

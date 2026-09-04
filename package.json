@@ -17,7 +17,7 @@
     "db:generate": "prisma generate",
     "db:init": "bun scripts/init-db.ts",
     "db:deploy": "prisma migrate deploy",
-    "db:bootstrap": "bun -e \"const {Client}=require('pg');const fs=require('fs');const c=new Client({connectionString:process.env.DIRECT_URL??process.env.DATABASE_URL});c.connect().then(()=>c.query(fs.readFileSync('scripts/bootstrap-db.sql','utf8'))).then(()=>c.end()).then(()=>console.log('bootstrap ok'))\"",
+    "db:bootstrap": "bun scripts/bootstrap-db.ts",
     "db:verify-fresh": "bun scripts/verify-fresh-db.ts",
     "db:audit-hashes": "bun scripts/audit-password-hashes.ts",
     "db:studio": "prisma studio",

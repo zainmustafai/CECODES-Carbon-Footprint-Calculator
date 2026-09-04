@@ -23,12 +23,11 @@
 import { spawnSync } from "node:child_process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "../src/lib/generated/prisma/client";
+import { datasourceUrl } from "../scripts/datasource";
 
 const APPLY = process.argv.includes("--apply");
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 // Run a sub-script, streaming its output. Each sub-script owns its own Prisma connection and its
@@ -72,8 +71,8 @@ async function report(stage: string) {
 async function main() {
   console.log(
     APPLY
-      ? "PROD SEED — APPLYING (idempotent; re-running makes no changes)"
-      : "PROD SEED — DRY RUN (writes nothing; pass --apply to write)",
+      ? "PROD SEED: APPLYING (idempotent; re-running makes no changes)"
+      : "PROD SEED: DRY RUN (writes nothing; pass --apply to write)",
   );
 
   await guardNoTestRows();

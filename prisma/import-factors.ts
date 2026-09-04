@@ -58,10 +58,9 @@ import {
 import { mapRow, cellText, type RawRowCells } from "../src/lib/factor-import/map-row";
 import { deriveEntryMode } from "../src/lib/factor-import/derive-modes";
 import { deriveFuelType } from "../src/lib/calc/fuel";
+import { datasourceUrl } from "../scripts/datasource";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 const REFERENCE_DIR = path.join(process.cwd(), "docs", "reference");

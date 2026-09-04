@@ -16,14 +16,13 @@ import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/lib/generated/prisma/client";
 import { classifyHash, costPrefix } from "../src/lib/auth/hash-shape";
+import { datasourceUrl } from "./datasource";
 
 // classifyHash and costPrefix live in src/lib/auth/hash-shape.ts, tested there directly against a
 // table of hash shapes. This file owns only the query and the printing.
 
 async function main() {
-  const adapter = new PrismaPg({
-    connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-  });
+  const adapter = new PrismaPg({ connectionString: datasourceUrl() });
   const prisma = new PrismaClient({ adapter });
 
   // The one place this script could leak something it should not: a query failure surfaces

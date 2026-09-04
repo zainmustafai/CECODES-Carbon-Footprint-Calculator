@@ -3,12 +3,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Scope, GwpSet, Role } from "../src/lib/generated/prisma/client";
 import { hashPassword, verifyPassword } from "../src/lib/auth/password";
 import { generateTempPassword } from "../src/lib/generate-password";
+import { datasourceUrl } from "../scripts/datasource";
 
 // Seed starter reference data. Safe to re-run (idempotent).
 // The full emission-factor library is loaded separately once CECODES confirms the dataset.
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 // Scope-2 national grid factor (SIN) by year - kg CO2 / kWh (source: UPME/XM). Req. §7.3

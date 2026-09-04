@@ -9,6 +9,7 @@ import {
 } from "../src/lib/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { resolveGwpSet } from "../src/lib/gwp";
+import { datasourceUrl } from "../scripts/datasource";
 
 // Demo tenants for manual QA and for showing the tool to CECODES.
 //
@@ -24,9 +25,7 @@ import { resolveGwpSet } from "../src/lib/gwp";
 
 loadEnvConfig(process.cwd());
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-});
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 const DEMO_EMAIL_DOMAIN = "demo.cecodes.invalid";

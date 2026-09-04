@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { hashPassword } from "../src/lib/auth/password";
+import { datasourceUrl } from "../scripts/datasource";
 
 // Playwright transpiles these files as CommonJS, and the generated Prisma client uses
 // import.meta, so the harness talks to Postgres directly instead of through Prisma.
@@ -51,16 +52,19 @@ export type Fixture = {
   victimReportingYearId: string;
 };
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`E2E requires ${name}. It is read from .env.local.`);
-  return value;
+// Required, and loud about it: a suite that quietly runs against no database is worse than one
+// that fails on its first line. Resolved through scripts/datasource.ts rather than
+// `DIRECT_URL ?? requireEnv("DATABASE_URL")`, so the pair is settled as one decision: pointing
+// the suite at a throwaway database by exporting DATABASE_URL alone used to leave .env.local's
+// production DIRECT_URL in place, and `??` preferred exactly that survivor.
+function requireDatasourceUrl(): string {
+  const url = datasourceUrl();
+  if (!url) throw new Error("E2E requires DIRECT_URL or DATABASE_URL. It is read from .env.local.");
+  return url;
 }
 
 export async function db(): Promise<Client> {
-  const client = new Client({
-    connectionString: process.env.DIRECT_URL ?? requireEnv("DATABASE_URL"),
-  });
+  const client = new Client({ connectionString: requireDatasourceUrl() });
   await client.connect();
   return client;
 }

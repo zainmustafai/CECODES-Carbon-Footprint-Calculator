@@ -9,14 +9,19 @@
  *   docker run -d --name cecodes-verify -e POSTGRES_PASSWORD=verify -p 55432:5432 postgres:17-alpine
  *   DATABASE_URL=postgresql://postgres:verify@127.0.0.1:55432/postgres \
  *   DIRECT_URL=postgresql://postgres:verify@127.0.0.1:55432/postgres \
- *   AUTH_PROVIDER=local ADMIN_EMAIL=verify@example.org ADMIN_PASSWORD=verify-password-1234 \
+ *   ADMIN_EMAIL=verify@example.org ADMIN_PASSWORD=verify-password-1234 \
  *   bun scripts/verify-fresh-db.ts
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { Client } from "pg";
+import { datasourceUrl } from "./datasource";
 
-const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// Resolved through scripts/datasource.ts rather than `DIRECT_URL ?? DATABASE_URL`, which is
+// what made the warning above so easy to violate by accident: exporting only DATABASE_URL to
+// name the throwaway container left .env.local's production DIRECT_URL in place, and `??`
+// preferred it. Now the pair is one decision, and two halves naming two hosts throw.
+const url = datasourceUrl();
 if (!url) throw new Error("DIRECT_URL or DATABASE_URL must be set");
 
 function run(label: string, command: string, args: string[]) {
