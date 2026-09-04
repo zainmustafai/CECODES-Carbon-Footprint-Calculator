@@ -160,9 +160,19 @@ export async function destroySession(token: string | null | undefined): Promise<
 }
 
 /**
- * Sign out everywhere. Used after a password change or reset, where the point is that a session
- * someone else opened with the old password stops working. Returns the number of sessions ended
- * so the caller can tell the user, and so a test can prove the blast radius is one user.
+ * Sign out everywhere. Returns the number of sessions ended, so a caller can tell the user and so
+ * a test can prove the blast radius is one user.
+ *
+ * NOT for use after a password change or reset, despite being the obvious candidate. Those three
+ * sites (auth-actions reset and self-service change, user-actions password reset) end sessions
+ * with tx.userSession.deleteMany INSIDE the transaction that writes the new hash, because this
+ * helper holds the app's own Prisma client and cannot join one. Calling it there would let the
+ * hash land while the sweep failed, leaving the account holding a new password with every old
+ * session still live, which is the precise outcome the sweep exists to prevent.
+ *
+ * It has no production caller today for that reason. It is kept for the case it genuinely fits,
+ * a deliberate "sign out my other devices" action, where there is no other write to be atomic
+ * with.
  */
 export async function destroyAllSessionsForUser(userId: string): Promise<number> {
   const { count } = await prisma.userSession.deleteMany({ where: { userId } });

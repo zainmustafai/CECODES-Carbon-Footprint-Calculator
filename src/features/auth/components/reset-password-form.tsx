@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { PasswordField } from "@/components/form/password-field";
 import { useResetPassword } from "../hooks/use-reset-password";
 
-export function ResetPasswordForm() {
+// The token is handed straight to the hook and never to a field, a label or an error. It is a
+// bearer credential: anything that renders it puts it somewhere a screenshot, a support ticket or
+// a browser extension can pick it up.
+export function ResetPasswordForm({ token }: { token?: string }) {
   const t = useTranslations("auth.reset");
   const tc = useTranslations("auth.common");
-  const { form, onSubmit, isSubmitting, serverError } = useResetPassword();
+  const { form, onSubmit, isSubmitting, serverError } = useResetPassword({ token });
   const {
     register,
     formState: { errors },

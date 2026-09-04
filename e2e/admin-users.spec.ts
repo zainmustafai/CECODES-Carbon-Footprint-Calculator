@@ -5,8 +5,8 @@ import {
   ADMIN_STORAGE_STATE,
   E2E_EMAIL_DOMAIN,
   db,
+  deleteE2EUser,
   loadFixture,
-  supabaseAdmin,
   type Fixture,
 } from "./fixture";
 
@@ -42,12 +42,13 @@ test.afterAll(async () => {
   // Defensive cleanup: the email-domain sweep in teardown covers this too, but delete now in
   // case a step bailed before the delete test ran.
   const client = await db();
+  // The id is read first because it is the only handle on the GoTrue half, which deleteE2EUser
+  // removes when there is one. email is unique, so there is at most one row to find.
   const rows = await client.query<{ id: string }>(`SELECT id FROM app_users WHERE email = $1`, [
     userEmail,
   ]);
-  await client.query(`DELETE FROM app_users WHERE email = $1`, [userEmail]);
+  await deleteE2EUser(client, rows.rows[0]?.id ?? "", userEmail);
   await client.end();
-  for (const row of rows.rows) await supabaseAdmin().auth.admin.deleteUser(row.id);
 });
 
 test.describe("admin users", () => {

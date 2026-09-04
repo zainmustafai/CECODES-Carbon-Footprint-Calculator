@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Scope, GwpSet, Role } from "../src/lib/generated/prisma/client";
 import {
   createSupabaseAdminClient,
   findAuthUserIdByEmail,
 } from "../src/lib/supabase/admin";
+import { hashPassword } from "../src/lib/auth/password";
+import { authProvider } from "../src/lib/env";
 
 // Seed starter reference data. Safe to re-run (idempotent).
 // The full emission-factor library is loaded separately once CECODES confirms the dataset.
@@ -93,10 +96,22 @@ const starterEmissionFactors = [
 
 // Seed the single admin (credentials from .env.local). Idempotent.
 async function seedAdmin() {
+  const provider = authProvider();
+  // Folded, and this is not cosmetic. app_users.email is unique and case SENSITIVE, and every
+  // reader folds before it looks a row up: signInAction normalizes the address it was given, and
+  // findAuthUserIdByEmail matches on the lowercased one. GoTrue used to fold on the way in, so an
+  // ADMIN_EMAIL carrying a capital was harmless while GoTrue decided sign-ins and the profile was
+  // found by id. Written through verbatim once sign-ins are decided here, it produces the one row
+  // no sign-in can ever reach, on the one account that is the only way into the app.
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+
+  // GoTrue is asked for an account only while GoTrue still decides sign-ins. On a self-hosted
+  // deployment the two Supabase variables are not merely unused, they are legitimately absent, so
+  // demanding them in local mode would refuse a seed that already has everything it needs.
+  const needsSupabase = provider !== "local";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
 
   // Fail loudly. This used to warn and return, so `db:seed` exited 0 with no admin created - a
   // deployment could report success while nobody on earth could log in. There is no self-serve
@@ -104,65 +119,120 @@ async function seedAdmin() {
   //
   // SEED_SKIP_ADMIN=true is the deliberate escape for local work against a database whose admin
   // already exists; it has to be typed on purpose, which is the point.
-  if (!url || !serviceKey || !email || !password) {
+  if (!email || !password || (needsSupabase && (!url || !serviceKey))) {
     if (process.env.SEED_SKIP_ADMIN === "true") {
       console.warn("Admin seed skipped: SEED_SKIP_ADMIN=true was set explicitly.");
       return;
     }
     const missing = [
-      !url && "NEXT_PUBLIC_SUPABASE_URL",
-      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
+      needsSupabase && !url && "NEXT_PUBLIC_SUPABASE_URL",
+      needsSupabase && !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
       !email && "ADMIN_EMAIL",
       !password && "ADMIN_PASSWORD",
     ].filter(Boolean);
+    // The provider is named because the missing list depends on it: an operator who has just set
+    // AUTH_PROVIDER=local needs to see that the Supabase variables were not asked for, rather than
+    // wondering which of the two answers this message is giving.
     throw new Error(
-      `Cannot seed the admin account. Missing: ${missing.join(", ")}.\n` +
+      `Cannot seed the admin account (AUTH_PROVIDER=${provider}). Missing: ${missing.join(", ")}.\n` +
         `Without an admin there is no way to sign in, because self-serve registration is off.\n` +
         `Set these in .env.local, or set SEED_SKIP_ADMIN=true if you know one already exists.`,
     );
   }
 
-  const supabase = createSupabaseAdminClient();
+  let authUserId: string | undefined;
 
-  // Ensure the auth user exists (email_confirm skips the verification email).
-  let userId: string | undefined;
-  const { data: created } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  if (needsSupabase) {
+    const supabase = createSupabaseAdminClient();
 
-  if (created?.user) {
-    userId = created.user.id;
-  } else {
-    // Already exists - find it and keep the password in sync with .env.local.
-    userId = await findAuthUserIdByEmail(supabase, email);
-    if (userId) {
-      await supabase.auth.admin.updateUserById(userId, {
-        password,
-        email_confirm: true,
-      });
+    // Ensure the auth user exists (email_confirm skips the verification email).
+    const { data: created } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+
+    if (created?.user) {
+      authUserId = created.user.id;
+    } else {
+      // Already exists - find it and keep the password in sync with .env.local.
+      authUserId = await findAuthUserIdByEmail(supabase, email);
+      if (authUserId) {
+        await supabase.auth.admin.updateUserById(authUserId, {
+          password,
+          email_confirm: true,
+        });
+      }
+    }
+
+    if (!authUserId) {
+      // Same reasoning as the env check above: warning and returning here would leave app_users
+      // without a CECODES_ADMIN row while the seed still reported success.
+      throw new Error(
+        `Admin seed failed: Supabase neither created nor found an auth user for ADMIN_EMAIL. ` +
+          `Check that SUPABASE_SERVICE_ROLE_KEY belongs to the same project as ` +
+          `NEXT_PUBLIC_SUPABASE_URL.`,
+      );
     }
   }
 
-  if (!userId) {
-    // Same reasoning as the env check above: warning and returning here would leave app_users
-    // without a CECODES_ADMIN row while the seed still reported success.
+  // Hashed in every mode, including the one that never reads it. A local hash the seed did not
+  // write is a credential nobody can reproduce from .env.local, and then AUTH_PROVIDER stops
+  // being a switch: flipping it to local would lock the only account in the project out, and
+  // flipping it to shadow would report a disagreement on every single admin sign-in.
+  const { hash, algo } = await hashPassword(password);
+
+  // One row either way, found by the one key both modes agree on. The id is what they disagree
+  // about: GoTrue issues it while GoTrue is the authority, an existing row keeps the one it
+  // already has, and a fresh uuid is minted only on the first seed of a self-hosted database.
+  const existing = await prisma.appUser.findUnique({
+    where: { email },
+    select: { id: true, emailConfirmedAt: true },
+  });
+
+  // A profile under this address that GoTrue has never heard of. Upserting by the GoTrue id would
+  // fail on the unique email and report a constraint name, so it is said plainly here instead:
+  // sessions, audit rows and the company link all hang off the id, and deciding which of the two
+  // survives is a job for a person, not for a seed.
+  if (authUserId && existing && existing.id !== authUserId) {
     throw new Error(
-      `Admin seed failed: Supabase neither created nor found an auth user for ADMIN_EMAIL. ` +
-        `Check that SUPABASE_SERVICE_ROLE_KEY belongs to the same project as ` +
-        `NEXT_PUBLIC_SUPABASE_URL.`,
+      `Admin seed failed: app_users already holds ADMIN_EMAIL under a different id than the ` +
+        `Supabase auth user for it. That happens when the row was created while ` +
+        `AUTH_PROVIDER=local. Reconcile the two by hand before re-running.`,
     );
   }
 
+  const id = authUserId ?? existing?.id ?? randomUUID();
+
+  // Recorded once and never moved. Nobody is mailed a link here - the password comes from
+  // .env.local and the account works the moment it exists - so the timestamp says when that
+  // happened. Rewriting it on every run would overwrite the confirmation date the credential
+  // backfill carried across from GoTrue with the date of the last seed.
+  const emailConfirmedAt = existing?.emailConfirmedAt ?? new Date();
+
   // Force the profile role to CECODES_ADMIN (the signup trigger defaults to COMPANY_USER).
   await prisma.appUser.upsert({
-    where: { id: userId },
-    update: { role: Role.CECODES_ADMIN, email },
-    create: { id: userId, email, role: Role.CECODES_ADMIN },
+    where: { id },
+    update: {
+      role: Role.CECODES_ADMIN,
+      email,
+      passwordHash: hash,
+      passwordAlgo: algo,
+      emailConfirmedAt,
+    },
+    create: {
+      id,
+      email,
+      role: Role.CECODES_ADMIN,
+      passwordHash: hash,
+      passwordAlgo: algo,
+      emailConfirmedAt,
+    },
   });
 
-  console.log(`Admin ✓  ${email}`);
+  // ADMIN_EMAIL used to be printed here. Seed output is exactly the sort of text that gets pasted
+  // into a chat window to show a deployment worked, and the address belongs to a real person.
+  console.log(`Admin ✓  (AUTH_PROVIDER=${provider})`);
 }
 
 async function main() {

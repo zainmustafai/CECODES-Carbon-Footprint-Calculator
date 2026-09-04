@@ -109,7 +109,8 @@
     "reset": {
       "title": "Nueva contraseña",
       "subtitle": "Ingresa tu nueva contraseña.",
-      "submit": "Guardar contraseña"
+      "submit": "Guardar contraseña",
+      "requestNewLink": "Solicitar un enlace nuevo"
     },
     "validation": {
       "emailRequired": "El correo es obligatorio.",
@@ -125,11 +126,14 @@
       "accountDisabled": "Tu cuenta fue desactivada. Contacta a CECODES.",
       "registrationDisabled": "El registro lo gestiona CECODES. Escríbenos para obtener tu cuenta.",
       "invalidInput": "Revisa los datos ingresados e inténtalo de nuevo.",
+      "invalidResetLink": "Este enlace ya no es válido. Solicita uno nuevo.",
+      "sessionExpired": "Tu sesión venció. Inicia sesión de nuevo.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "toasts": {
       "registerCheckEmail": "Cuenta creada. Revisa tu correo para confirmar.",
       "resetEmailSent": "Enlace de restablecimiento enviado.",
+      "passwordResetSignIn": "Contraseña actualizada. Inicia sesión con tu nueva contraseña.",
       "passwordUpdated": "Contraseña actualizada.",
       "loggingOut": "Cerrando sesión...",
       "loggedOut": "Sesión cerrada."

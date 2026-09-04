@@ -1,31 +1,94 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { FEATURE_SELF_ONBOARDING } from "@/lib/feature-flags";
-import { POST_LOGIN_PATH } from "@/lib/routes";
+import { decideRoute, type GateDecision } from "@/lib/auth/route-gate";
+import { SESSION_COOKIE, readSession } from "@/lib/auth/session";
+import { authProvider } from "@/lib/env";
+import { reportError } from "@/lib/observability/report-error";
 
-// /register is public only while self-serve onboarding is open; closed, an anonymous visit
-// bounces to /login here and a signed-in visit is redirected by the page itself.
-const AUTH_PAGES = [
-  "/login",
-  ...(FEATURE_SELF_ONBOARDING ? ["/register"] : []),
-  "/forgot-password",
-];
+// Answers one question per request, "is this visitor signed in", and hands the answer to the route
+// gate. Only the question is provider-specific; the redirect rules that follow from it are not,
+// and they now live in src/lib/auth/route-gate.ts. See that file for why they moved out.
 
-function isAuthPage(pathname: string) {
-  return AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+/**
+ * Turns a gate decision into the response that is actually sent.
+ *
+ * `refreshed` is the response the provider has been writing cookies onto. A redirect has to take
+ * those cookies with it by hand, because NextResponse.redirect() starts with none: a Supabase
+ * token rotated during this request would otherwise be dropped, and the browser would come back
+ * carrying the stale one it still holds. Under the local provider there is nothing to refresh and
+ * the copy loop finds nothing, which is why this is one helper rather than one per provider.
+ */
+function applyDecision(
+  request: NextRequest,
+  decision: GateDecision,
+  refreshed: NextResponse,
+): NextResponse {
+  if (decision.kind === "allow") return refreshed;
+
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = decision.to;
+  redirectUrl.search = "";
+  const response = NextResponse.redirect(redirectUrl);
+  refreshed.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  return response;
 }
 
-function isPublic(pathname: string) {
-  return (
-    isAuthPage(pathname) ||
-    pathname === "/reset-password" ||
-    pathname === "/" ||
-    pathname.startsWith("/auth")
+/**
+ * Whether the caller holds a live session of ours.
+ *
+ * A store that cannot answer must not be able to admit anybody, so a lookup that throws reads as
+ * "not signed in" rather than as an exception thrown out of the proxy, whose handling belongs to
+ * the framework and is not ours to depend on. The blast radius of a database outage is then that
+ * everyone looks signed out and no protected path is served; no cookie and no session row is
+ * touched, so the first request after it recovers signs them back in.
+ */
+async function hasLocalSession(request: NextRequest): Promise<boolean> {
+  try {
+    return (await readSession(request.cookies.get(SESSION_COOKIE)?.value)) !== null;
+  } catch (error) {
+    // The pathname is safe to log. The cookie value is the session itself and never is.
+    reportError({
+      where: "proxy route gate",
+      error,
+      context: { pathname: request.nextUrl.pathname },
+    });
+    return false;
+  }
+}
+
+/**
+ * AUTH_PROVIDER=local. The session is a row in our own database (src/lib/auth/session.ts), so
+ * there is no token to refresh, no Supabase client to build and no outbound round trip to make.
+ *
+ * The 503 below deliberately does not apply on this path: nothing here reads
+ * NEXT_PUBLIC_SUPABASE_URL or its anon key, so refusing every request over them would be a
+ * failure the check invented rather than one it caught. They are still REQUIRED at boot in every
+ * mode, though (runtimeSchema in src/lib/env.ts, enforced by src/instrumentation.ts), so a
+ * deployment that omits them never reaches this function; it exits at startup instead. Relaxing
+ * that is the last commit of this migration, and this branch is what has to already be here
+ * before that commit can land.
+ *
+ * The cost is one indexed lookup per matched request, which readSession explains. Reading Prisma
+ * from here is possible at all because Next 16 runs the proxy on the Node runtime.
+ */
+async function gateLocal(request: NextRequest): Promise<NextResponse> {
+  const signedIn = await hasLocalSession(request);
+  return applyDecision(
+    request,
+    decideRoute({ pathname: request.nextUrl.pathname, signedIn }),
+    NextResponse.next({ request }),
   );
 }
 
-// Refreshes the Supabase session AND gates routes (redirect logic centralized here).
-export async function updateSession(request: NextRequest) {
+/**
+ * AUTH_PROVIDER=supabase and AUTH_PROVIDER=shadow, which is every deployment today.
+ *
+ * Shadow belongs here rather than on the local path: it verifies the local hash alongside GoTrue
+ * and logs the disagreement, but GoTrue still decides the sign-in, so the gate has to keep asking
+ * GoTrue who is here. A shadow mode that quietly gated on our own sessions would be the cutover,
+ * not a rehearsal of it.
+ */
+async function gateSupabase(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -70,24 +133,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  return applyDecision(
+    request,
+    decideRoute({ pathname: request.nextUrl.pathname, signedIn: user !== null }),
+    supabaseResponse,
+  );
+}
 
-  function redirectTo(path: string) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = path;
-    redirectUrl.search = "";
-    const response = NextResponse.redirect(redirectUrl);
-    // Preserve any refreshed auth cookies on the redirect.
-    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
-    return response;
-  }
-
-  if (!user && !isPublic(pathname)) {
-    return redirectTo("/login");
-  }
-  if (user && isAuthPage(pathname)) {
-    return redirectTo(POST_LOGIN_PATH);
-  }
-
-  return supabaseResponse;
+/** Refreshes the session where there is one to refresh, then applies the route gate. */
+export async function updateSession(request: NextRequest): Promise<NextResponse> {
+  return authProvider() === "local" ? gateLocal(request) : gateSupabase(request);
 }

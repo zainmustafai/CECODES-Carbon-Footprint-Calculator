@@ -3,26 +3,13 @@ import { randomUUID } from "node:crypto";
 import {
   E2E_COMPANY_PREFIX,
   E2E_EMAIL_DOMAIN,
-  E2E_PASSWORD,
   E2E_YEAR,
   FIXTURE_PATH,
+  createE2EUser,
   db,
   purgeE2E,
-  supabaseAdmin,
   type Fixture,
 } from "./fixture";
-
-async function createAuthUser(email: string): Promise<string> {
-  const { data, error } = await supabaseAdmin().auth.admin.createUser({
-    email,
-    password: E2E_PASSWORD,
-    email_confirm: true,
-  });
-  if (error || !data.user) {
-    throw new Error(`E2E: could not create auth user ${email}. ${error?.message}`);
-  }
-  return data.user.id;
-}
 
 // The seeded CECODES admin has no company of its own, so it cannot drive the company-user
 // data-entry flow. The suite provisions its own throwaway tenant instead, plus its own
@@ -31,6 +18,8 @@ async function createAuthUser(email: string): Promise<string> {
 //
 // The admin is disposable on purpose: the admin specs deactivate and delete accounts, and
 // doing that to the real seeded admin would lock the project out of its own database.
+//
+// Which credential store the two accounts land in is createE2EUser's problem, not this file's.
 export default async function globalSetup() {
   const client = await db();
 
@@ -41,9 +30,6 @@ export default async function globalSetup() {
   const companyName = `${E2E_COMPANY_PREFIX}${suffix}`;
   const email = `e2e-${suffix}@${E2E_EMAIL_DOMAIN}`;
   const adminEmail = `e2e-admin-${suffix}@${E2E_EMAIL_DOMAIN}`;
-
-  const userId = await createAuthUser(email);
-  const adminUserId = await createAuthUser(adminEmail);
 
   const company = await client.query<{ id: string }>(
     `INSERT INTO companies (id, name, sector, "createdAt", "updatedAt")
@@ -59,23 +45,13 @@ export default async function globalSetup() {
     [companyId],
   );
 
-  // The auth trigger creates the app_users row; the upsert covers the case where it has not
-  // landed yet, and links the user to the throwaway company.
-  await client.query(
-    `INSERT INTO app_users (id, email, role, "companyId", "createdAt", "updatedAt")
-     VALUES ($1, $2, 'COMPANY_USER', $3, now(), now())
-     ON CONFLICT (id) DO UPDATE SET "companyId" = EXCLUDED."companyId", role = 'COMPANY_USER'`,
-    [userId, email, companyId],
-  );
+  // The company has to exist first: the account is linked to it as it is written, so the landing
+  // page has something to render instead of bouncing to /onboarding.
+  const userId = await createE2EUser(client, email, { companyId });
 
-  // An admin owns no company: companyId stays null. The trigger defaults the role to
-  // COMPANY_USER, so it must be forced here.
-  await client.query(
-    `INSERT INTO app_users (id, email, role, "companyId", "createdAt", "updatedAt")
-     VALUES ($1, $2, 'CECODES_ADMIN', NULL, now(), now())
-     ON CONFLICT (id) DO UPDATE SET role = 'CECODES_ADMIN', "companyId" = NULL`,
-    [adminUserId, adminEmail],
-  );
+  // An admin owns no company, which is the default, and the role has to be forced: a row the
+  // signup trigger created would otherwise be a COMPANY_USER.
+  const adminUserId = await createE2EUser(client, adminEmail, { role: "CECODES_ADMIN" });
 
   // A SECOND company, with a facility and a reporting year, which nobody signs in as. It exists
   // only so the cross-tenant spec has real ids to attack with. Proving isolation against ids that

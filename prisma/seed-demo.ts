@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { loadEnvConfig } from "@next/env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
@@ -10,6 +11,8 @@ import {
   createSupabaseAdminClient,
   findAuthUserIdByEmail,
 } from "../src/lib/supabase/admin";
+import { hashPassword } from "../src/lib/auth/password";
+import { authProvider } from "../src/lib/env";
 import { resolveGwpSet } from "../src/lib/gwp";
 
 // Demo tenants for manual QA and for showing the tool to CECODES.
@@ -87,7 +90,18 @@ async function pickFactor(spec: SourceSpec): Promise<EmissionFactor | null> {
   });
 }
 
-async function upsertAuthUser(email: string, password: string): Promise<string | null> {
+// The id the demo account is written under. GoTrue issues it while GoTrue still decides sign-ins,
+// and this script issues one when it no longer does; the caller writes the single app_users row
+// either way.
+async function resolveAuthUserId(email: string, password: string): Promise<string | null> {
+  if (authProvider() === "local") {
+    // Nothing to create in GoTrue, and no password to hold in step with it: the hash the caller
+    // writes IS the credential. An existing demo account keeps the id it already has, so a re-run
+    // converges on one row instead of colliding with the unique email.
+    const existing = await prisma.appUser.findUnique({ where: { email }, select: { id: true } });
+    return existing?.id ?? randomUUID();
+  }
+
   const supabase = createSupabaseAdminClient();
 
   const { data: created } = await supabase.auth.admin.createUser({
@@ -112,19 +126,59 @@ async function upsertCompanyUser(
   options: { active?: boolean } = {},
 ): Promise<void> {
   const { active = true } = options;
-  const userId = await upsertAuthUser(email, password);
+  const userId = await resolveAuthUserId(email, password);
   if (!userId) {
     console.warn(`  ! could not resolve an auth user for ${email}`);
     return;
   }
+
+  // The same reconciliation seed.ts does for the admin, and it exists for the same reason: a demo
+  // row written while AUTH_PROVIDER=local carries an id GoTrue has never issued, so a later run
+  // under supabase resolves a DIFFERENT id, misses on the upsert's where, and takes the create
+  // branch straight into the unique index on email. Prisma answers that with a constraint name,
+  // the rejection is unhandled, and the run stops partway through the demo tenants. Reported and
+  // skipped rather than thrown: the other tenants are still worth seeding, and choosing which of
+  // the two rows survives is a decision for a person.
+  const existing = await prisma.appUser.findUnique({ where: { email }, select: { id: true } });
+  if (existing && existing.id !== userId) {
+    console.warn(
+      `  ! ${email} already exists under a different id than the auth store resolved; skipped. ` +
+        `Delete one of the two by hand and re-run.`,
+    );
+    return;
+  }
+
+  // Hashed in every mode, including the one that never reads it, for the reason spelled out in
+  // prisma/seed.ts: without it, flipping AUTH_PROVIDER leaves every credential in
+  // docs/Credentials.md unusable until somebody thinks to run this script again.
+  const { hash, algo } = await hashPassword(password);
 
   // The signup trigger may have created the row already. It never updates, so force the link.
   // A deactivated user keeps working auth credentials but is refused at the app layer, which is
   // exactly the "cuenta desactivada" scenario.
   await prisma.appUser.upsert({
     where: { id: userId },
-    update: { email, role: Role.COMPANY_USER, companyId, active },
-    create: { id: userId, email, role: Role.COMPANY_USER, companyId, active },
+    update: {
+      email,
+      role: Role.COMPANY_USER,
+      companyId,
+      active,
+      passwordHash: hash,
+      passwordAlgo: algo,
+    },
+    create: {
+      id: userId,
+      email,
+      role: Role.COMPANY_USER,
+      companyId,
+      active,
+      passwordHash: hash,
+      passwordAlgo: algo,
+      // Demo accounts are confirmed the moment they exist: no mail is ever sent for one, and the
+      // password is the documented DEMO_PASSWORD. Set on create only, so a row that came across
+      // the credential backfill keeps GoTrue's own timestamp.
+      emailConfirmedAt: new Date(),
+    },
   });
 }
 

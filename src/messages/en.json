@@ -109,7 +109,8 @@
     "reset": {
       "title": "New password",
       "subtitle": "Enter your new password.",
-      "submit": "Save password"
+      "submit": "Save password",
+      "requestNewLink": "Request a new link"
     },
     "validation": {
       "emailRequired": "Email is required.",
@@ -125,11 +126,14 @@
       "accountDisabled": "Your account was deactivated. Contact CECODES.",
       "registrationDisabled": "Registration is managed by CECODES. Write to us to get your account.",
       "invalidInput": "Check the details you entered and try again.",
+      "invalidResetLink": "This link is no longer valid. Request a new one.",
+      "sessionExpired": "Your session expired. Sign in again.",
       "generic": "Something went wrong. Please try again."
     },
     "toasts": {
       "registerCheckEmail": "Account created. Check your email to confirm.",
       "resetEmailSent": "Reset link sent.",
+      "passwordResetSignIn": "Password updated. Sign in with your new password.",
       "passwordUpdated": "Password updated.",
       "loggingOut": "Signing out...",
       "loggedOut": "Signed out."

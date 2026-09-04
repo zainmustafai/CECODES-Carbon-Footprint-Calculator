@@ -1,23 +1,60 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_COOKIE, readSession } from "@/lib/auth/session";
+import { authProvider } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import type { AppUser } from "@/lib/generated/prisma/client";
 
-// Current authenticated Supabase user, or null. Uses getUser() (validates the token).
-// Memoized per request: the shell layout, the admin layout, the page and each action all
-// ask for it, and one round trip is enough.
-export const getUser = cache(async (): Promise<User | null> => {
+/**
+ * What a cookie resolves to, whoever checked it.
+ *
+ * Deliberately narrower than the Supabase User. An id and an address are the only two fields
+ * anything downstream has ever read, and they are the only two a self-hosted session can produce.
+ * Keeping the wide type would go on advertising app_metadata, identities and confirmed_at to
+ * every consumer, and the day AUTH_PROVIDER flips to "local" those fields stop existing without
+ * the compiler saying a word.
+ */
+export type AuthUser = { id: string; email: string };
+
+/**
+ * The current authenticated user, or null. The one place a cookie becomes an identity.
+ *
+ * Which cookie decides is the provider's call (see AuthProvider in lib/env.ts). "local" reads our
+ * own session cookie; "supabase" and "shadow" both ask GoTrue, because shadow mode double-checks
+ * a PASSWORD at sign-in and nothing else. It issues no local session, so there is nothing here for
+ * it to read, and identity has to move in one step anyway: two halves of the same request must not
+ * be able to disagree about who is signed in.
+ *
+ * Memoized per request: the shell layout, the admin layout, the page and each action all ask for
+ * it, and one round trip is enough.
+ */
+export const getUser = cache(async (): Promise<AuthUser | null> => {
+  if (authProvider() === "local") {
+    const token = (await cookies()).get(SESSION_COOKIE)?.value;
+    return readSession(token);
+  }
+
   const supabase = await createClient();
+  // getUser() rather than getSession(): it validates the token with the auth server instead of
+  // trusting what the cookie claims.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user;
+  if (!user) return null;
+
+  // Supabase types email as optional, because a phone-only or anonymous account has none. This
+  // app has no such account and no way to serve one: every user here is created from an address,
+  // and company-scope.ts carries that address into the audit trail of every write. Letting one
+  // through would mean inventing an empty address for it, so it is refused instead.
+  if (!user.email) return null;
+
+  return { id: user.id, email: user.email };
 });
 
 // Server-side guard for protected pages/layouts: redirects to /login when unauthenticated.
-export async function requireUser(): Promise<User> {
+export async function requireUser(): Promise<AuthUser> {
   const user = await getUser();
   if (!user) redirect("/login");
   return user;

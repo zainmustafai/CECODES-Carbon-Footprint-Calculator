@@ -1,15 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { POST_LOGIN_PATH } from "../src/lib/routes";
-import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, db, loadFixture, supabaseAdmin } from "./fixture";
+import {
+  E2E_EMAIL_DOMAIN,
+  E2E_PASSWORD,
+  createE2EUser,
+  db,
+  deleteE2EUser,
+  loadFixture,
+} from "./fixture";
 
 // THE LOGOUT TEST MUST OWN ITS USER. Do not point it at the shared fixture session.
 //
-// Supabase's signOut() revokes the refresh token SERVER SIDE, and globally: it kills every
-// session that user has, not just this browser context. This test used to run against the shared
-// company-user storageState (e2e/.auth/user.json), so the moment it logged out, that token was
-// dead, and every spec Playwright ran afterwards (alphabetically: company-profile, cross-tenant,
-// data-entry, facilities-crud, meta) silently loaded an invalid session and got bounced to /login.
+// Under the Supabase modes, signOut() revokes the refresh token SERVER SIDE, and globally: it
+// kills every session that user has, not just this browser context. This test used to run against
+// the shared company-user storageState (e2e/.auth/user.json), so the moment it logged out, that
+// token was dead, and every spec Playwright ran afterwards (alphabetically: company-profile,
+// cross-tenant, data-entry, facilities-crud, meta) loaded an invalid session and got bounced.
 // They then failed on assertions that had nothing to do with what they were testing, or, worse,
 // passed VACUOUSLY: an isolation test asserting "the victim's name is not on this page" passes
 // beautifully when the page is the login screen.
@@ -26,36 +33,18 @@ test.describe("session", () => {
   test.beforeAll(async () => {
     const fixture = loadFixture();
 
-    const { data, error } = await supabaseAdmin().auth.admin.createUser({
-      email: logoutEmail,
-      password: E2E_PASSWORD,
-      email_confirm: true,
-    });
-    if (error || !data.user) {
-      throw new Error(`E2E: could not create logout user ${logoutEmail}. ${error?.message}`);
-    }
-    userId = data.user.id;
-
-    // The signup trigger writes the app_users row with no company; link it to the fixture
-    // company so the dashboard renders instead of redirecting to /onboarding.
+    // Linked to the fixture company so the landing page renders instead of redirecting to
+    // /onboarding. createE2EUser writes the credential the app under test will actually be asked
+    // for, whichever store that is.
     const client = await db();
-    await client.query(
-      `INSERT INTO app_users (id, email, role, "companyId", "createdAt", "updatedAt")
-       VALUES ($1, $2, 'COMPANY_USER', $3, now(), now())
-       ON CONFLICT (id) DO UPDATE SET "companyId" = EXCLUDED."companyId"`,
-      [userId, logoutEmail, fixture.companyId],
-    );
+    userId = await createE2EUser(client, logoutEmail, { companyId: fixture.companyId });
     await client.end();
   });
 
   test.afterAll(async () => {
     const client = await db();
-    await client.query(`DELETE FROM app_users WHERE id = $1 OR email = $2`, [
-      userId,
-      logoutEmail,
-    ]);
+    await deleteE2EUser(client, userId, logoutEmail);
     await client.end();
-    if (userId) await supabaseAdmin().auth.admin.deleteUser(userId);
   });
 
   // Its own anonymous context: it signs in as the disposable user, not as the shared fixture one.
