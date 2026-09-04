@@ -421,8 +421,14 @@ export function rollupYear({
     let gas: GasBreakdownKg;
     if (entry.scope === "SCOPE_2") {
       // Scope 2 does not carry a factor on the row. It is the national grid factor for the
-      // year, a pure CO2 value in kg CO2/kWh (GWP of CO2 is 1) - 100% CO2 for gas-bucket
-      // purposes, never CH4/N2O/other.
+      // year, counted as 100% CO2 for gas-bucket purposes, never CH4/N2O/other.
+      //
+      // The factor library spells its unit "kgCO2e/kWh", not "kg CO2/kWh", so treating it as CO2
+      // mass is a decision, not a reading of the unit. It is the client's own decision: the
+      // DASHBOARD workbook's PRINCIPAL sheet computes "kg CO2" as (activity x FE CO2) for every
+      // row, and its Alcance 2 rows land the 0.21742 UPME factor squarely in that column. Since
+      // GWP of CO2 is 1, nothing about the CO2e total depends on this; only which column of the
+      // ISO 14064-1 declaration the number appears in, and this reproduces theirs.
       if (grid === null) {
         // A year with no grid factor cannot be priced. This used to fall through and add a
         // real 0 into byScope, byCategory and the monthly series, guarded only by the flag
