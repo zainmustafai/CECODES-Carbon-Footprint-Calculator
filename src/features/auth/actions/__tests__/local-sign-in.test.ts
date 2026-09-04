@@ -1142,6 +1142,102 @@ describe("re-authenticating the signed-in password change", () => {
     // The blast radius is one user: the bystander is still signed in.
     expect(sessionsOf(bystander.id)).toHaveLength(1);
   });
+
+  // The re-authentication above is the whole control, and until these four tests it was the one
+  // password check in this file that nothing metered. A caller holding a session could POST this
+  // action in a loop: the return value is a clean oracle (currentPasswordIncorrect on a miss,
+  // success on a hit), and on a hit the sweep hands them the account, since every other session
+  // ends and every outstanding reset link is spent. The same guess at /login is refused after
+  // MAX_ATTEMPTS. It was a denial of service lever as well: each call spends a quarter second of
+  // bcrypt on the single Node process this deployment runs.
+
+  it("AUTH-56 refuses further guesses at the current password once the allowance is spent, before any bcrypt is spent", async () => {
+    const user = await signedIn();
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      expect(
+        await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: "una suposicion" }),
+      ).toEqual({ error: "currentPasswordIncorrect" });
+    }
+    // mockClear, not mockReset: the implementation is the real verifyPassword (see beforeEach).
+    verifyPassword.mockClear();
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: "una suposicion" }),
+    ).toEqual({ error: "tooManyAttempts" });
+    // In FRONT of the compare, which is what closes the CPU half: the refusal costs nothing.
+    expect(verifyPassword).not.toHaveBeenCalled();
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+  });
+
+  it("AUTH-56 counts against the very key /login counts, so the two doors cannot be alternated for a second allowance", async () => {
+    const user = await signedIn();
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: "una suposicion" });
+    }
+
+    // The address on the SESSION, in the sign-in namespace. A bucket of this path's own (keyed by
+    // user id, say) would be a namespace /login never reads, so one credential would carry two
+    // allowances and an attacker could spend the full run of guesses at each door.
+    expect(throttles.get(`email:${EMAIL}`)?.lockedUntil).toBeInstanceOf(Date);
+    // And the front door is shut for that address, with the RIGHT password, which is only possible
+    // if this path wrote the key /login reads.
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({
+      error: "tooManyAttempts",
+    });
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+  });
+
+  it("AUTH-56 clears that shared allowance when the current password is right", async () => {
+    await signedIn();
+    // Spent at /login on purpose, so what is under test is this path doing the CLEARING. One
+    // credential, one budget: proving the password here is the same proof /login clears on.
+    for (let i = 0; i < MAX_ATTEMPTS - 1; i++) {
+      await signInAction({ email: EMAIL, password: WRONG });
+    }
+    expect(throttles.size).toBeGreaterThan(0);
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
+
+    // Both keys, the IP one included, on the sign-in path's own reasoning.
+    expect(throttles.size).toBe(0);
+  });
+
+  it("AUTH-57 refuses a deactivated account holding the right current password, and counts nothing against it", async () => {
+    // Reachable through the race this file already documents: setUserActive sweeps user_sessions in
+    // the same transaction as the flag, so a session row inserted just after that sweep survives
+    // it, and readSession never reads `active`. Every other authenticated entry point re-reads the
+    // flag. This one did not, and it is the entry point that REWRITES the credential.
+    const user = seedUser({ active: false });
+    getUser.mockResolvedValue({ id: user.id, email: user.email });
+    const stray: SessionRow = {
+      id: "stray-session",
+      userId: user.id,
+      tokenHash: hashToken("una sesion que sobrevivio a la desactivacion"),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      createdAt: new Date(),
+      lastUsedAt: new Date(),
+      ip: null,
+      userAgent: null,
+    };
+    sessions.set(stray.id, stray);
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({ error: "accountDisabled" });
+
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+    // Nothing downstream of the refusal ran: no sweep, no notification.
+    expect(sessionsOf(user.id)).toHaveLength(1);
+    expect(sendMail).not.toHaveBeenCalled();
+    // The password was RIGHT, so no attempt is counted, exactly as the sign-in path's own
+    // accountDisabled branch declines to count one: a deactivated user must not be able to lock
+    // the allowance for the address they may be reactivated on.
+    expect(throttles.size).toBe(0);
+  });
 });
 
 describe("the reset request has its own allowance", () => {

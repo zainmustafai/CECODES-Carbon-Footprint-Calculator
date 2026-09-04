@@ -505,6 +505,42 @@ async function changeSignedInPassword({
   const user = await getUser();
   if (!user) return { error: "sessionExpired" };
 
+  /**
+   * The same allowance /login spends, keyed on the SESSION'S address.
+   *
+   * The re-authentication below is a password check on a public POST endpoint, so it needs
+   * everything signInAction's check needs, and it needed it more: the caller already holds a
+   * session, so a hit here does not merely sign them in, it hands them the account. The sweep
+   * ends every OTHER session and spends every outstanding reset link, and the owner's route back
+   * is an admin. Unmetered, the return value was a clean oracle to loop against
+   * ("currentPasswordIncorrect" on a miss, {} on a hit) while the same guess at /login was
+   * refused after MAX_ATTEMPTS. It was the denial of service lever signInAction's comment names,
+   * too: a quarter second of bcryptjs, on the main thread of the one Node process compose runs.
+   *
+   * WHICH identity, and why this one:
+   *
+   * - The address, through signInThrottleKeys, and therefore the SAME key /login reads and
+   *   writes. One credential gets one budget across every door that checks it. A key of this
+   *   path's own (user:<id>, say) would be a namespace /login never looks at, so the two paths
+   *   would drift on the next change to either, and an attacker would get MAX_ATTEMPTS guesses
+   *   here PLUS MAX_ATTEMPTS there for the same password.
+   * - Read off the session, never off the request body. The client cannot name the address it is
+   *   counted against, so it can neither aim the counter at somebody else nor mint a fresh bucket
+   *   by varying what it sends. The column is lowercase and the helper lowercases again, so
+   *   casing cannot mint one either, and the address is bounded by app_users.email, so nothing
+   *   oversized can reach the TEXT PRIMARY KEY behind these rows.
+   * - Sharing the key does mean spending it here locks the address out of /login for the window.
+   *   That is not a new power: anyone at all can burn the same five guesses at /login without a
+   *   session, so the sharing adds no denial that was not already available, and it buys the
+   *   property that the two paths cannot drift.
+   * - The IP key rides along exactly as it does on sign-in, so one machine working through many
+   *   stolen sessions trips IP_MAX_ATTEMPTS even though no single address ever locks.
+   */
+  const throttleKeys = signInThrottleKeys(user.email, await requestIp());
+  // Before the compare, not after, for both halves of the reason: it stops the guess being
+  // answered at all, and it stops the bcrypt being spent at all.
+  if (await isSignInThrottled(throttleKeys)) return { error: "tooManyAttempts" };
+
   // Re-authentication, and the session cookie is not a substitute for it.
   //
   // What this closes: whoever holds the cookie, for thirty seconds at an unlocked laptop or
@@ -518,7 +554,9 @@ async function changeSignedInPassword({
   // not in question and telling the user their EMAIL might be wrong is a support call.
   const row = await prisma.appUser.findUnique({
     where: { id: user.id },
-    select: { passwordHash: true, passwordAlgo: true },
+    // `active` is read because this is a credential write, and every one of those re-reads the
+    // flag. See the refusal below for the state that makes it reachable.
+    select: { active: true, passwordHash: true, passwordAlgo: true },
   });
   // verifyPassword spends the dummy hash on a missing password too, so an empty field costs the
   // same quarter second a wrong one does and cannot be told apart by timing.
@@ -527,7 +565,40 @@ async function changeSignedInPassword({
     row?.passwordHash,
     row?.passwordAlgo,
   );
-  if (!reauthenticated) return { error: "currentPasswordIncorrect" };
+  if (!reauthenticated) {
+    // Counted here rather than anywhere later, so a wrong guess costs an attempt whether it came
+    // from this door or the front one.
+    await recordSignInFailure(throttleKeys);
+    return { error: "currentPasswordIncorrect" };
+  }
+
+  // A deactivated account cannot rewrite its own credential, and the flag is checked AFTER the
+  // password rather than before it, which is the same order signInWithCredentials uses.
+  //
+  // How a deactivated account reaches a line that already required a session: readSession never
+  // reads `active`, and setUserActive sweeps user_sessions in the same transaction as the flag, so
+  // a session row inserted just after that sweep survives it. That is the race signInWithCredentials
+  // documents on its own `active: true` where clause. Every other authenticated entry point re-reads
+  // the flag (requireAppUser redirects to /account-disabled, resolveCompanyScope refuses, the reset
+  // path refuses a link); this one did not, and it is the entry point that REWRITES the credential.
+  //
+  // The attempt is not counted, exactly as the sign-in path declines to count one here: the
+  // password was right, and counting it would let a deactivated user lock out the address they may
+  // later be reactivated on. Nothing is enumerated by the key either, because reaching this line
+  // takes a live session for the account AND its current password.
+  //
+  // `row?` only for the null case, which cannot arrive: with no row there is no hash, and
+  // verifyPassword refuses a missing hash against the dummy, so the branch above has already
+  // returned.
+  if (!row?.active) return { error: "accountDisabled" };
+
+  // Cleared on the proof, not on the write, and deliberately BEFORE the transaction. The caller has
+  // just produced the current password, which is the same proof /login clears on. Doing it after
+  // the commit would put a database call after an action that had already succeeded, and a throw
+  // there would reject a password change that had landed, which is the failure
+  // resetPasswordWithTokenAction wraps its own clearance to avoid. Here nothing has committed yet,
+  // so a failure is simply the action failing before it changed anything.
+  await clearSignInThrottle(throttleKeys);
 
   const { hash, algo } = await hashPassword(password);
   // Read outside the transaction: it is a request header, and the transaction below should hold a
