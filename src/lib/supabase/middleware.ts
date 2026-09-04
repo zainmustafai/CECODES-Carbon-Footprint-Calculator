@@ -31,9 +31,21 @@ export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase isn't configured yet (fresh clone / placeholder env), skip.
+  // Misconfigured Supabase env: refuse every request rather than serve any.
+  //
+  // This used to `return supabaseResponse`, i.e. fall through. That skipped the redirect gating
+  // below, so a deployment with a missing or placeholder NEXT_PUBLIC_SUPABASE_URL served every
+  // protected route to anyone, with no session and no error. It failed OPEN.
+  //
+  // That was tolerable when the only deployment was Vercel, where these values are set once in a
+  // dashboard. It is not tolerable in a container, where they come from a .env file edited by hand
+  // on each server and a typo is ordinary. src/instrumentation.ts should already have stopped the
+  // process at boot; this is the second lock on the same door.
   if (!url || !anonKey || url.includes("<project-ref>")) {
-    return supabaseResponse;
+    return new NextResponse("Service misconfigured", {
+      status: 503,
+      headers: { "content-type": "text/plain", "cache-control": "no-store" },
+    });
   }
 
   const supabase = createServerClient(url, anonKey, {

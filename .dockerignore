@@ -1,0 +1,61 @@
+# Everything here is excluded from the build context, i.e. never sent to the Docker daemon and
+# never copied by `COPY . .` in the builder stage.
+#
+# This file is a security control, not an optimisation. Without it, `COPY . .` bakes .env.local
+# (real Supabase service-role key) and docs/Credentials.md (working admin sign-in credentials)
+# into an image layer, where they survive even if a later layer deletes them.
+
+# --- Secrets. The most important lines in this file. -----------------------------------------
+.env
+.env.*
+!.env.example
+docs/Credentials.md
+
+# --- Local tooling and agent state ------------------------------------------------------------
+.claude/
+.codegraph/
+.fallow/
+.mcp.json
+.vscode/
+.idea/
+
+# --- Version control and CI -------------------------------------------------------------------
+.git
+.gitignore
+.github
+
+# --- Build output and caches (rebuilt inside the image; copying them in breaks the build) ------
+node_modules
+.next
+out
+build
+dist
+*.tsbuildinfo
+src/lib/generated/prisma
+
+# --- Tests: not needed to build or run the app ------------------------------------------------
+e2e
+e2e/.auth
+playwright.config.ts
+playwright-report
+test-results
+coverage
+vitest.config.ts
+**/__tests__
+
+# --- Docs and reference material --------------------------------------------------------------
+# Keep docs/reference: prisma/import-factors.ts reads the emission-factor workbook from there and
+# the migrator image runs that script. docs/sample-data is ~5.5 MB of workbooks nothing needs at
+# runtime.
+docs/sample-data
+docs/superpowers
+docs/client-comments
+reference/
+*.md
+!README.md
+
+# --- Misc -------------------------------------------------------------------------------------
+logs
+*.log
+.DS_Store
+Thumbs.db

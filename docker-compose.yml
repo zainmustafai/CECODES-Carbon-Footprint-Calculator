@@ -1,0 +1,122 @@
+# CECODES - Huella de Carbono
+#
+#   cp .env.example .env   # then fill in the required values
+#   docker compose up -d --build
+#
+# Two containers by default:
+#   init  runs once, applies pending migrations and seeds, then exits 0
+#   app   starts only after init succeeds
+#
+# There is NO database service here on purpose. The database is managed Supabase, reached over
+# DATABASE_URL, and Supabase also provides authentication - user identities live in its auth
+# schema, not in this repo's migrations. Running a Postgres container here would give you every
+# application table and nobody able to log in.
+#
+# Add TLS with:  docker compose --profile edge up -d
+# Useful:        docker compose logs -f init     (the whole initialization story, in order)
+
+name: cecodes
+
+services:
+  # -------------------------------------------------------------------------------------------
+  # init - one-shot initialization job
+  # -------------------------------------------------------------------------------------------
+  # Runs to completion and stops. This is what makes initialization safe with no coordination:
+  # there is exactly ONE container that migrates, so the "three API replicas all run migrations
+  # at once" race cannot occur. (prisma migrate deploy also takes a Postgres advisory lock, so
+  # this is the second lock on the same door.)
+  #
+  # Everything it does is forward-only and idempotent. It never drops, truncates or resets.
+  init:
+    build:
+      context: .
+      target: migrator
+    env_file: .env
+    # restart:"no" is load-bearing, not a default. Any other policy would restart a job that
+    # completed successfully, re-running the seed on a loop.
+    restart: "no"
+    networks: [internal]
+
+  # -------------------------------------------------------------------------------------------
+  # app - the Next.js application
+  # -------------------------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        # Next inlines NEXT_PUBLIC_* at BUILD time, so these are build args, not just env vars.
+        # Change either one and you must rebuild: `docker compose up -d --build`.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    env_file: .env
+    depends_on:
+      init:
+        # The app does not start until init exits 0. A failed migration therefore means no app,
+        # rather than an app serving requests against a half-migrated schema.
+        condition: service_completed_successfully
+    # Bound to loopback, not 0.0.0.0: on a public VPS the short form "3000:3000" would publish the
+    # app directly to the internet, bypassing any reverse proxy and its TLS. Put Caddy (below) or
+    # your own proxy in front. For a local trial, http://127.0.0.1:3000 still works.
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      # Hits readiness, which runs SELECT 1 through Prisma. Probing "/" instead would be a trap:
+      # that route redirects (307), so a naive check passes while the database is down.
+      # node:22 has global fetch, so this needs no curl in the image.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      # Generous, because a cold Next start plus the first database connection is not instant and
+      # a container killed during startup never becomes healthy.
+      start_period: 40s
+      retries: 3
+    networks: [internal]
+    # DO NOT scale this above 1. unstable_cache and revalidatePath in
+    # src/features/admin/lib/factor-library-cache.ts are per-process: with a second replica, an
+    # admin editing the factor library invalidates only the replica that served the edit, and the
+    # others keep serving stale factors until the entry expires. Vercel hides this behind a shared
+    # cache layer; Compose does not.
+    deploy:
+      replicas: 1
+
+  # -------------------------------------------------------------------------------------------
+  # caddy - optional TLS terminator (profile: edge)
+  # -------------------------------------------------------------------------------------------
+  # Off by default so `docker compose up -d` stays two containers and works with no domain.
+  # Enable once DNS points at this host: docker compose --profile edge up -d
+  # Caddy obtains and renews a Let's Encrypt certificate on its own; set DOMAIN in .env.
+  caddy:
+    image: caddy:2-alpine
+    profiles: [edge]
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    networks: [internal]
+
+networks:
+  # A private bridge. Nothing here publishes a database port, because there is no database
+  # container; the app reaches Supabase outbound over TLS.
+  internal:
+    driver: bridge
+
+volumes:
+  # Certificates and OCSP staples. Losing this volume means re-issuing certificates on next start,
+  # which Let's Encrypt rate-limits, so it is a named volume rather than anonymous.
+  caddy_data:
+  caddy_config:

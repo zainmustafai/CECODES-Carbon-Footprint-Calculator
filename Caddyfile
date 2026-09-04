@@ -1,0 +1,35 @@
+# Reverse proxy for the optional `edge` compose profile.
+#
+#   docker compose --profile edge up -d
+#
+# Set DOMAIN in .env to your real hostname (e.g. huella.cecodes.org.co) with DNS already pointing
+# at this server. Caddy then obtains and renews a Let's Encrypt certificate automatically. Leave
+# DOMAIN unset and it serves http://localhost with no certificate, which is fine for a local try.
+{$DOMAIN} {
+	# `app` is the compose service name, resolved on the internal network. The app itself is only
+	# published on 127.0.0.1, so this proxy is the sole route in from outside.
+	reverse_proxy app:3000
+
+	encode gzip
+
+	header {
+		# HSTS. Caddy already redirects http to https; this stops the browser trying http at all.
+		# Only meaningful on a real domain with a real certificate.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Never advertise the server software.
+		-Server
+	}
+
+	# The readiness probe is unauthenticated by design (an orchestrator cannot log in). It reveals
+	# only up/unreachable and never the host or credentials, but there is no reason to expose it
+	# to the public internet either - Docker's healthcheck reaches it from inside the network.
+	@health path /api/health/*
+	respond @health 404
+
+	log {
+		output stdout
+		format console
+	}
+}

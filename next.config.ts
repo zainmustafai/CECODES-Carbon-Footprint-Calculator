@@ -5,6 +5,11 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // Emits .next/standalone: a self-contained server bundle with only the modules actually
+  // imported. Vercel does this for you; a container does not, so without it the runtime image
+  // has to carry the whole node_modules tree (shadcn alone drags in ts-morph and @babel/core).
+  // Harmless on Vercel, which ignores it.
+  output: "standalone",
   // NOTE ON CACHING (deliberate): cacheComponents (PPR / `use cache`) is NOT enabled. It is a
   // whole-app switch: with it on, every uncached dynamic read must sit under a Suspense boundary
   // or the route fails to prerender. This app reads auth cookies directly in its layouts (the

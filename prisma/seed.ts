@@ -98,11 +98,28 @@ async function seedAdmin() {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
 
+  // Fail loudly. This used to warn and return, so `db:seed` exited 0 with no admin created - a
+  // deployment could report success while nobody on earth could log in. There is no self-serve
+  // registration (FEATURE_SELF_ONBOARDING is false), so the seeded admin is the ONLY way in.
+  //
+  // SEED_SKIP_ADMIN=true is the deliberate escape for local work against a database whose admin
+  // already exists; it has to be typed on purpose, which is the point.
   if (!url || !serviceKey || !email || !password) {
-    console.warn(
-      "Skipping admin seed (set SUPABASE_* and ADMIN_EMAIL/ADMIN_PASSWORD in .env.local).",
+    if (process.env.SEED_SKIP_ADMIN === "true") {
+      console.warn("Admin seed skipped: SEED_SKIP_ADMIN=true was set explicitly.");
+      return;
+    }
+    const missing = [
+      !url && "NEXT_PUBLIC_SUPABASE_URL",
+      !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
+      !email && "ADMIN_EMAIL",
+      !password && "ADMIN_PASSWORD",
+    ].filter(Boolean);
+    throw new Error(
+      `Cannot seed the admin account. Missing: ${missing.join(", ")}.\n` +
+        `Without an admin there is no way to sign in, because self-serve registration is off.\n` +
+        `Set these in .env.local, or set SEED_SKIP_ADMIN=true if you know one already exists.`,
     );
-    return;
   }
 
   const supabase = createSupabaseAdminClient();
@@ -129,8 +146,13 @@ async function seedAdmin() {
   }
 
   if (!userId) {
-    console.warn("Admin seed: could not resolve the auth user id.");
-    return;
+    // Same reasoning as the env check above: warning and returning here would leave app_users
+    // without a CECODES_ADMIN row while the seed still reported success.
+    throw new Error(
+      `Admin seed failed: Supabase neither created nor found an auth user for ADMIN_EMAIL. ` +
+        `Check that SUPABASE_SERVICE_ROLE_KEY belongs to the same project as ` +
+        `NEXT_PUBLIC_SUPABASE_URL.`,
+    );
   }
 
   // Force the profile role to CECODES_ADMIN (the signup trigger defaults to COMPANY_USER).
