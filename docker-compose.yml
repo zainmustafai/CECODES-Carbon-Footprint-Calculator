@@ -1,7 +1,12 @@
 # CECODES - Huella de Carbono
 #
-#   cp .env.example .env   # then fill in anything you want to override
+#   cp .env.example .env   # then uncomment anything you want to override
 #   docker compose up -d --build
+#
+# Nothing in that .env has to be filled in for this to work: every variable below already carries
+# a default, and .env.example ships with the lines that would replace one commented out. The one
+# thing you must read rather than set is the admin password, which init generates and prints once
+# (see the init service, and `docker compose logs init`).
 #
 # On a developer machine that already has .env.local, point compose at it so its overrides reach
 # ${...} substitution too (env_file feeds the containers; --env-file feeds ${...} substitution):
@@ -87,6 +92,12 @@ services:
   # this is the second lock on the same door.)
   #
   # Everything it does is forward-only and idempotent. It never drops, truncates or resets.
+  #
+  # It also creates the first admin, and with ADMIN_PASSWORD unset (the default, because a
+  # password published in a repository is a backdoor rather than a convenience) prisma/seed.ts
+  # generates one and prints it in this container's log, once, on the run that creates the row.
+  # `docker compose logs init` is therefore not only where initialization is explained, it is
+  # where the only credential into a fresh system is handed over.
   init:
     build:
       context: .
@@ -109,7 +120,15 @@ services:
       # `docker compose --env-file .env.local up -d`, as the file header above documents.
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
-      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Both lines are character for character what the app service below sets, and kept that way
+      # on purpose. init validates the whole runtime schema before it migrates anything
+      # (validateInitEnv extends it), so SITE_URL's shape is checked HERE: a malformed override
+      # fails initialization, which stops the app from starting at all, rather than surfacing in
+      # the first password-reset mail nobody reads for a week. Validating a different string from
+      # the one the app will read would make that check worthless. The reasoning behind the
+      # expression itself is written out once, on the app service.
+      SITE_URL: ${SITE_URL:-${DOMAIN:+https://}${DOMAIN:-http://localhost:3000}}
+      DOMAIN: ${DOMAIN:-localhost}
       # src/lib/env.ts's runtimeSchema requires MAIL_FROM alongside whichever transport is
       # selected (SMTP_HOST for smtp, RESEND_API_KEY for resend). MAIL_TRANSPORT defaults to smtp
       # above, so MAIL_FROM needs a default here too, or every boot fails that check.
@@ -148,7 +167,36 @@ services:
       # `docker compose --env-file .env.local up -d`, as the file header above documents.
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
-      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # The origin in every emailed link (password reset, the admin's welcome mail).
+      #
+      # src/lib/site-url.ts reads SITE_URL FIRST and consults DOMAIN only when SITE_URL is absent.
+      # So the constant this line used to hold, ${SITE_URL:-http://localhost:3000}, always
+      # resolved and therefore outranked DOMAIN permanently: an operator who followed the
+      # documented TLS path, DOMAIN in .env and `docker compose --profile edge up -d`, got working
+      # HTTPS and every reset mail pointing at http://localhost:3000. Nothing failed anywhere. The
+      # mail sent, the token row was written, and only the link was unreachable, which is a bug a
+      # user reports and an operator cannot reproduce.
+      #
+      # The default is therefore conditional on DOMAIN rather than constant, and exactly one half
+      # of it is ever non-empty: ${DOMAIN:+https://} contributes the scheme only when DOMAIN has a
+      # value, and ${DOMAIN:-http://localhost:3000} contributes either that value or the whole
+      # loopback URL this stack actually publishes when there is none. DOMAIN is a bare hostname,
+      # the form the Caddyfile expects, and https://<hostname> is exactly the origin site-url.ts's
+      # own DOMAIN branch would build, so the two can never disagree about the same deployment.
+      #
+      # An explicit SITE_URL still wins over both, which is what it is for: an address that is not
+      # the DOMAIN, behind a path-based proxy or on a second hostname. And `docker compose up -d`
+      # with no .env at all still gets http://localhost:3000 and mails links that work.
+      SITE_URL: ${SITE_URL:-${DOMAIN:+https://}${DOMAIN:-http://localhost:3000}}
+      # DOMAIN itself reaches the app, not only caddy's copy of it. site-url.ts documents DOMAIN as
+      # its second choice and the compose default of "localhost" as a value it deliberately
+      # ignores, which was true here only by accident: DOMAIN arrived through env_file when it came
+      # from .env, and not at all when it came from the shell or another --env-file. The line above
+      # normally answers first, so this is the standby rather than the main road: it is what
+      # site-url.ts reads if SITE_URL ever arrives blank (env.ts reads whitespace as absent), and it
+      # keeps `docker compose exec app env` an honest account of how this container is configured
+      # rather than one variable short of it.
+      DOMAIN: ${DOMAIN:-localhost}
       # src/lib/env.ts's runtimeSchema requires MAIL_FROM alongside whichever transport is
       # selected (SMTP_HOST for smtp, RESEND_API_KEY for resend). MAIL_TRANSPORT defaults to smtp
       # above, so MAIL_FROM needs a default here too, or every boot fails that check.
@@ -203,6 +251,10 @@ services:
   # domain.
   # Enable once DNS points at this host: docker compose --profile edge up -d
   # Caddy obtains and renews a Let's Encrypt certificate on its own; set DOMAIN in .env.
+  #
+  # DOMAIN is not caddy's alone, and assuming it was is what once made a fully working HTTPS
+  # deployment mail localhost links: init and app read it too, to build the origin in emailed
+  # links. One hostname, set once, answers both questions.
   caddy:
     image: caddy:2-alpine
     profiles: [edge]
