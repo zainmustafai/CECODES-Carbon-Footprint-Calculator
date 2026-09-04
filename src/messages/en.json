@@ -833,7 +833,8 @@
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Enter a valid email.",
-        "passwordMin": "Password must be at least 8 characters."
+        "passwordMin": "Password must be at least 8 characters.",
+        "passwordMax": "Maximum 72 characters."
       },
       "errors": {
         "forbidden": "You do not have permission for this action.",

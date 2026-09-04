@@ -833,7 +833,8 @@
       "validation": {
         "emailRequired": "El correo es obligatorio.",
         "emailInvalid": "Ingresa un correo válido.",
-        "passwordMin": "La contraseña debe tener al menos 8 caracteres."
+        "passwordMin": "La contraseña debe tener al menos 8 caracteres.",
+        "passwordMax": "Máximo 72 caracteres."
       },
       "errors": {
         "forbidden": "No tienes permisos para esta acción.",

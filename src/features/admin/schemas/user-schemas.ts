@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PASSWORD_MAX } from "@/features/auth/schemas/auth-server-schemas";
 
 // Translator for the "admin.users.validation" namespace (keeps messages localized).
 type T = (key: string) => string;
@@ -37,7 +38,10 @@ export const createUserInput = z
     // Trim and lowercase so the app_users.email unique check and the auth user agree on one
     // canonical form ("Foo@Bar.com" and "foo@bar.com" must not create two accounts).
     email: z.string().trim().toLowerCase().email(),
-    tempPassword: z.string().min(8),
+    // Capped because bcrypt hashes at most 72 bytes and ignores the rest: a longer temporary
+    // password would be silently truncated, and the admin would dictate characters that turn out
+    // not to matter. See PASSWORD_MAX.
+    tempPassword: z.string().min(8).max(PASSWORD_MAX),
     role: roleEnum,
     companyId: z.uuid().nullish(),
     name: optionalContact,
@@ -75,7 +79,7 @@ export const deleteUserInput = z
 export const resetUserPasswordInput = z
   .object({
     userId: z.uuid(),
-    tempPassword: z.string().min(8),
+    tempPassword: z.string().min(8).max(PASSWORD_MAX),
   })
   .strict();
 
@@ -94,7 +98,7 @@ const contactField = z.string().trim().max(160);
 export function createUserFormSchema(t: T) {
   return z.object({
     email: z.string().trim().min(1, t("emailRequired")).email(t("emailInvalid")),
-    tempPassword: z.string().min(8, t("passwordMin")),
+    tempPassword: z.string().min(8, t("passwordMin")).max(PASSWORD_MAX, t("passwordMax")),
     role: roleEnum,
     companyId: z.string(),
     name: contactField,
@@ -106,7 +110,7 @@ export type CreateUserFormValues = z.infer<ReturnType<typeof createUserFormSchem
 
 export function regenerateCredentialsFormSchema(t: T) {
   return z.object({
-    tempPassword: z.string().min(8, t("passwordMin")),
+    tempPassword: z.string().min(8, t("passwordMin")).max(PASSWORD_MAX, t("passwordMax")),
   });
 }
 export type RegenerateCredentialsFormValues = z.infer<
