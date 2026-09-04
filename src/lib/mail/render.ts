@@ -27,12 +27,18 @@ const TEMPLATE_DIR = join(process.cwd(), "src", "lib", "mail", "templates");
 const engine = Handlebars.create();
 
 // Handlebars' default {{ }} escaping HTML-encodes seven characters: & < > " ' ` and =. The last
-// two guard against an unquoted HTML attribute (<a href={{url}}>), which none of these templates
-// write: every attribute here is double-quoted. Left in place, that extra encoding turns the
-// reset token's "=" into "&#x3D;", which is still safe but is not what an operator staring at a
-// support ticket expects a URL to look like. Narrowed to the five standard entities instead,
-// matching the hand-rolled escaper this module replaces (password-reset-email.ts) and mirroring
-// Handlebars' own implementation (handlebars/dist/cjs/handlebars/utils.js) minus ` and =.
+// two exist to defend an unquoted HTML attribute (<a href={{url}}>): without them, a value
+// containing a space or another "=" could inject a second attribute. Every attribute in these
+// templates is double-quoted, so that defence is not buying anything here, and its cost is real:
+// our reset URLs are themselves query strings like "?token=abc", so the default escaper turns
+// every emailed link's href into "...&#x3D;abc". That is valid HTML and a compliant client
+// decodes it, but email clients are some of the least compliant renderers in existence, and a
+// link an inbox fails to decode is a user who cannot reset their password. Deliverability of a
+// link we already control beats defending against an injection vector these templates do not
+// expose, so escaping is narrowed to the five standard entities instead, mirroring Handlebars'
+// own implementation (handlebars/dist/cjs/handlebars/utils.js) minus ` and =. This is why the
+// templates below must keep every interpolated attribute quoted; see render.test.ts's "guards
+// unquoted attributes" test, which fails the build if one stops being.
 const HTML_ESCAPE: Record<string, string> = {
   "&": "&amp;",
   "<": "&lt;",
