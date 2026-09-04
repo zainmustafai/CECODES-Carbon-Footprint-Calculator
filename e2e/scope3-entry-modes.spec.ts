@@ -122,7 +122,7 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
     await expect(page.getByText("24 gal")).toBeVisible();
   });
 
-  test("a COUNT_TIMES_DISTANCE source renders two fields and multiplies them", async ({
+  test("a COUNT_TIMES_DISTANCE source is entered as routes, and each route is multiplied", async ({
     page,
   }) => {
     await page.goto(`/data-entry?facilityId=${fixture.facilityId}&year=${E2E_YEAR}&scope=SCOPE_3`);
@@ -136,37 +136,44 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
       .getByRole("option", { name: new RegExp(`^${escapeRegExp(DISTANCE_ELEMENT)}`) })
       .click();
 
-    // TWO separate fields, count and distance - never one pre-multiplied cell.
-    const count = page.getByLabel(new RegExp(`cantidad: ${escapeRegExp(DISTANCE_ELEMENT)}`, "i"));
-    const distance = page.getByLabel(
-      new RegExp(`distancia: ${escapeRegExp(DISTANCE_ELEMENT)}`, "i"),
-    );
+    // A ROUTE TABLE, not a value cell. Client feedback 2026-09-03 (E3) replaced the two-box
+    // count/distance field with one row per route, because the templates CECODES sent are that
+    // shape and the old field made the user pre-multiply by hand. The source therefore arrives
+    // with no routes at all rather than with an empty number to fill in.
+    await expect(c7.getByText(/aún no hay viajes registrados/i)).toBeVisible({ timeout: 15_000 });
+
+    await c7.getByRole("button", { name: /agregar viaje/i }).click();
+
+    // Still two separate numbers per route, which is the point: never one pre-multiplied cell.
+    // A route with no name of its own is addressed by its position, so the labels end in "#1".
+    const route = `${escapeRegExp(DISTANCE_ELEMENT)}, #1`;
+    const count = page.getByLabel(new RegExp(`cantidad: ${route}`, "i"));
+    const distance = page.getByLabel(new RegExp(`distancia \\(km\\): ${route}`, "i"));
     await expect(count).toBeVisible({ timeout: 15_000 });
     await expect(distance).toBeVisible();
 
-    // Fill both before blurring either: the store marks both dirty on keystroke regardless of
-    // the autosave debounce, so the blur below flushes them as ONE batch. That also sidesteps a
-    // real trap with the SAVED text: two separate flushes seconds apart can both land inside the
-    // same clock minute, so a second "Guardado HH:MM" wait can pass on the FIRST flush's text
-    // without the second one having landed yet, and this reload assertion goes on to prove it.
     await count.fill("3");
     await distance.fill("1200");
+    // The set saves as a whole on blur (use-transport-trips.ts), and confirms with its own
+    // toast rather than the autosave indicator the plain value fields use.
     await distance.blur();
-    await expect(page.getByText(SAVED)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/viajes guardados/i)).toBeVisible({ timeout: 15_000 });
+
+    // 3 x 1200 = 3600, summed across routes and shown in the source's own unit.
+    await expect(c7.getByText(/1 viaje: 3[.,]?600 vehículo \* km/i)).toBeVisible();
 
     const estimate = c7.getByRole("button", { name: /emisiones estimadas/i }).first();
     await expect(estimate).toHaveAccessibleName(/\d[.,]\d+ t CO2e/, { timeout: 15_000 });
 
-    // The reload proves the Decimal round trip on BOTH columns: value (count) AND the new
-    // secondaryValue (distance), the whole reason this column exists (client feedback 2026-08-15).
+    // The reload proves the Decimal round trip on the route's own columns, and that the action
+    // wrote the product back onto the entry: the total below is recomputed from what persisted.
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: "Alcance 3" }).click();
-    await expect(
-      page.getByLabel(new RegExp(`cantidad: ${escapeRegExp(DISTANCE_ELEMENT)}`, "i")),
-    ).toHaveValue("3");
-    await expect(
-      page.getByLabel(new RegExp(`distancia: ${escapeRegExp(DISTANCE_ELEMENT)}`, "i")),
-    ).toHaveValue("1200");
+    await expect(page.getByLabel(new RegExp(`cantidad: ${route}`, "i"))).toHaveValue("3");
+    await expect(page.getByLabel(new RegExp(`distancia \\(km\\): ${route}`, "i"))).toHaveValue(
+      "1200",
+    );
+    await expect(c7.getByText(/1 viaje: 3[.,]?600 vehículo \* km/i)).toBeVisible();
   });
 });
 

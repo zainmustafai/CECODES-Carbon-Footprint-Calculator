@@ -32,10 +32,15 @@ test.describe("admin factor library", () => {
     // The library is populated. Without the import it would show the empty state instead.
     await expect(page.getByText(/\d+ factores/i)).toBeVisible();
 
-    // Filtering by scope narrows the table.
+    // Filtering by scope narrows the table. Alcance 2 holds exactly one element, the national
+    // grid. It is matched by its current name, not by /electricidad/i: client feedback 2026-08-24
+    // renamed it to "SISTEMA INTERCONECTADO NACIONAL - SIN" (prisma/fix-2026-08-24-scope2-sin-
+    // rename.ts), and the word this used to look for is no longer anywhere in the row.
     await page.getByRole("combobox", { name: /alcance/i }).click();
     await page.getByRole("option", { name: "Alcance 2" }).click();
-    await expect(page.getByRole("cell", { name: /electricidad/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: /sistema interconectado nacional/i }).first(),
+    ).toBeVisible();
   });
 
   test("creates a factor, edits it, and the change lands in its history", async ({ page }) => {
