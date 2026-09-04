@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { POST_LOGIN_PATH } from "../src/lib/routes";
 import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, db, loadFixture, supabaseAdmin } from "./fixture";
 
 // THE LOGOUT TEST MUST OWN ITS USER. Do not point it at the shared fixture session.
@@ -13,8 +14,8 @@ import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, db, loadFixture, supabaseAdmin } from "
 // passed VACUOUSLY: an isolation test asserting "the victim's name is not on this page" passes
 // beautifully when the page is the login screen.
 //
-// So this provisions a disposable user of its own, linked to the fixture company so /dashboard
-// has something to render, signs it in through the real /login UI, and logs THAT one out.
+// So this provisions a disposable user of its own, linked to the fixture company so the landing
+// page has something to render, signs it in through the real /login UI, and logs THAT one out.
 
 const suffix = randomUUID().slice(0, 8);
 const logoutEmail = `e2e-logout-${suffix}@${E2E_EMAIL_DOMAIN}`;
@@ -68,7 +69,7 @@ test.describe("session", () => {
     await page.fill('input[name="password"]', E2E_PASSWORD);
     await page.getByRole("button", { name: /ingresar/i }).click();
 
-    await page.waitForURL("**/dashboard", { timeout: 20_000 });
+    await page.waitForURL(`**${POST_LOGIN_PATH}`, { timeout: 20_000 });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     // The user menu lives in the top bar; its trigger is labelled "Cuenta".

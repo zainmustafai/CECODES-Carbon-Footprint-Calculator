@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { POST_LOGIN_PATH } from "../src/lib/routes";
 import {
   ADMIN_STORAGE_STATE,
   E2E_EMAIL_DOMAIN,
@@ -107,7 +108,7 @@ test.describe("admin users", () => {
 
     await anon.fill('input[name="password"]', currentPassword);
     await anon.getByRole("button", { name: /ingresar/i }).click();
-    await anon.waitForURL("**/dashboard", { timeout: 20_000 });
+    await anon.waitForURL(`**${POST_LOGIN_PATH}`, { timeout: 20_000 });
     await context.close();
   });
 

@@ -1,4 +1,5 @@
 import { expect, test as setup } from "@playwright/test";
+import { POST_LOGIN_PATH } from "../src/lib/routes";
 import {
   ADMIN_STORAGE_STATE,
   E2E_PASSWORD,
@@ -23,7 +24,10 @@ setup("authenticate as the fixture company user", async ({ page }) => {
   await page.fill('input[name="password"]', E2E_PASSWORD);
   await page.getByRole("button", { name: /ingresar|sign in/i }).click();
 
-  await page.waitForURL("**/dashboard", { waitUntil: "domcontentloaded" });
+  // Read from the constant, not written out again: this wait was left on /dashboard when the
+  // landing page moved to /data-entry, and a stale copy here fails the setup, which takes the
+  // whole suite with it.
+  await page.waitForURL(`**${POST_LOGIN_PATH}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
   await page.context().storageState({ path: USER_STORAGE_STATE });
@@ -37,7 +41,7 @@ setup("authenticate as the fixture CECODES admin", async ({ page }) => {
   await page.fill('input[name="password"]', E2E_PASSWORD);
   await page.getByRole("button", { name: /ingresar|sign in/i }).click();
 
-  // An admin has no company, so /dashboard bounces them to the admin overview.
+  // An admin has no company, so the post-login path bounces them to the admin overview.
   await page.waitForURL("**/admin", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
