@@ -24,6 +24,32 @@ name: cecodes
 
 services:
   # -------------------------------------------------------------------------------------------
+  # db - the application database
+  # -------------------------------------------------------------------------------------------
+  # No published port, deliberately. Every consumer is on the internal network, and publishing
+  # 5432 on a VPS is how a database ends up in a botnet's scan results the same afternoon.
+  # The password below is therefore a default rather than a secret; override it in .env if you
+  # ever do publish the port.
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cecodes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cecodes-local-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-cecodes}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -U matters: pg_isready defaults to the OS user (root), which is not a Postgres role here,
+      # so without it the probe fails on a perfectly healthy database.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cecodes} -d ${POSTGRES_DB:-cecodes}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+    networks: [internal]
+
+  # -------------------------------------------------------------------------------------------
   # init - one-shot initialization job
   # -------------------------------------------------------------------------------------------
   # Runs to completion and stops. This is what makes initialization safe with no coordination:
@@ -44,6 +70,16 @@ services:
         required: false
       - path: .env.local
         required: false
+    environment:
+      # The default points at the db service above, so `docker compose up -d` works with no .env
+      # at all. A .env or .env.local entry overrides it, which is how a deployment points at a
+      # managed Postgres instead.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
     # restart:"no" is load-bearing, not a default. Any other policy would restart a job that
     # completed successfully, re-running the seed on a loop.
     restart: "no"
@@ -66,6 +102,13 @@ services:
         required: false
       - path: .env.local
         required: false
+    environment:
+      # The default points at the db service above, so `docker compose up -d` works with no .env
+      # at all. A .env or .env.local entry overrides it, which is how a deployment points at a
+      # managed Postgres instead.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
     depends_on:
       init:
         # The app does not start until init exits 0. A failed migration therefore means no app,
@@ -132,6 +175,9 @@ networks:
     driver: bridge
 
 volumes:
+  # The database. Losing this volume loses every company, entry and result, so it is named rather
+  # than anonymous: `docker compose down` leaves it alone, and only `down -v` removes it.
+  pgdata:
   # Certificates and OCSP staples. Losing this volume means re-issuing certificates on next start,
   # which Let's Encrypt rate-limits, so it is a named volume rather than anonymous.
   caddy_data:
