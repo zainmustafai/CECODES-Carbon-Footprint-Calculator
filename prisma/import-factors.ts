@@ -146,7 +146,8 @@ function rowCells(row: ExcelJS.Row): RawRowCells {
   return cells;
 }
 
-// A 4-digit year embedded in a Scope-2 element label, or null (the RECs / self-generated row).
+// A 4-digit year embedded in a Scope-2 element label, or null (the RECs row, which says
+// "cualquier año" and is seeded as its own zero-valued element instead).
 function extractYear(element: string): number | null {
   const match = /(\d{4})/.exec(element);
   return match ? Number(match[1]) : null;
@@ -347,7 +348,7 @@ async function main() {
       const year = extractYear(f.element);
       if (year === null || value === null) {
         gridPendingLines.push(
-          `  row ${r}: GRID PENDING (no year / renewable) value=${value ?? "-"} - ${f.element}`,
+          `  row ${r}: GRID SKIPPED (no year) value=${value ?? "-"} - ${f.element}`,
         );
         continue;
       }
@@ -660,7 +661,13 @@ async function main() {
   printSection("Skipped rows (not imported)", skipLines);
   printSection("Scope 2 grid electricity - mismatches (WARN, never overwritten)", gridMismatchLines);
   printSection("Scope 2 grid electricity - years missing from the database", gridMissingLines);
-  printSection("Scope 2 grid electricity - pending decision (RECs / self-generated)", gridPendingLines);
+  // Not a pending decision any more: the year-less RECs row is modelled as its own Alcance 2
+  // element (co2eFactor 0) by prisma/seed.ts's ensureRecElectricityFactor, because it cannot be
+  // keyed by year and so has no place in grid_electricity_factors. Skipping it here is correct.
+  printSection(
+    "Scope 2 grid electricity - no year in the element, handled by the seed (RECs)",
+    gridPendingLines,
+  );
   printSection("Scope 2 grid electricity - matches", gridMatchLines);
   printSection("Factors kept (admin-edited, left untouched)", keptLines);
   printSection("Starter cleanup", starterLines);

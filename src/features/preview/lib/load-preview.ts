@@ -529,6 +529,9 @@ export async function loadCompanyWidePreview(
     let m = meta.get(key);
     if (!m) {
       const factor = entry.emissionFactor;
+      // A Scope 2 element's OWN per-kWh factor, when it has one (the RECs element, worth 0).
+      const scope2Own =
+        entry.scope === "SCOPE_2" ? (factor?.co2eFactor ?? factor?.co2Factor ?? null) : null;
       m = {
         unit: entry.unit,
         quantity: 0,
@@ -538,17 +541,24 @@ export async function loadCompanyWidePreview(
         // factor's whole unit instead of reading "8.400 ton x 1 km".
         tripCount: 0,
         hasQuantity: false,
-        // Scope 2 is priced by the national grid factor, not by a factor on the row - same rule
-        // buildReportFromEntries applies.
+        // Scope 2 is priced by the national grid factor UNLESS the element carries its own
+        // per-kWh value (the RECs element, worth 0) - the same rule rollupYear's scope2RatePerKwh
+        // and buildReportFromEntries apply. Printing the grid factor next to a REC element's zero
+        // tonnes would contradict it.
         factorValue:
           entry.scope === "SCOPE_2"
-            ? gridFactorStr
+            ? (scope2Own?.toString() ?? gridFactorStr)
             : (factor?.co2eFactor?.toString() ??
               factor?.co2Factor?.toString() ??
               factor?.ch4Factor?.toString() ??
               factor?.n2oFactor?.toString() ??
               null),
-        factorUnit: entry.scope === "SCOPE_2" ? "kg CO2/kWh" : (factor?.factorUnit ?? null),
+        factorUnit:
+          entry.scope === "SCOPE_2"
+            ? scope2Own !== null
+              ? (factor?.factorUnit ?? "kg CO2e/kWh")
+              : "kg CO2/kWh"
+            : (factor?.factorUnit ?? null),
         factorActive: factor?.active ?? false,
         entryMode: factor?.entryMode ?? "QUANTITY",
         monthly: Array.from({ length: 12 }, () => ({ total: 0, hasValue: false })),

@@ -291,6 +291,38 @@ function isPriceable(factor: RollupFactor): boolean {
   );
 }
 
+/**
+ * The kg CO2 per kWh that prices one Scope 2 entry, or null when it cannot be priced.
+ *
+ * Almost every Scope 2 entry carries no factor of its own and is priced by the reporting year's
+ * national grid factor. The exception is electricity backed by renewable-energy certificates,
+ * which the factor library carries as its own year-independent element worth ZERO
+ * ("Energia electrica adquirida respaldada con RECs (cualquier ano)", value 0, unit kgCO2e/kWh).
+ *
+ * This mirrors the client's own workbook, where every Alcance 2 element carries its per-kWh
+ * number in column 9 and the RECs row simply carries 0; our grid table is a normalization of the
+ * eighteen year-named rows, not a different rule. So: the entry's OWN factor wins when it has
+ * one, and the year's grid factor is the fallback.
+ *
+ * Reading a REC entry's own zero, rather than the grid factor, is the whole point. Falling back
+ * would charge full grid emissions to consumption the company has already paid to decarbonize,
+ * and no flag anywhere would say so. Note also that a REC entry is priceable in a year that has
+ * NO grid factor at all: zero times anything is zero, and that is a real measurement, not a
+ * fabricated one, so it must not raise missingGridFactor.
+ */
+function scope2RatePerKwh(factor: RollupFactor | null, grid: number | null): number | null {
+  if (factor !== null) {
+    // co2eFactor first: that is the column the library's RECs row fills. Both are read because
+    // an admin editing a Scope 2 override by hand may reasonably use either.
+    const own = factor.co2eFactor ?? factor.co2Factor;
+    if (own !== null) {
+      const parsed = Number(own);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return grid;
+}
+
 // `category` is needed only so the engine can answer "is this a fuel", which the "is-a-fuel" CH4
 // rule depends on. Under the default rule it is unused but harmless. See lib/calc/ch4-rule.ts.
 function toFactorInput(factor: RollupFactor, category: string): FactorInput {
@@ -420,8 +452,8 @@ export function rollupYear({
 
     let gas: GasBreakdownKg;
     if (entry.scope === "SCOPE_2") {
-      // Scope 2 does not carry a factor on the row. It is the national grid factor for the
-      // year, counted as 100% CO2 for gas-bucket purposes, never CH4/N2O/other.
+      // Scope 2 is priced per kWh and counted as 100% CO2 for gas-bucket purposes, never
+      // CH4/N2O/other.
       //
       // The factor library spells its unit "kgCO2e/kWh", not "kg CO2/kWh", so treating it as CO2
       // mass is a decision, not a reading of the unit. It is the client's own decision: the
@@ -429,7 +461,8 @@ export function rollupYear({
       // row, and its Alcance 2 rows land the 0.21742 UPME factor squarely in that column. Since
       // GWP of CO2 is 1, nothing about the CO2e total depends on this; only which column of the
       // ISO 14064-1 declaration the number appears in, and this reproduces theirs.
-      if (grid === null) {
+      const rate = scope2RatePerKwh(entry.factor, grid);
+      if (rate === null) {
         // A year with no grid factor cannot be priced. This used to fall through and add a
         // real 0 into byScope, byCategory and the monthly series, guarded only by the flag
         // below. Any consumer that forgot to read the flag (an export, a snapshot writer)
@@ -442,12 +475,12 @@ export function rollupYear({
       }
       // GWP of CO2 is 1, so the CO2e kg and the CO2 mass kg are the same number here.
       gas = {
-        co2Kg: activity * grid,
+        co2Kg: activity * rate,
         ch4Kg: 0,
         n2oKg: 0,
         otherKg: 0,
         isPreBlended: false,
-        co2MassKg: activity * grid,
+        co2MassKg: activity * rate,
         n2oMassKg: 0,
         ch4FossilMassKg: 0,
         ch4NonFossilMassKg: 0,

@@ -87,6 +87,21 @@
         "co2eFactor": "0.7",
         "biogenic": false
       }
+    },
+    {
+      "note": "REC-backed electricity: its own zero-valued Alcance 2 element, NOT the year's grid factor. 1.200.000 kWh that would have been 260,4 t on the grid contribute exactly 0, and every total below is unchanged by its presence.",
+      "scope": "SCOPE_2",
+      "category": "Consumo de energia electrica",
+      "element": "Energia electrica adquirida respaldada con RECs",
+      "month": 1,
+      "value": "1200000",
+      "factor": {
+        "co2Factor": null,
+        "ch4Factor": null,
+        "n2oFactor": null,
+        "co2eFactor": "0",
+        "biogenic": false
+      }
     }
   ],
   "expected": {
@@ -97,10 +112,26 @@
       "SCOPE_3": 17.5
     },
     "byCategory": [
-      { "scope": "SCOPE_1", "category": "Emisiones Fugitivas", "tonnes": 19.6 },
-      { "scope": "SCOPE_1", "category": "Fuentes Fijas", "tonnes": 318.3259948 },
-      { "scope": "SCOPE_2", "category": "Consumo de energia electrica", "tonnes": 260.4 },
-      { "scope": "SCOPE_3", "category": "C5: Residuos generados en operaciones", "tonnes": 17.5 }
+      {
+        "scope": "SCOPE_1",
+        "category": "Emisiones Fugitivas",
+        "tonnes": 19.6
+      },
+      {
+        "scope": "SCOPE_1",
+        "category": "Fuentes Fijas",
+        "tonnes": 318.3259948
+      },
+      {
+        "scope": "SCOPE_2",
+        "category": "Consumo de energia electrica",
+        "tonnes": 260.4
+      },
+      {
+        "scope": "SCOPE_3",
+        "category": "C5: Residuos generados en operaciones",
+        "tonnes": 17.5
+      }
     ]
   }
 }

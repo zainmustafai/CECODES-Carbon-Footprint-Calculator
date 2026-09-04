@@ -85,6 +85,16 @@ const starterEmissionFactors = [
   { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Uso de extintores", element: "Extintores CO2", unit: "kg", co2eFactor: "1", factorUnit: "kg CO2/kg", source: "IPCC (starter)" },
   // Scope 2 - grid electricity (factor comes from grid_electricity_factors by year)
   { scope: Scope.SCOPE_2, category: "Consumo de energía eléctrica", subcategory: null, element: "SISTEMA INTERCONECTADO NACIONAL - SIN", unit: "kWh", factorUnit: "kg CO2/kWh", source: "UPME/XM - factor por año (grid_electricity_factors)" },
+  // Scope 2 - electricity backed by renewable-energy certificates. The ONE Alcance 2 row in
+  // CECODES's library that is not a year (their "Energía eléctrica adquirida respaldada con RECs
+  // (cualquier año)", value 0, unit kgCO2e/kWh), which the importer therefore cannot route into
+  // grid_electricity_factors and reports as pending. It lives here instead, in the same category
+  // as the grid element so Alcance 2 stays one picker with two elements.
+  //
+  // The explicit "0" is load-bearing: rollupYear's scope2RatePerKwh reads an entry's own per-kWh
+  // factor in preference to the year's grid factor, so this is what makes REC-backed consumption
+  // price at zero instead of being charged full grid emissions. Requirements 12.13.
+  { scope: Scope.SCOPE_2, category: "Consumo de energía eléctrica", subcategory: null, element: "Energía eléctrica adquirida respaldada con RECs", unit: "kWh", co2eFactor: "0", factorUnit: "kg CO2e/kWh", source: "CECODES - Emission Factors (debe coincidir con REC)" },
   // Scope 3 - waste
   { scope: Scope.SCOPE_3, category: "Residuos", subcategory: "Incineración", element: "Residuos Ordinarios", unit: "kg", co2eFactor: "0.23", factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
   { scope: Scope.SCOPE_3, category: "Residuos", subcategory: "Relleno Sanitario", element: "Relleno sanitario gestionado anaeróbico", unit: "kg", co2eFactor: "1.54", factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
@@ -238,6 +248,45 @@ async function seedAdmin() {
   );
 }
 
+/**
+ * Ensure the Alcance 2 "backed by RECs" element exists, whatever else the library holds.
+ *
+ * This runs UNCONDITIONALLY, unlike the starter subset above, and that is the point. The starter
+ * list is skipped the moment the library is non-empty, so on any database that has had a real
+ * import - which is every deployed one - adding this row to that list would deliver nothing.
+ *
+ * It cannot come from the importer either: prisma/import-factors.ts routes Alcance 2 rows into
+ * grid_electricity_factors keyed by the year in the element name, and this is the one row in
+ * CECODES's library with no year ("cualquier año"), which the importer logs as GRID PENDING.
+ *
+ * So it is seeded, once, here. Idempotent by the same natural key the expression index enforces
+ * (scope, category, subcategory, element, unit); an existing row is left exactly as it is, so an
+ * admin who later edits the value keeps their edit.
+ */
+async function ensureRecElectricityFactor(): Promise<void> {
+  const key = {
+    scope: Scope.SCOPE_2,
+    category: "Consumo de energía eléctrica",
+    subcategory: null,
+    element: "Energía eléctrica adquirida respaldada con RECs",
+    unit: "kWh",
+  };
+  const existing = await prisma.emissionFactor.findFirst({ where: key, select: { id: true } });
+  if (existing) return;
+
+  const latest = await prisma.emissionFactorVersion.findFirst({ orderBy: { date: "desc" } });
+  await prisma.emissionFactor.create({
+    data: {
+      ...key,
+      co2eFactor: "0",
+      factorUnit: "kg CO2e/kWh",
+      source: "CECODES - Emission Factors (debe coincidir con REC)",
+      versionId: latest?.id,
+    },
+  });
+  console.log("Seeded the Alcance 2 RECs element (0 kg CO2e/kWh).");
+}
+
 async function main() {
   // Create only, NEVER update. A CECODES admin may have resolved a conflict between this seeded
   // value and their workbook (see resolveGridFactor in factor-actions.ts); re-running the seed must
@@ -274,6 +323,8 @@ async function main() {
       data: starterEmissionFactors.map((f) => ({ ...f, versionId: latest?.id })),
     });
   }
+
+  await ensureRecElectricityFactor();
 
   await seedAdmin();
 

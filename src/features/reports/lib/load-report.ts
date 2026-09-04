@@ -202,25 +202,38 @@ function buildReportFromEntries({
     }
 
     const factor = entry.emissionFactor;
+    // A Scope 2 element's OWN per-kWh factor, when it has one (the RECs element, worth 0).
+    const scope2Own =
+      entry.scope === "SCOPE_2" ? factor?.co2eFactor ?? factor?.co2Factor ?? null : null;
     meta.set(k, {
       unit: entry.unit,
       entryMode: factor?.entryMode ?? "QUANTITY",
       quantity,
       secondaryQuantity,
       tripCount: entry.trips.length,
-      // Scope 2 is priced by the national grid factor, not by a factor on the row.
+      // Scope 2 is priced by the national grid factor UNLESS the element carries its own per-kWh
+      // value, which is how REC-backed electricity prices at zero. This has to follow exactly the
+      // rule rollupYear applies (scope2RatePerKwh), or the report would print the grid factor
+      // beside a tonnage the grid factor did not produce.
       factorValue:
         entry.scope === "SCOPE_2"
-          ? gridFactor
+          ? scope2Own?.toString() ?? gridFactor
           : factor?.co2eFactor?.toString() ??
             factor?.co2Factor?.toString() ??
             factor?.ch4Factor?.toString() ??
             factor?.n2oFactor?.toString() ??
             null,
-      factorUnit: entry.scope === "SCOPE_2" ? "kg CO2/kWh" : factor?.factorUnit ?? null,
+      factorUnit:
+        entry.scope === "SCOPE_2"
+          ? scope2Own !== null
+            ? factor?.factorUnit ?? "kg CO2e/kWh"
+            : "kg CO2/kWh"
+          : factor?.factorUnit ?? null,
       // Grid electricity carries no uncertainty in the library; only per-element factors do.
       uncertaintyPct:
-        entry.scope === "SCOPE_2" ? null : factor?.uncertaintyPct?.toString() ?? null,
+        entry.scope === "SCOPE_2" && scope2Own === null
+          ? null
+          : factor?.uncertaintyPct?.toString() ?? null,
     });
   }
 

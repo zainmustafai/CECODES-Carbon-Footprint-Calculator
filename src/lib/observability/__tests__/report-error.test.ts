@@ -58,6 +58,43 @@ describe("formatErrorReport", () => {
     );
     expect(parsed.reportingYearId).toBe("ry_1");
   });
+
+  // nodemailer's own SMTP rejections embed the recipient verbatim (e.g. "550 5.1.1 <addr>:
+  // Recipient address rejected"), which becomes Error#message. This is the defence-in-depth half
+  // of that fix: even a caller that forwards such an error unfiltered must not leak it, whether
+  // the address sits in the message or was passed through context.
+  it("redacts an email address out of the message", () => {
+    const line = formatErrorReport({
+      where: "mail/smtp",
+      error: new Error("550 5.1.1 <victim@example.test>: Recipient address rejected"),
+    });
+    expect(line).not.toContain("victim@example.test");
+    expect(line).toContain("[address redacted]");
+  });
+
+  // redact() runs on the whole JSON-stringified line, so an address nested inside context has to
+  // be caught the same way as one sitting in a bare message.
+  it("redacts an email address out of a JSON-stringified context field", () => {
+    const line = formatErrorReport({
+      where: "mail/smtp",
+      error: new Error("boom"),
+      context: { detail: "rejected victim@example.test outright" },
+    });
+    expect(line).not.toContain("victim@example.test");
+    expect(line).toContain("[address redacted]");
+  });
+
+  // The pattern has to be loose enough to catch a real address and tight enough to leave ordinary
+  // text alone; this pins the second half.
+  it("does not mangle ordinary text with no address in it", () => {
+    const line = formatErrorReport({
+      where: "reports/export",
+      error: new Error("failed to reach db@5432 while exporting @company report"),
+    });
+    expect(line).toContain("db@5432");
+    expect(line).toContain("@company");
+    expect(line).not.toContain("[address redacted]");
+  });
 });
 
 describe("reportError", () => {

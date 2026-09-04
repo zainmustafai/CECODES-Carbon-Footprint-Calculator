@@ -143,6 +143,41 @@ describe("estimateSourceTonnes: Scope 2", () => {
 
     expect(result).toEqual({ kind: "missingGridFactor" });
   });
+
+  // The mirror of rollupYear's scope2RatePerKwh tests. If these two ever disagree, the number the
+  // company sees while typing is not the number the dashboard will show.
+  it("prices REC-backed electricity from its own zero factor, not the grid factor", () => {
+    const result = estimateSourceTonnes({
+      values: ["500000"],
+      scope: "SCOPE_2",
+      factor: factor({ co2eFactor: "0", factorUnit: "kg CO2e/kWh", source: "debe coincidir con REC" }),
+      gridFactor: { factor: "0.217", source: "UPME/XM" },
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      tonnes: 0,
+      hasValues: true,
+      factorValue: "0",
+      factorUnit: "kg CO2e/kWh",
+      factorSource: "debe coincidir con REC",
+    });
+  });
+
+  it("prices REC-backed electricity even when the year has no grid factor", () => {
+    const result = estimateSourceTonnes({
+      values: ["500000"],
+      scope: "SCOPE_2",
+      factor: factor({ co2eFactor: "0", factorUnit: "kg CO2e/kWh" }),
+      gridFactor: null,
+      pricePerGallon: null,
+      gwpSet: "AR6",
+    });
+
+    expect(result).toMatchObject({ kind: "ok", tonnes: 0 });
+  });
 });
 
 describe("estimateSourceTonnes: honest failure states", () => {

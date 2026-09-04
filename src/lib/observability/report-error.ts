@@ -29,12 +29,26 @@
  * The connection string goes for the same reason: DATABASE_URL carries the database password and
  * appears verbatim in a driver's connection errors. The session and reset tokens are matched by
  * their query-string spelling, which is how a reset link ends up inside a URL in a stack trace.
+ *
+ * The email address goes for the same class of reason, and is the one caught in the wild rather
+ * than reasoned out in advance: nodemailer's own SMTP rejections embed the recipient verbatim,
+ * e.g. "550 5.1.1 <addr>: Recipient address rejected", which becomes Error#message and, uncaught
+ * here, "who asked for a password reset" - exactly the fact these logs must never carry. The
+ * transport that produced it now builds its own Error rather than forwarding that one (see
+ * src/lib/mail/transports/smtp.ts), but this line exists so the NEXT caller that forwards an
+ * error carrying an address is covered without having to rediscover the failure first.
  */
 const SECRET_SHAPES: ReadonlyArray<[RegExp, string]> = [
   // $2a$/$2b$/$2y$, two cost digits, then 53 characters of salt and digest.
   [/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/g, "[hash redacted]"],
   [/postgres(?:ql)?:\/\/\S+/gi, "[connection string redacted]"],
   [/([?&]token=)[^&\s"']+/gi, "$1[token redacted]"],
+  // Deliberately ordinary: local-part@domain.tld, nothing exotic. A pattern loose enough to catch
+  // quoted local parts or IP-literal domains would also start matching ordinary log text that
+  // merely contains an "@", which is a worse trade than missing the rare address a stricter
+  // pattern would refuse. redact() runs on the whole JSON-stringified line, so this matches an
+  // address sitting inside a quoted string exactly as it would a bare one.
+  [/[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g, "[address redacted]"],
 ];
 
 /**

@@ -2,10 +2,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const MESSAGE = { to: "a@b.test", subject: "s", html: "<p>h</p>", text: "t" };
 
+// nodemailer itself is mocked, not a real socket: sendViaSmtp is exercised through the real
+// module, but what it talks to is this stand-in. Built with vi.hoisted so the same mock instances
+// back every dynamic import of transports/smtp.ts, including across vi.resetModules() calls.
+const { sendMailMock, createTransportMock } = vi.hoisted(() => {
+  const sendMailMock = vi.fn();
+  const createTransportMock = vi.fn(() => ({ sendMail: sendMailMock }));
+  return { sendMailMock, createTransportMock };
+});
+
+vi.mock("nodemailer", () => ({
+  default: { createTransport: createTransportMock },
+}));
+
 afterEach(() => {
   vi.resetModules();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  sendMailMock.mockReset();
+  createTransportMock.mockClear();
 });
 
 describe("sendMail", () => {
@@ -138,5 +153,62 @@ describe("sendMail", () => {
       expect(line).not.toContain(richMessage.text);
       expect(line).not.toContain("example.test");
     }
+  });
+
+  describe("smtp", () => {
+    function stubSmtpEnv(overrides: Record<string, string> = {}) {
+      vi.stubEnv("MAIL_TRANSPORT", "smtp");
+      vi.stubEnv("SMTP_HOST", "mailpit");
+      vi.stubEnv("MAIL_FROM", "CECODES <no-reply@x.test>");
+      for (const [key, value] of Object.entries(overrides)) vi.stubEnv(key, value);
+    }
+
+    it("sends successfully via smtp", async () => {
+      stubSmtpEnv();
+      sendMailMock.mockResolvedValue(undefined);
+
+      const { sendMail } = await import("@/lib/mail/transport");
+      expect(await sendMail(MESSAGE)).toEqual({ ok: true });
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+    });
+
+    // The regression this whole block exists to catch: nodemailer's own SMTP rejection messages
+    // embed the recipient verbatim, e.g. "550 5.1.1 <victim@example.test>: Recipient address
+    // rejected", and this must never reach console.error, which is exactly the fact "who asked
+    // for a password reset" must never carry into a log a container operator reads.
+    it("never logs the recipient address when the smtp send fails, even though nodemailer's own error message carries it", async () => {
+      const address = "victim@example.test";
+      stubSmtpEnv();
+      const smtpError = Object.assign(
+        new Error(`550 5.1.1 <${address}>: Recipient address rejected: User unknown in table`),
+        { code: "EENVELOPE", responseCode: 550 },
+      );
+      sendMailMock.mockRejectedValue(smtpError);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const { sendMail } = await import("@/lib/mail/transport");
+      const result = await sendMail({ ...MESSAGE, to: address });
+
+      expect(result).toEqual({ ok: false, reason: "failed" });
+      const logged = errorSpy.mock.calls
+        .flat()
+        .map(String)
+        .join("\n");
+      expect(logged).not.toContain(address);
+    });
+
+    // A malformed SMTP_PORT (an operator's typo, or a variable that never got numeric in the
+    // first place) must not turn into an uncaught exception: nodemailer's own createTransport can
+    // throw synchronously on a bad port, and that has to come back as an ordinary MailResult like
+    // every other failure this function reports.
+    it("returns a MailResult rather than throwing when SMTP_PORT is malformed", async () => {
+      stubSmtpEnv({ SMTP_PORT: "not-a-number" });
+      createTransportMock.mockImplementationOnce(() => {
+        throw new RangeError("invalid port");
+      });
+
+      const { sendMail } = await import("@/lib/mail/transport");
+      await expect(sendMail(MESSAGE)).resolves.toEqual({ ok: false, reason: "failed" });
+    });
   });
 });

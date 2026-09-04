@@ -134,20 +134,29 @@ export function estimateSourceTonnes({
   // QUANTITY (a pure kWh reading), so the money/distance derivations below never apply to it.
   if (scope === "SCOPE_2") {
     const { total, hasValues } = sumActivity(values);
-    if (!gridFactor) return { kind: "missingGridFactor" };
 
-    const gridValue = toNumber(gridFactor.factor);
-    if (gridValue === null) return { kind: "missingGridFactor" };
+    // The entry's OWN per-kWh factor wins over the year's grid factor, which is how electricity
+    // backed by renewable-energy certificates prices at zero. rollupYear applies exactly the same
+    // rule (scope2RatePerKwh in rollup.ts); the two must never disagree about the same source.
+    // A REC source is priceable even in a year with no grid factor loaded at all.
+    const own = factor ? (factor.co2eFactor ?? factor.co2Factor) : null;
+    const ownValue = own !== null ? toNumber(own) : null;
+    const rateValue = ownValue ?? (gridFactor ? toNumber(gridFactor.factor) : null);
+    if (rateValue === null) return { kind: "missingGridFactor" };
+
+    const usingOwn = ownValue !== null;
+    const rateString = usingOwn ? (own as string) : gridFactor!.factor;
+    const unit = (usingOwn ? factor?.factorUnit : null) ?? "kg CO2/kWh";
 
     return {
       kind: "ok",
-      tonnes: kgToTonnes(total * gridValue),
+      tonnes: kgToTonnes(total * rateValue),
       hasValues,
-      factorValue: gridFactor.factor,
-      factorUnit: "kg CO2/kWh",
-      // Scope 2 is priced from the national grid factor, which is a pure CO2 number.
-      gases: [{ gas: "CO2", value: gridFactor.factor, unit: "kg CO2/kWh" }],
-      factorSource: gridFactor.source,
+      factorValue: rateString,
+      factorUnit: unit,
+      // Scope 2 is priced per kWh and counted as pure CO2, whichever rate applied.
+      gases: [{ gas: "CO2", value: rateString, unit }],
+      factorSource: usingOwn ? (factor?.source ?? null) : gridFactor!.source,
     };
   }
 

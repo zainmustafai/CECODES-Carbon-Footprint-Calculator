@@ -56,6 +56,88 @@ describe("rollupYear: the Requirements worked examples", () => {
   });
 });
 
+// Electricity backed by renewable-energy certificates. CECODES's library carries this as its own
+// year-independent Alcance 2 element worth 0 ("...respaldada con RECs (cualquier año)"), which is
+// why Scope 2 reads an entry's own per-kWh factor in preference to the year's grid factor.
+describe("rollupYear: Scope 2 REC-backed electricity", () => {
+  const rec = {
+    co2Factor: null, ch4Factor: null, n2oFactor: null, co2eFactor: "0",
+    biogenic: false, entryMode: "QUANTITY" as const,
+  };
+  const recEntry = (value: string, month: number | null = 1) => ({
+    scope: "SCOPE_2" as const, category: "Consumo de energía eléctrica", subcategory: null,
+    element: "Energía eléctrica adquirida respaldada con RECs",
+    month, value, secondaryValue: null, factor: rec,
+  });
+
+  it("prices REC-backed kWh at zero, not at the grid factor", () => {
+    const r = rollupYear({
+      entries: [recEntry("500000")],
+      gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_2).toBe(0);
+    expect(r.totalTonnes).toBe(0);
+    // Priced, not excluded: a real measured zero, so nothing is flagged incomplete.
+    expect(r.unpricedCount).toBe(0);
+    expect(r.missingGridFactor).toBe(false);
+    // Reported, so the month is a zero in the trend rather than a gap.
+    expect(r.scope2Monthly[0].tonnes).toBe(0);
+  });
+
+  it("is priceable even in a year with no grid factor loaded", () => {
+    const r = rollupYear({
+      entries: [recEntry("500000")],
+      gridFactor: null, fuelPrices: null, gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_2).toBe(0);
+    expect(r.missingGridFactor).toBe(false);
+    expect(r.unpricedCount).toBe(0);
+  });
+
+  it("mixes with grid electricity: only the non-REC half is charged", () => {
+    const r = rollupYear({
+      entries: [
+        recEntry("500000"),
+        { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "SISTEMA INTERCONECTADO NACIONAL - SIN", month: 2, value: "500000", secondaryValue: null, factor: null },
+      ],
+      gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6",
+    });
+    expect(r.byScope.SCOPE_2).toBeCloseTo(108.5, 6);
+    expect(r.scope2Monthly[0].tonnes).toBe(0);
+    expect(r.scope2Monthly[1].tonnes).toBeCloseTo(108.5, 6);
+  });
+
+  it("counts as CO2 mass, never as a pre-blended gas, despite carrying co2eFactor", () => {
+    const r = rollupYear({
+      entries: [
+        recEntry("500000"),
+        { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "SISTEMA INTERCONECTADO NACIONAL - SIN", month: 2, value: "500000", secondaryValue: null, factor: null },
+      ],
+      gridFactor: "0.217", fuelPrices: null, gwpSet: "AR6",
+    });
+    const cat = r.byCategory.find((c) => c.scope === "SCOPE_2")!;
+    expect(cat.otherGasesTonnes).toBe(0);
+    expect(cat.otherGasesEntries).toBe(0);
+    expect(cat.gasResolvedEntries).toBe(2);
+    expect(cat.co2Tonnes).toBeCloseTo(108.5, 6);
+    const el = r.byElement.find((e) => e.element.includes("RECs"))!;
+    expect(el.gases.co2MassKg).toBe(0);
+    expect(el.gases.preBlendedCo2eKgByType).toEqual({});
+  });
+
+  it("still excludes a plain grid entry when the year has no grid factor", () => {
+    const r = rollupYear({
+      entries: [
+        { scope: "SCOPE_2", category: "Consumo de energía eléctrica", subcategory: null, element: "SISTEMA INTERCONECTADO NACIONAL - SIN", month: 1, value: "1000", secondaryValue: null, factor: null },
+      ],
+      gridFactor: null, fuelPrices: null, gwpSet: "AR6",
+    });
+    expect(r.missingGridFactor).toBe(true);
+    expect(r.unpricedCount).toBe(1);
+    expect(r.byScope.SCOPE_2).toBe(0);
+  });
+});
+
 describe("rollupYear: per-gas combustion", () => {
   it("computes CO2 + CH4*GWP + N2O*GWP for AR6 diesel", () => {
     // 14957.10 gal, co2 10.149, ch4 0.00001, n2o 0.000006 (AR6: 1, 29.8, 273).

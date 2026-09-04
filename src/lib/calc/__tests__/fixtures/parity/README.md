@@ -36,7 +36,10 @@ correction moved the urea factor into the N2O column in our own library too, exa
 CECODES's official sheet has it (see `src/lib/factor-correction.ts`).
 
 `hand-computed-reference.json` remains as a harness self-check. It proves the fixture
-machinery works; only the client-origin fixture proves parity.
+machinery works; only the client-origin fixture proves parity. It also carries the one Alcance 2
+case the client workbook has no row for: REC-backed electricity, whose own zero-valued element
+must beat the year's grid factor. 1.200.000 kWh that would be 260,4 t on the grid contribute
+exactly 0, and every total in that fixture is identical with and without the row.
 
 ### What the client fixture does not reach
 
@@ -45,6 +48,12 @@ Both fixtures are pure `QUANTITY` sources: the harness's own loader hardcodes th
 2026-07-24 workbook and are covered by unit tests only. So does the 2026-09-03 factor correction:
 each fixture carries its own factor values, so what passes here is the **engine**, not the
 current state of the factor library.
+
+This is the one outstanding gap in the acceptance test, and no amount of reading CECODES's files
+closes it: their sample company has no transport-subsidy row and no route row, so there is nothing
+to compare against. Closing it needs a workbook from them that contains both. Until it arrives,
+those two derivations are proven correct but not proven to AGREE WITH CECODES, which is a weaker
+claim and should be stated as such.
 
 ## Adding further client workbooks
 

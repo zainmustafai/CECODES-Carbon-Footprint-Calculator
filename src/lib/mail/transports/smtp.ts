@@ -48,9 +48,35 @@ export async function sendViaSmtp(message: MailMessage): Promise<MailResult> {
     console.info("[mail] sent via smtp");
     return { ok: true };
   } catch (error) {
-    // nodemailer puts the recipient in some error messages, so the error is handed to reportError
-    // (which redacts and never throws) rather than logged here.
-    reportError({ where: "mail/smtp", error });
+    // The raw error is never forwarded, and neither is its .message. nodemailer's own SMTP
+    // rejections embed the recipient verbatim, e.g. "550 5.1.1 <addr>: Recipient address
+    // rejected", and that string becomes Error#message: the same shape the Resend transport
+    // guards against by extracting only { status } rather than the response body. Two fields are
+    // safe to report because neither can carry an address: `code` is nodemailer's own classification
+    // (ECONNREFUSED, ETIMEDOUT, EENVELOPE, ...) and `responseCode` is the bare SMTP status number
+    // (421, 550, ...). Both are read defensively, since a synchronous throw from createTransport
+    // (a malformed SMTP_PORT, for one) may not be a nodemailer SMTPError at all.
+    const code = hasStringOrNumber(error, "code") ? error.code : undefined;
+    const responseCode = hasNumber(error, "responseCode") ? error.responseCode : undefined;
+    reportError({
+      where: "mail/smtp",
+      error: new Error("SMTP send failed"),
+      context: { code, responseCode },
+    });
     return { ok: false, reason: "failed" };
   }
+}
+
+function hasStringOrNumber<K extends string>(
+  value: unknown,
+  key: K,
+): value is Record<K, string | number> {
+  if (typeof value !== "object" || value === null || !(key in value)) return false;
+  const field = (value as Record<K, unknown>)[key];
+  return typeof field === "string" || typeof field === "number";
+}
+
+function hasNumber<K extends string>(value: unknown, key: K): value is Record<K, number> {
+  if (typeof value !== "object" || value === null || !(key in value)) return false;
+  return typeof (value as Record<K, unknown>)[key] === "number";
 }
