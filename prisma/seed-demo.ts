@@ -7,12 +7,7 @@ import {
   Scope,
   type EmissionFactor,
 } from "../src/lib/generated/prisma/client";
-import {
-  createSupabaseAdminClient,
-  findAuthUserIdByEmail,
-} from "../src/lib/supabase/admin";
 import { hashPassword } from "../src/lib/auth/password";
-import { authProvider } from "../src/lib/env";
 import { resolveGwpSet } from "../src/lib/gwp";
 
 // Demo tenants for manual QA and for showing the tool to CECODES.
@@ -21,7 +16,7 @@ import { resolveGwpSet } from "../src/lib/gwp";
 //
 // This is NOT part of `db:seed`. The production seed stays reference data plus the admin.
 //
-// PRODUCTION BRAKE: there is exactly one shared Supabase database, so the only thing standing
+// PRODUCTION BRAKE: there is one shared database, so the only thing standing
 // between this script and real customer data is the DEMO_SEED_ALLOWED env var. It lives in
 // .env.local and must never be set in a deployed environment.
 //
@@ -90,33 +85,11 @@ async function pickFactor(spec: SourceSpec): Promise<EmissionFactor | null> {
   });
 }
 
-// The id the demo account is written under. GoTrue issues it while GoTrue still decides sign-ins,
-// and this script issues one when it no longer does; the caller writes the single app_users row
-// either way.
-async function resolveAuthUserId(email: string, password: string): Promise<string | null> {
-  if (authProvider() === "local") {
-    // Nothing to create in GoTrue, and no password to hold in step with it: the hash the caller
-    // writes IS the credential. An existing demo account keeps the id it already has, so a re-run
-    // converges on one row instead of colliding with the unique email.
-    const existing = await prisma.appUser.findUnique({ where: { email }, select: { id: true } });
-    return existing?.id ?? randomUUID();
-  }
-
-  const supabase = createSupabaseAdminClient();
-
-  const { data: created } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (created?.user) return created.user.id;
-
-  // Already exists: keep the password in step with .env.local so the documented
-  // credentials always work.
-  const existingId = await findAuthUserIdByEmail(supabase, email);
-  if (!existingId) return null;
-  await supabase.auth.admin.updateUserById(existingId, { password, email_confirm: true });
-  return existingId;
+// The id the demo account is written under. An existing demo account keeps the id it already
+// has, so a re-run converges on one row instead of colliding with the unique email.
+async function resolveUserId(email: string): Promise<string> {
+  const existing = await prisma.appUser.findUnique({ where: { email }, select: { id: true } });
+  return existing?.id ?? randomUUID();
 }
 
 async function upsertCompanyUser(
@@ -126,35 +99,13 @@ async function upsertCompanyUser(
   options: { active?: boolean } = {},
 ): Promise<void> {
   const { active = true } = options;
-  const userId = await resolveAuthUserId(email, password);
-  if (!userId) {
-    console.warn(`  ! could not resolve an auth user for ${email}`);
-    return;
-  }
+  const userId = await resolveUserId(email);
 
-  // The same reconciliation seed.ts does for the admin, and it exists for the same reason: a demo
-  // row written while AUTH_PROVIDER=local carries an id GoTrue has never issued, so a later run
-  // under supabase resolves a DIFFERENT id, misses on the upsert's where, and takes the create
-  // branch straight into the unique index on email. Prisma answers that with a constraint name,
-  // the rejection is unhandled, and the run stops partway through the demo tenants. Reported and
-  // skipped rather than thrown: the other tenants are still worth seeding, and choosing which of
-  // the two rows survives is a decision for a person.
-  const existing = await prisma.appUser.findUnique({ where: { email }, select: { id: true } });
-  if (existing && existing.id !== userId) {
-    console.warn(
-      `  ! ${email} already exists under a different id than the auth store resolved; skipped. ` +
-        `Delete one of the two by hand and re-run.`,
-    );
-    return;
-  }
-
-  // Hashed in every mode, including the one that never reads it, for the reason spelled out in
-  // prisma/seed.ts: without it, flipping AUTH_PROVIDER leaves every credential in
-  // docs/Credentials.md unusable until somebody thinks to run this script again.
+  // Hashed unconditionally, for the reason spelled out in prisma/seed.ts: without it, every
+  // credential in docs/Credentials.md is unusable until somebody thinks to run this script again.
   const { hash, algo } = await hashPassword(password);
 
-  // The signup trigger may have created the row already. It never updates, so force the link.
-  // A deactivated user keeps working auth credentials but is refused at the app layer, which is
+  // A deactivated user keeps working credentials but is refused at the app layer, which is
   // exactly the "cuenta desactivada" scenario.
   await prisma.appUser.upsert({
     where: { id: userId },

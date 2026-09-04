@@ -1,9 +1,7 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { createClient } from "@supabase/supabase-js";
 import { hashPassword } from "../src/lib/auth/password";
-import { authProvider } from "../src/lib/env";
 
 // Playwright transpiles these files as CommonJS, and the generated Prisma client uses
 // import.meta, so the harness talks to Postgres directly instead of through Prisma.
@@ -67,14 +65,6 @@ export async function db(): Promise<Client> {
   return client;
 }
 
-export function supabaseAdmin() {
-  return createClient(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-}
-
 // Playwright loads spec files during collection, which happens before globalSetup runs, so
 // the fixture can only be read from inside a test or a beforeAll hook.
 export function loadFixture(): Fixture {
@@ -87,40 +77,10 @@ export type E2EUserOptions = {
   role?: "COMPANY_USER" | "CECODES_ADMIN";
 };
 
-// The id a disposable account is written under, and, while GoTrue still decides sign-ins, the
-// GoTrue account itself. Every spec signs in by typing E2E_PASSWORD into the real login form, so
-// whatever the app under test asks about a password is what this has to provision against.
-async function provisionAuthUserId(email: string): Promise<string> {
-  if (authProvider() === "local") {
-    // Self-hosted: there is no GoTrue account to create, so there is no id to be handed one and
-    // nothing to wait on. The app_users row createE2EUser writes is the entire account.
-    return randomUUID();
-  }
-
-  const { data, error } = await supabaseAdmin().auth.admin.createUser({
-    email,
-    password: E2E_PASSWORD,
-    email_confirm: true,
-  });
-  if (error || !data.user) {
-    throw new Error(`E2E: could not create auth user ${email}. ${error?.message}`);
-  }
-  return data.user.id;
-}
-
 /**
- * Provisions one disposable account in whichever store the app under test reads, and returns its
- * id. Anything the suite signs in as comes from here.
- *
- * Every caller used to do this itself, straight against GoTrue, and every one of them broke the
- * same two ways under AUTH_PROVIDER=local: supabaseAdmin() throws on a self-hosted .env that
- * legitimately holds no service-role key, and the profile the signup trigger mirrors carries no
- * password, so the sign-in that follows is refused by a hash column that is null. One copy fixes
- * both, and a spec that provisions an account no longer has to know which store is behind it.
- *
- * The app_users row is written here rather than left to the signup trigger even under Supabase.
- * The trigger fires on INSERT only and copies no credential, so a row it made is missing exactly
- * the columns a local sign-in reads, and waiting for it to land was always a race.
+ * Provisions one disposable account, and returns its id. Anything the suite signs in as comes
+ * from here. Every spec signs in by typing E2E_PASSWORD into the real login form, so whatever the
+ * app under test asks about a password is what this has to provision against.
  */
 export async function createE2EUser(
   client: Client,
@@ -129,18 +89,13 @@ export async function createE2EUser(
 ): Promise<string> {
   const { companyId = null, role = "COMPANY_USER" } = options;
 
-  const id = await provisionAuthUserId(email);
+  const id = randomUUID();
   const { hash, algo } = await hashPassword(E2E_PASSWORD);
 
-  // ON CONFLICT absorbs one thing only: under the Supabase modes the trigger may already have
-  // mirrored this id. Under local the id was minted a moment ago and nothing else has seen it.
   await client.query(
     `INSERT INTO app_users (id, email, role, "companyId", "passwordHash", "passwordAlgo",
                             "emailConfirmedAt", "createdAt", "updatedAt")
-     VALUES ($1, $2, $3, $4, $5, $6, now(), now(), now())
-     ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, "companyId" = EXCLUDED."companyId",
-       "passwordHash" = EXCLUDED."passwordHash", "passwordAlgo" = EXCLUDED."passwordAlgo",
-       "emailConfirmedAt" = EXCLUDED."emailConfirmedAt"`,
+     VALUES ($1, $2, $3, $4, $5, $6, now(), now(), now())`,
     [id, email, role, companyId, hash, algo],
   );
 
@@ -148,32 +103,19 @@ export async function createE2EUser(
 }
 
 /**
- * Removes one disposable account from both stores, profile first so neither is orphaned.
+ * Removes one disposable account.
  *
- * Deleted by id OR by address on purpose: a spec that died between provisioning the auth user and
- * writing the profile leaves one of the two behind, and the address is the only handle anyone has
- * on a row whose id the caller never learned.
+ * Deleted by id OR by address on purpose: a spec that died partway through setup may have left a
+ * row under an id the caller never learned, and the address is the only handle on it either way.
  */
 export async function deleteE2EUser(client: Client, id: string, email: string): Promise<void> {
   await client.query(`DELETE FROM app_users WHERE id = $1 OR email = $2`, [id, email]);
-  // Nothing in GoTrue to remove in local mode, and no service-role key to ask it with. See the
-  // same guard in purgeE2E below.
-  if (!id || authProvider() === "local") return;
-  await supabaseAdmin().auth.admin.deleteUser(id);
 }
 
 // Removes every trace of the E2E run: its companies (which cascade to facilities, reporting
 // years, activity entries and applicability rows), its app_users rows (which cascade to the
 // sessions and reset tokens those accounts opened), the throttle rows its failed sign-ins
-// counted, the global reference data the admin specs create, and, where GoTrue still holds
-// accounts, the auth users behind them.
-//
-// In local mode the app_users delete below is the whole job, because that row IS the account.
-//
-// In the Supabase modes there are two stores and neither delete implies the other. Deleting a
-// Supabase auth user does NOT remove the mirrored app_users row: the signup trigger only fires
-// on INSERT, and app_users.id carries no foreign key to auth.users. So both halves run, in this
-// order, or a row is orphaned in one store or the other forever.
+// counted, and the global reference data the admin specs create.
 export async function purgeE2E(client: Client, companyId?: string) {
   const companies = companyId
     ? { rows: [{ id: companyId }] }
@@ -220,12 +162,4 @@ export async function purgeE2E(client: Client, companyId?: string) {
   await client.query(`DELETE FROM transport_subsidy_prices WHERE source LIKE $1`, [
     `${E2E_GRID_SOURCE_PREFIX}%`,
   ]);
-
-  // GoTrue holds nothing in local mode, and a self-hosted .env has no service-role key to ask it
-  // with, so supabaseAdmin() is never constructed there: it would throw on the missing variable
-  // and take the teardown down with it, after the rows above had already gone.
-  if (authProvider() === "local") return;
-
-  const supabase = supabaseAdmin();
-  for (const user of users.rows) await supabase.auth.admin.deleteUser(user.id);
 }

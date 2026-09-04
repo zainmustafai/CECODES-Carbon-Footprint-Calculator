@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { authProvider, mailConfigured, validateRuntimeEnv } from "../env";
+import { mailConfigured, validateInitEnv, validateRuntimeEnv } from "../env";
 
 // This contract is the app's only chance to refuse a bad deployment: src/instrumentation.ts calls
 // validateRuntimeEnv() once and exits non-zero if it throws. Everything it lets through boots and
 // serves traffic, so the cases worth pinning are the ones where a wrong value would otherwise be
 // discovered by a user rather than by the operator who typed it.
 
-/** A deployment that should boot: the three genuinely required variables, nothing else. */
+/** A deployment that should boot: the one genuinely required variable, nothing else. */
 const VALID: Record<string, string | undefined> = {
   DATABASE_URL: "postgresql://user:pw@db.example.org:6543/postgres",
-  NEXT_PUBLIC_SUPABASE_URL: "https://abcdefgh.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
 };
 
 function boot(overrides: Record<string, string | undefined> = {}) {
@@ -18,33 +16,40 @@ function boot(overrides: Record<string, string | undefined> = {}) {
 }
 
 describe("validateRuntimeEnv", () => {
-  it("boots on the three required variables alone", () => {
+  it("boots on the one required variable alone", () => {
     expect(boot()).not.toThrow();
+  });
+
+  // MAIL_TRANSPORT is not yet a field this schema reads (that lands with Task 4's transport-aware
+  // mailConfigured()); passed here only to prove that an unrecognized variable never blocks a
+  // boot that is otherwise valid.
+  it("boots with no Supabase variables at all", () => {
+    expect(() =>
+      validateRuntimeEnv({
+        DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
+        SITE_URL: "http://localhost:3000",
+        MAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: "re_live_key",
+        MAIL_FROM: "CECODES <no-reply@localhost>",
+      }),
+    ).not.toThrow();
   });
 
   // An empty .env is the commonest first run, and it used to fail with three identical lines
   // reading "Invalid input: expected string, received undefined". A boot message that names
   // nothing leaves the operator exactly where they started.
-  it("names every variable at fault, absent ones included", () => {
+  it("names the variable at fault when it is absent", () => {
     let message = "";
     try {
       validateRuntimeEnv({});
     } catch (error) {
       message = (error as Error).message;
     }
-    for (const name of [
-      "DATABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    ]) {
-      expect(message).toContain(name);
-    }
+    expect(message).toContain("DATABASE_URL");
     // Every reported line carries a variable name, so none of them is anonymous.
     const reported = message.split("\n").filter((line) => line.startsWith("  - "));
-    expect(reported).toHaveLength(3);
-    for (const line of reported) {
-      expect(line).toMatch(/DATABASE_URL|NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY/);
-    }
+    expect(reported).toHaveLength(1);
+    expect(reported[0]).toMatch(/DATABASE_URL/);
   });
 
   // These messages go straight to a container log, and container logs get pasted into issue
@@ -60,10 +65,7 @@ describe("validateRuntimeEnv", () => {
     expect(message).not.toContain("s3cr3t-looking-value");
   });
 
-  it("rejects the .env.example placeholders rather than booting with them", () => {
-    expect(boot({ NEXT_PUBLIC_SUPABASE_URL: "https://<project-ref>.supabase.co" })).toThrow(
-      /NEXT_PUBLIC_SUPABASE_URL/,
-    );
+  it("rejects the .env.example placeholder rather than booting with it", () => {
     expect(
       boot({ RESEND_API_KEY: "<resend-api-key>", MAIL_FROM: "CECODES <a@example.org>" }),
     ).toThrow(/RESEND_API_KEY/);
@@ -73,16 +75,14 @@ describe("validateRuntimeEnv", () => {
     // An operator turning something off empties the line instead of deleting it, and compose
     // hands that through as "". Treating it as a value would stop the container.
     it("reads an empty or blank value the same as an absent one", () => {
-      expect(boot({ SITE_URL: "", AUTH_PROVIDER: "", MAIL_FROM: "", RESEND_API_KEY: "" })).not.toThrow();
-      expect(boot({ SITE_URL: "   ", AUTH_PROVIDER: "  " })).not.toThrow();
+      expect(boot({ SITE_URL: "", MAIL_FROM: "", RESEND_API_KEY: "" })).not.toThrow();
+      expect(boot({ SITE_URL: "   " })).not.toThrow();
     });
 
     // The readers of these variables all call .trim() on the raw string. If the schema did not,
-    // AUTH_PROVIDER="local " would refuse the boot with a message listing "local" as allowed.
+    // a value with surrounding whitespace could pass one check and fail another.
     it("strips surrounding whitespace instead of failing on it", () => {
-      expect(boot({ AUTH_PROVIDER: " local " })).not.toThrow();
       expect(boot({ SITE_URL: " https://huella.example.org " })).not.toThrow();
-      expect(authProvider({ AUTH_PROVIDER: " local " })).toBe("local");
     });
   });
 
@@ -102,21 +102,6 @@ describe("validateRuntimeEnv", () => {
     it("refuses a scheme no browser would follow to a reset page", () => {
       expect(boot({ SITE_URL: "ftp://huella.example.org" })).toThrow(/SITE_URL/);
       expect(boot({ SITE_URL: "javascript:alert(1)" })).toThrow(/SITE_URL/);
-    });
-  });
-
-  describe("AUTH_PROVIDER", () => {
-    it("accepts each of the three modes", () => {
-      for (const mode of ["supabase", "shadow", "local"]) {
-        expect(boot({ AUTH_PROVIDER: mode })).not.toThrow();
-      }
-    });
-
-    // A typo here decides where passwords are checked, so it must stop the boot rather than fall
-    // back at runtime to a mode the operator did not ask for.
-    it("refuses anything else, including a mode in the wrong case", () => {
-      expect(boot({ AUTH_PROVIDER: "locel" })).toThrow(/AUTH_PROVIDER/);
-      expect(boot({ AUTH_PROVIDER: "LOCAL" })).toThrow(/AUTH_PROVIDER/);
     });
   });
 
@@ -147,24 +132,36 @@ describe("validateRuntimeEnv", () => {
   });
 });
 
-describe("authProvider", () => {
-  // Unset is the answer every existing deployment gives, and it has to keep meaning "nothing
-  // changes" until the cutover commit.
-  it("answers supabase when the variable is unset", () => {
-    expect(authProvider({})).toBe("supabase");
-    expect(authProvider({ AUTH_PROVIDER: "" })).toBe("supabase");
+describe("validateInitEnv", () => {
+  // ADMIN_PASSWORD stays required here: nothing in this codebase yet generates one. That is
+  // Task 4's job, not this one's.
+  it("requires ADMIN_PASSWORD, with no Supabase variable required alongside it", () => {
+    expect(() =>
+      validateInitEnv({
+        DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
+        ADMIN_EMAIL: "admin@cecodes.local",
+      }),
+    ).toThrow(/ADMIN_PASSWORD/);
   });
 
-  it("answers with the configured mode", () => {
-    expect(authProvider({ AUTH_PROVIDER: "shadow" })).toBe("shadow");
-    expect(authProvider({ AUTH_PROVIDER: "local" })).toBe("local");
+  it("boots on DATABASE_URL, ADMIN_EMAIL and ADMIN_PASSWORD alone, no Supabase variables", () => {
+    expect(() =>
+      validateInitEnv({
+        DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
+        ADMIN_EMAIL: "admin@cecodes.local",
+        ADMIN_PASSWORD: "a-long-enough-password",
+      }),
+    ).not.toThrow();
   });
 
-  // Read on the sign-in path, so it falls back rather than throwing: a value validateRuntimeEnv
-  // would have refused at boot must not become a 500 for every user in a process that never ran it.
-  it("falls back to supabase on a value it cannot read", () => {
-    expect(authProvider({ AUTH_PROVIDER: "locel" })).toBe("supabase");
-    expect(authProvider({ AUTH_PROVIDER: "LOCAL" })).toBe("supabase");
+  it("still refuses an ADMIN_PASSWORD that was set but is too short", () => {
+    expect(() =>
+      validateInitEnv({
+        DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
+        ADMIN_EMAIL: "admin@cecodes.local",
+        ADMIN_PASSWORD: "short",
+      }),
+    ).toThrow(/ADMIN_PASSWORD/);
   });
 });
 

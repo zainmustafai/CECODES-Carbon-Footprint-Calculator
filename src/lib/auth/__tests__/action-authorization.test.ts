@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // A refactor that swapped resolveAdminScope for resolveCompanyScope in the admin actions would
 // have let a company user delete other companies, and the whole suite would have stayed green.
 //
-// So: the real company-scope is used here (NOT mocked). Only the database and the Supabase admin
-// client are stubbed. Each test signs in as company A and hands the action company B's ids, then
+// So: the real company-scope is used here (NOT mocked). Only the database is stubbed. Each test
+// signs in as company A and hands the action company B's ids, then
 // asserts two things:
 //   1. the action returns an opaque "forbidden", and
 //   2. NOTHING was written. A refusal that still wrote would be worse than no refusal at all,
@@ -113,23 +113,6 @@ vi.mock("@/lib/auth/server", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-// The admin user actions reach for Supabase. They must never get that far in these tests.
-const supabaseCreateUser = vi.fn();
-const supabaseDeleteUser = vi.fn();
-const supabaseUpdateUserById = vi.fn();
-vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdminClient: () => ({
-    auth: {
-      admin: {
-        createUser: supabaseCreateUser,
-        deleteUser: supabaseDeleteUser,
-        updateUserById: supabaseUpdateUserById,
-      },
-    },
-  }),
-  findAuthUserIdByEmail: vi.fn(),
-}));
-
 const { createFacility, updateFacility, deleteFacility } = await import(
   "@/features/facilities/actions/facility-actions"
 );
@@ -153,9 +136,6 @@ function expectNothingWritten() {
   for (const mock of allWriteMocks()) expect(mock).not.toHaveBeenCalled();
   // An action that writes only inside a transaction must not even have opened one.
   expect(transactionMock).not.toHaveBeenCalled();
-  expect(supabaseCreateUser).not.toHaveBeenCalled();
-  expect(supabaseDeleteUser).not.toHaveBeenCalled();
-  expect(supabaseUpdateUserById).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
