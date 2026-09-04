@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
     "src/lib/generated/**",
     "playwright-report/**",
     "test-results/**",
+    // Written by `bun run test:coverage`. Gitignored, and its bundled istanbul reporter assets
+    // carry an eslint-disable this config has no rule for, so anyone who ran coverage once got a
+    // standing warning about a file nobody wrote and nobody ships.
+    "coverage/**",
   ]),
 ]);
 
