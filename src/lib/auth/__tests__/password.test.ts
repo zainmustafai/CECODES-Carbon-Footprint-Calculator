@@ -180,3 +180,41 @@ describe("needsRehash", () => {
     expect(needsRehash("x".repeat(60))).toBe(false);
   });
 });
+
+// The suite above proves this file's own hashes round-trip. This block proves something
+// narrower and more load-bearing: that bcryptjs's $2a$ implementation matches the reference
+// implementation, using published values nobody here computed. That is what makes a format
+// check (see scripts/audit-password-hashes.ts) sufficient evidence for every hash inherited from
+// Supabase's GoTrue, rather than a hope that bcryptjs happens to agree with whatever produced
+// them. This is a standing regression guard, not a one-time migration gate: if a bcryptjs
+// dependency bump ever broke $2a$ compatibility, every inherited password would silently stop
+// verifying, and this is the test that would catch it.
+describe("bcrypt compatibility", () => {
+  // From the OpenBSD bcrypt test suite. If any of these fail, hashes produced by GoTrue cannot be
+  // trusted to verify here, and treating a migrated hash as portable is not safe at any cost
+  // factor.
+  const VECTORS: Array<[password: string, hash: string]> = [
+    ["", "$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s."],
+    ["a", "$2a$06$m0CrhHm10qJ3lXRY.5zDGO3rS2KdeeWLuGmsfGlMfOxih58VYVfxe"],
+    ["abc", "$2a$06$If6bvum7DFjUnE9p2uDeDu0YHzrHM6tf.iqN8.yx.jNN1ILEf7h0i"],
+    ["abcdefghijklmnopqrstuvwxyz", "$2a$06$.rCVZVOThsIa97pEDOxvGuRRgzG64bvtJ0938xuqzv18d3ZpQhstC"],
+    ["~!@#$%^&*()      ~!@#$%^&*()PNBFRD", "$2a$06$fPIsBO8qRqkjj273rfaOI.HtSV9jLDpTbZn782DC6/t7qT67P6FfO"],
+  ];
+
+  it.each(VECTORS)("AUTH-07 verifies the canonical $2a$ vector for %j", async (password, hash) => {
+    expect(await verifyPassword(password, hash)).toBe(true);
+  });
+
+  it("AUTH-07 rejects a wrong password against a canonical vector", async () => {
+    expect(await verifyPassword("wrong", VECTORS[2][1])).toBe(false);
+  });
+
+  it("AUTH-07 returns false rather than throwing on a malformed hash", async () => {
+    // bcryptjs THROWS on a 60-character string that is not a valid hash. An exception here would
+    // escape the sign-in action, answer differently for a real account than an invented one, and
+    // skip the throttle record. Both are handed to an attacker for free.
+    for (const bad of ["", "not-a-hash", "$2a$12$tooshort", "x".repeat(60)]) {
+      expect(await verifyPassword("anything", bad)).toBe(false);
+    }
+  });
+});
