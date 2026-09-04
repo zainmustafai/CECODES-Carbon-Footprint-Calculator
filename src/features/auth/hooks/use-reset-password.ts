@@ -63,6 +63,31 @@ export function useResetPassword({
       return;
     }
 
+    // There is deliberately no router.refresh() after either push, and that omission is the
+    // whole point of this block.
+    //
+    // refresh() re-fetches the route you are ON. Issued in the same tick as a push, it cancels
+    // the navigation: the push never commits and the browser stays where it was. Both branches
+    // below shipped that way and both were broken by it, which was found by driving the built
+    // image in a browser, not by any test.
+    //
+    // The token branch was the damaging one. The password changed, the success toast appeared
+    // and faded, and the user was left looking at the same reset form. Clicking the link again
+    // told them it was no longer valid, so the reasonable conclusion was that the reset had
+    // failed, when it had in fact succeeded. That is precisely the outcome
+    // resetPasswordWithTokenAction's own comment says must never happen, reached from a
+    // direction that comment did not anticipate.
+    //
+    // The other auth flows hide this bug rather than escape it: use-login, use-logout and
+    // use-register all pair push with refresh too, and all three are rescued by a server-side
+    // redirect that runs during the refresh. /login bounces a session holder onward, and a
+    // protected page bounces a signed-out one back to /login, so the user lands where they
+    // expected and nobody noticed the push was being thrown away. Neither branch here has such
+    // a rescue: after a token reset the user is anonymous on a public page, and after a
+    // signed-in change their session is unchanged, so nothing redirects them anywhere.
+    //
+    // Nothing is lost by dropping it. A push to a different route fetches that route's payload,
+    // and neither branch alters state that the route being LEFT is rendering.
     if (token) {
       // The token never issued a session, so there is nothing to carry into the app: /login is
       // the only place this can end, and typing the new password once proves it arrived. The
@@ -74,7 +99,6 @@ export function useResetPassword({
       toast.success(tt("passwordUpdated"));
       router.push(POST_LOGIN_PATH);
     }
-    router.refresh();
   });
 
   return { form, onSubmit, isSubmitting, serverError };

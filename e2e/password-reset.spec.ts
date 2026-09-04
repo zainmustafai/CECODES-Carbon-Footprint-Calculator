@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { E2E_EMAIL_DOMAIN, createE2EUser, db, deleteE2EUser } from "./fixture";
+import { E2E_EMAIL_DOMAIN, E2E_PASSWORD, createE2EUser, db, deleteE2EUser } from "./fixture";
 
 // The only test that proves rendering, transport, delivery and consumption TOGETHER. Every other
 // reset-related test in this suite (unit or e2e) stops at "we handed it to the transport" or
@@ -81,7 +81,23 @@ test("AUTH-32 AUTH-35 AUTH-37 a reset link arrives, works once, and replaces the
     // change, not a session), so success lands on /login rather than carrying the user into the
     // app. Waiting for that navigation is also what proves the submit actually succeeded, rather
     // than failing client-side validation silently.
+    // Reaching /login at all is now also a regression guard, for a bug this spec was written
+    // before and could never have caught, because the spec had never actually been run:
+    // use-reset-password paired router.push with an unconditional router.refresh(), and the
+    // refresh re-fetched the route being left and cancelled the push. A SUCCESSFUL reset
+    // therefore stranded the user on the reset form, and clicking the link again told them it
+    // was no longer valid. Waiting for this navigation is what proves the submit both succeeded
+    // and took the user somewhere.
     await page.waitForURL("**/login");
+
+    // The old password is gone, not merely joined by a second working one. Asserting only that
+    // the replacement works would pass just as happily if the reset had ADDED a credential
+    // instead of replacing it, which is the failure that matters here. One wrong attempt is
+    // safely below the throttle's five, and the reset itself cleared the counter.
+    await page.fill('input[name="email"]', email);
+    await page.fill('input[name="password"]', E2E_PASSWORD);
+    await page.getByRole("button", { name: /ingresar|iniciar/i }).click();
+    await expect(page).toHaveURL(/\/login/);
 
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="password"]', replacement);
