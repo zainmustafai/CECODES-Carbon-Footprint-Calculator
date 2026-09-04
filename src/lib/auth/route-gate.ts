@@ -7,17 +7,12 @@ import { reportError } from "@/lib/observability/report-error";
 // Which paths a visitor may reach, and where they go when they may not. There is no provider in
 // this file, and no request either: every rule below is a function of a pathname and one boolean.
 //
-// The rules used to live inside updateSession() in src/lib/supabase/middleware.ts, interleaved
-// with the Supabase client that produced that boolean. One function did two jobs and only one of
-// them had anything to do with Supabase, because the redirect table is identical whether the
-// verdict came from GoTrue or from a session row in our own database. Splitting it is what lets
-// the self-hosted provider reuse the rules verbatim rather than grow a second copy: two copies of
-// a redirect table is how a path ends up public under one provider and protected under the other,
-// and nobody finds out until it is the wrong way round.
+// Keeping the redirect table separate from the session lookup that produces the boolean is what
+// keeps there being exactly one place a path is public or protected, rather than that decision
+// being reconstructed wherever a route happens to get checked.
 //
-// The second reason is that a rule buried in middleware can only be exercised by assembling a
-// NextRequest, standing up a fake Supabase client and reading cookies off a Response. Here it is
-// exercised by passing a string.
+// It also means a rule can be exercised by passing a string, rather than assembling a NextRequest,
+// standing up a session store and reading cookies off a Response.
 
 const LOGIN_PATH = "/login";
 
@@ -40,12 +35,11 @@ const AUTH_PAGES = [
  * Public pages that are NOT sign-in pages, so a signed-in visitor stays on them instead of being
  * forwarded away.
  *
- * /reset-password is the one that catches people out, because it is reached from both sides of
- * the gate and for a different reason per provider. Under Supabase the recovery link signs the
- * user in on the way through (src/app/auth/confirm/route.ts) and arrives here WITH a session.
- * Under the self-hosted provider it arrives as ?token=... and the visitor is anonymous on
- * purpose: that token buys one password change and never a session, so a forwarded email cannot
- * become one. Redirecting in either direction would break one of the two.
+ * /reset-password is the one that catches people out, because it is reached both signed in and
+ * signed out, for two different reasons. With ?token=..., it is the self-hosted recovery link and
+ * the visitor is anonymous on purpose: that token buys one password change and never a session, so
+ * a forwarded email cannot become one. Without a token, it is the signed-in "Cambiar contraseña"
+ * item in the account menu. Redirecting in either direction would break one of the two.
  *
  * Being listed here is therefore NOT a claim that whoever is on the page holds a session. The
  * page splits on the token itself and calls requireUser() only on the branch that has none, so
@@ -56,14 +50,13 @@ const AUTH_PAGES = [
 const PUBLIC_PAGES = ["/", "/reset-password"];
 
 /**
- * Route handlers that finish a Supabase email link: the PKCE code exchange and the token_hash
- * verification.
+ * Route handlers under /auth: currently the Supabase PKCE code exchange and token_hash
+ * verification (src/app/auth/callback/route.ts, src/app/auth/confirm/route.ts).
  *
- * They have to be reachable signed out, because reaching them is what creates the session under
- * that provider. Being listed here grants nothing: each verifies its own token with GoTrue and
- * sends a failure to /login. Under AUTH_PROVIDER=local nothing routes through them at all, and a
- * Supabase cookie one of them sets authenticates nobody, because getUser() reads our own session
- * cookie and never asks GoTrue (src/lib/auth/server.ts).
+ * They have to be reachable signed out, because a visitor following an email link has no session
+ * yet. Being listed here grants nothing: getUser() reads only our own session cookie and never the
+ * Supabase cookie either handler sets (src/lib/auth/server.ts), so neither can authenticate anyone
+ * in this app regardless of what it decides.
  */
 const PUBLIC_PREFIXES = ["/auth"];
 
@@ -97,10 +90,9 @@ export type GateDecision = { kind: "allow" } | { kind: "redirect"; to: string };
  * The whole redirect policy, in one function.
  *
  * It returns a decision rather than a Response because only the caller knows what else has to
- * ride on that response: under Supabase a redirect must carry the auth cookies refreshed during
- * this same request, and under the local provider there is nothing to carry. Building the
- * response here would mean knowing which of the two we are in, which is the coupling this file
- * exists to remove.
+ * ride on that response: a redirect has to carry forward any cookie the request already wrote,
+ * and building the response here would tangle that mechanics into the policy this file exists to
+ * keep separate and easy to test.
  *
  * Deliberately no third answer for "signed in but deactivated". Whether a user may act is decided
  * by src/lib/auth/company-scope.ts on every action and requireAppUser() on every page, both
@@ -130,15 +122,16 @@ export function decideRoute({
 /**
  * Turns a gate decision into the response that is actually sent.
  *
- * `refreshed` is the response the provider has been writing cookies onto. A redirect has to take
- * those cookies with it by hand, because NextResponse.redirect() starts with none: a Supabase
- * token rotated during this request would otherwise be dropped, and the browser would come back
- * carrying the stale one it still holds. Under the local provider there is nothing to refresh and
- * the copy loop finds nothing, which is why this is one helper rather than one per provider.
+ * `refreshed` is the response NextResponse.next() produced, in case anything upstream of the
+ * decision wrote a cookie onto it. A redirect has to carry that cookie forward by hand, because
+ * NextResponse.redirect() starts with none: whatever was written would otherwise be dropped, and
+ * the browser would keep sending whatever it already held. gate() itself never writes a cookie
+ * onto `refreshed` today, so this copy currently finds nothing to carry; it stays in place as the
+ * one thing standing between a future cookie write and a silent logout on redirect.
  *
- * Exported so its cookie-carrying behaviour can be proven directly: nothing gate() does today
- * hands it a refreshed response that actually holds a cookie, so a test that only calls gate()
- * would never exercise the forEach below.
+ * Exported only so this cookie-carrying behaviour can be unit-tested directly: gate() never hands
+ * it a refreshed response that holds a cookie, so a test that only calls gate() would never
+ * exercise the forEach below. It is not part of this module's intended public API.
  */
 export function applyDecision(
   request: NextRequest,
@@ -179,16 +172,15 @@ async function hasLocalSession(request: NextRequest): Promise<boolean> {
 }
 
 /**
- * AUTH_PROVIDER=local. The session is a row in our own database (src/lib/auth/session.ts), so
- * there is no token to refresh, no Supabase client to build and no outbound round trip to make.
+ * The session is a row in our own database (src/lib/auth/session.ts), so there is no token to
+ * refresh and no outbound round trip beyond that one lookup.
  *
- * The 503 below deliberately does not apply on this path: nothing here reads
- * NEXT_PUBLIC_SUPABASE_URL or its anon key, so refusing every request over them would be a
- * failure the check invented rather than one it caught. They are still REQUIRED at boot in every
- * mode, though (runtimeSchema in src/lib/env.ts, enforced by src/instrumentation.ts), so a
- * deployment that omits them never reaches this function; it exits at startup instead. Relaxing
- * that is the last commit of this migration, and this branch is what has to already be here
- * before that commit can land.
+ * There is no separate fail-closed check here because hasLocalSession already is one: it wraps
+ * the lookup in try/catch and returns false on any failure, including a database that cannot be
+ * reached, so decideRoute sees signedIn: false and a protected path redirects to /login the same
+ * way it would for an ordinary anonymous visitor. Nothing on that path can reach
+ * NextResponse.next(). The consequence is that a database outage looks, to a user, like being
+ * signed out rather than like an error page; that trade is deliberate, see hasLocalSession above.
  *
  * The cost is one indexed lookup per matched request, which readSession explains. Reading Prisma
  * from here is possible at all because Next 16 runs the proxy on the Node runtime.
