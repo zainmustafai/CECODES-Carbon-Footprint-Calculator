@@ -228,7 +228,7 @@ vi.mock("next/server", () => ({
 }));
 
 const sendMail = vi.fn();
-vi.mock("@/lib/mail/send", () => ({ sendMail: (input: unknown) => sendMail(input) }));
+vi.mock("@/lib/mail/transport", () => ({ sendMail: (input: unknown) => sendMail(input) }));
 
 const getUser = vi.fn();
 vi.mock("@/lib/auth/server", () => ({ getUser: () => getUser() }));
@@ -591,6 +591,28 @@ describe("resetPasswordWithTokenAction", () => {
     expect(sessionsOf(user.id)).toHaveLength(0);
   });
 
+  it("notifies the account once the reset commits, so a change nobody asked for is never silent", async () => {
+    seedUser();
+    const { token } = seedToken();
+
+    expect(await resetPasswordWithTokenAction({ token, password: NEW_PASSWORD })).toEqual({});
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    const message = sendMail.mock.calls[0]![0] as { to: string; subject: string };
+    expect(message.to).toBe(EMAIL);
+    expect(message.subject).toBe("Tu contraseña cambió");
+  });
+
+  it("sends nothing when the link is refused", async () => {
+    seedUser();
+
+    expect(
+      await resetPasswordWithTokenAction({ token: "inventado", password: NEW_PASSWORD }),
+    ).toEqual({ error: "invalidResetLink" });
+
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
   it("does not sign the user in, so a forwarded email cannot become a session", async () => {
     seedUser();
     const { token } = seedToken();
@@ -737,6 +759,29 @@ describe("updatePasswordAction, the signed-in change", () => {
     // Signing someone out of the tab they just typed the new password into reads as a failure,
     // and it is the one session that is certainly theirs.
     expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(kept)]);
+  });
+
+  it("notifies the account once the change commits", async () => {
+    const user = await signedIn();
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    const message = sendMail.mock.calls[0]![0] as { to: string; subject: string };
+    expect(message.to).toBe(user.email);
+    expect(message.subject).toBe("Tu contraseña cambió");
+  });
+
+  it("sends nothing when re-authentication fails", async () => {
+    await signedIn();
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: "una suposicion" }),
+    ).toEqual({ error: "currentPasswordIncorrect" });
+
+    expect(sendMail).not.toHaveBeenCalled();
   });
 
   it("retires a reset link that was still outstanding", async () => {
@@ -1024,6 +1069,9 @@ describe("the reset request has its own allowance", () => {
     const [row] = [...resetTokens.values()];
     const minutes = (row!.expiresAt.getTime() - before) / 60_000;
     expect(minutes).toBeGreaterThan(55);
-    expect(minutes).toBeLessThanOrEqual(60);
+    // A hair over 60, not 60 flat: `before` is read before the throttle checks, the mail guards
+    // and the after() queue all run, and that walltime gap (not the TTL itself) is what this
+    // margin absorbs. issuePasswordResetToken still computes expiresAt as Date.now() + 60 minutes.
+    expect(minutes).toBeLessThanOrEqual(60.1);
   });
 });

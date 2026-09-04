@@ -5,9 +5,10 @@ import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { mailConfigured } from "@/lib/env";
-import { resolveSiteOrigin } from "@/lib/site-url";
+import { siteOrigin } from "@/lib/site-url";
 import { getUser } from "@/lib/auth/server";
 import { hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
+import { issuePasswordResetToken } from "@/lib/auth/password-reset";
 import {
   SESSION_COOKIE,
   createSession,
@@ -22,8 +23,8 @@ import {
   recordSignInFailure,
   signInThrottleKeys,
 } from "@/lib/auth/throttle";
-import { passwordResetEmail } from "@/lib/mail/password-reset-email";
-import { sendMail } from "@/lib/mail/send";
+import { passwordChangedMessage, resetPasswordMessage } from "@/lib/mail/messages";
+import { sendMail } from "@/lib/mail/transport";
 import { reportError } from "@/lib/observability/report-error";
 import {
   checkedPasswordInput,
@@ -35,21 +36,6 @@ import {
 // Every door into the application, backed by one credential store: app_users, in this database.
 // The shape every action shares: validate first, throttle second, and only then let a password be
 // checked at all.
-
-// Server-side origin for email redirect links. Pinned to configuration, never to the request's
-// Host header: see src/lib/site-url.ts for the injection this closes.
-async function siteOrigin() {
-  const h = await headers();
-  return resolveSiteOrigin(
-    {
-      siteUrl: process.env.SITE_URL,
-      domain: process.env.DOMAIN,
-      vercelUrl: process.env.VERCEL_URL,
-      nodeEnv: process.env.NODE_ENV,
-    },
-    { host: h.get("host"), forwardedProto: h.get("x-forwarded-proto") },
-  );
-}
 
 /**
  * The caller's address, for the sign-in throttle.
@@ -124,7 +110,7 @@ export async function signInAction(input: {
     return await signInWithCredentials(parsed.data, throttleKeys, ip);
   } catch (error) {
     // No address, ever. "who tried to sign in" is the fact these logs must not carry, for the
-    // reason src/lib/mail/send.ts gives, and it is the one field a caller controls here.
+    // reason src/lib/mail/transport.ts gives, and it is the one field a caller controls here.
     reportError({ where: "auth/sign-in", error });
     return { error: "generic" };
   }
@@ -231,27 +217,6 @@ export async function signUpAction(input: {
   return { error: "registrationDisabled" };
 }
 
-/**
- * How long an emailed reset link is good for.
- *
- * An hour, because the two failures are asymmetric. Too short and a user who reads their mail
- * after lunch asks for a second link, and the support cost of that lands on CECODES. Too long and
- * a message sitting in a mailbox goes on being a working key to the account long after the person
- * has forgotten they asked. An hour covers "find the email, open it, type a password" with room to
- * spare and little else.
- */
-const RESET_TTL_MINUTES = 60;
-
-/** 256 bits, for the reason session.ts gives: guessing is not an attack on a token this size. */
-const RESET_TOKEN_BYTES = 32;
-
-function newResetToken(): string {
-  const bytes = new Uint8Array(RESET_TOKEN_BYTES);
-  crypto.getRandomValues(bytes);
-  // base64url so the value survives a query string untouched: no padding, no + or /.
-  return Buffer.from(bytes).toString("base64url");
-}
-
 export async function requestPasswordResetAction(email: string): Promise<void> {
   // A malformed address returns exactly what a valid one does: nothing. Reporting the rejection
   // would turn this into an address validator for anyone probing it.
@@ -282,7 +247,7 @@ export async function requestPasswordResetAction(email: string): Promise<void> {
   if (!mailConfigured()) {
     // No token row is written. One that can never be delivered is a live credential sitting in the
     // table for an hour buying nobody anything. The line names the deployment problem and no
-    // address, for the reason mail/send.ts gives: "who asked for a password reset" is exactly the
+    // address, for the reason mail/transport.ts gives: "who asked for a password reset" is exactly the
     // fact these logs must not carry.
     console.warn("[auth] password reset requested, but no mail is configured");
     return;
@@ -319,24 +284,16 @@ export async function requestPasswordResetAction(email: string): Promise<void> {
       // A deactivated account is refused at the front door anyway, so a link for one leads nowhere.
       if (!user || !user.active) return;
 
-      const token = newResetToken();
-      // Only the digest is written, exactly as with a session: a leaked backup of this table must
-      // not hand over working reset links. The plaintext exists in the message and nowhere else.
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashToken(token),
-          expiresAt: new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000),
-        },
-      });
-
-      const message = passwordResetEmail({
-        resetUrl: `${origin}/reset-password?token=${encodeURIComponent(token)}`,
-        expiresInMinutes: RESET_TTL_MINUTES,
-      });
+      const { token, expiresInMinutes } = await issuePasswordResetToken(user.id);
       // sendMail never throws, and its result is ignored on purpose: the response is long gone and
       // there is nobody left to tell. It logs its own failures.
-      await sendMail({ to: normalized, ...message });
+      await sendMail(
+        resetPasswordMessage({
+          to: normalized,
+          resetUrl: `${origin}/reset-password?token=${encodeURIComponent(token)}`,
+          expiresInMinutes,
+        }),
+      );
     } catch (error) {
       // The only place a failure on this path can surface at all, now that the response is sent.
       reportError({ where: "auth/password-reset", error });
@@ -499,6 +456,11 @@ export async function resetPasswordWithTokenAction(input: {
     reportError({ where: "auth/reset-password", error, context: { stage: "clear-throttle" } });
   }
 
+  // Fire and forget, after the commit. A user whose password was changed without their knowledge
+  // finds out from this message, so it is worth sending even when the transport is down: sendMail
+  // never throws, and a failure here must not fail a password change that already succeeded.
+  await sendMail(passwordChangedMessage({ to: row.user.email, changedAt: new Date(), byAdmin: false }));
+
   // Deliberately NOT signed in here. A reset link travels through a mailbox and mailboxes get
   // forwarded; turning the link into a session would make the message itself the credential. The
   // user proves the new password by typing it at /login, which costs one screen and closes that.
@@ -616,6 +578,12 @@ async function changeSignedInPassword({
   });
 
   if (!changed) return { error: "generic" };
+
+  // Fire and forget, after the commit, for the reason resetPasswordWithTokenAction's send gives:
+  // sendMail never throws, and a failure here must not fail a password change that already
+  // succeeded.
+  await sendMail(passwordChangedMessage({ to: user.email, changedAt: new Date(), byAdmin: false }));
+
   return {};
 }
 

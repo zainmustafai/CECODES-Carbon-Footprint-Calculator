@@ -8,7 +8,13 @@ import {
   scopeErrorKey,
 } from "@/lib/auth/company-scope";
 import { hashPassword } from "@/lib/auth/password";
+import { issuePasswordResetToken } from "@/lib/auth/password-reset";
 import { clearSignInThrottle, signInThrottleKeys } from "@/lib/auth/throttle";
+import { mailConfigured } from "@/lib/env";
+import { passwordChangedMessage, welcomeMessage } from "@/lib/mail/messages";
+import { sendMail } from "@/lib/mail/transport";
+import { reportError } from "@/lib/observability/report-error";
+import { siteOrigin } from "@/lib/site-url";
 import {
   createUserInput,
   updateUserInput,
@@ -76,6 +82,33 @@ export async function createUser(input: {
     await prisma.appUser.create({
       data: { id: userId, email, role, companyId, active: true, ...credentials, ...contact },
     });
+
+    // Welcome mail, carrying a set-password LINK rather than the temporary password: mailing a
+    // working credential puts it in an inbox forever. The admin screen still shows the temporary
+    // password and offers the credentials file, so this is not the only way the account holder
+    // gets in.
+    //
+    // Wrapped, and its result ignored: the account already exists by this point, and neither a
+    // token-issuing failure nor an unreachable transport (sendMail itself never throws, see
+    // mail/transport.ts) may turn a successful creation into a reported error.
+    try {
+      if (mailConfigured()) {
+        const origin = await siteOrigin();
+        if (origin) {
+          const { token, expiresInMinutes } = await issuePasswordResetToken(userId);
+          await sendMail(
+            welcomeMessage({
+              to: email,
+              name: name ?? null,
+              setPasswordUrl: `${origin}/reset-password?token=${encodeURIComponent(token)}`,
+              expiresInMinutes,
+            }),
+          );
+        }
+      }
+    } catch (error) {
+      reportError({ where: "admin/create-user", error });
+    }
 
     revalidatePath("/admin/users");
     revalidatePath("/admin/companies"); // per-company user counts change
@@ -240,6 +273,13 @@ export async function resetUserPassword(input: {
       // now the ones they just dictated.
       await tx.passwordResetToken.deleteMany({ where: { userId } });
     });
+
+    // Fire and forget, after the commit: sendMail never throws (mail/transport.ts), and a failure
+    // to notify must never fail a rotation that already succeeded. Marked byAdmin so the message
+    // reads differently from the self-service change: the account holder did not ask for this one.
+    await sendMail(
+      passwordChangedMessage({ to: profile.email, changedAt: new Date(), byAdmin: true }),
+    );
 
     // The lockout has to lift with the password, or this action does not do the thing it exists
     // for. The support call behind it is "I cannot get in": five wrong guesses put a fifteen

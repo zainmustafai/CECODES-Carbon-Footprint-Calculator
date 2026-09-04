@@ -24,6 +24,8 @@
 // be welded to one hostname and a second deployment could not change it without a rebuild. Only
 // server code needs this value, so a plain runtime variable is both safer and more flexible.
 
+import { headers } from "next/headers";
+
 type OriginEnv = {
   siteUrl?: string | null;
   domain?: string | null;
@@ -53,6 +55,26 @@ export function resolveSiteOrigin(env: OriginEnv, request: RequestOrigin): strin
   }
 
   return "";
+}
+
+/**
+ * The current request's origin, read from configuration exactly as `resolveSiteOrigin` documents.
+ *
+ * Shared by every Server Action that builds an emailed link (the password reset request, and the
+ * admin's create-user welcome mail), so the fallback order above is written down once rather than
+ * copied into each action alongside its own `headers()` call.
+ */
+export async function siteOrigin(): Promise<string> {
+  const h = await headers();
+  return resolveSiteOrigin(
+    {
+      siteUrl: process.env.SITE_URL,
+      domain: process.env.DOMAIN,
+      vercelUrl: process.env.VERCEL_URL,
+      nodeEnv: process.env.NODE_ENV,
+    },
+    { host: h.get("host"), forwardedProto: h.get("x-forwarded-proto") },
+  );
 }
 
 function hostnameOrigin(hostname: string): string {

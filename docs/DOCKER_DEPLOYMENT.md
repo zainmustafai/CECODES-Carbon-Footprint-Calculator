@@ -186,11 +186,11 @@ it.
 | init exits 1, "Cannot seed the admin account" | `ADMIN_PASSWORD` missing, or too short | Set it, at least 12 characters. Without an admin there is no way in: self-serve registration is off. |
 | init exits 1, "DEMO_SEED_ALLOWED=true is set" | Demo flag copied from a dev `.env` | Remove it. This guard is protecting real data. |
 | app container never starts | init failed | `docker compose logs init`. The app is gated on init succeeding. |
-| app exits 1 immediately | Boot-time env validation failed | `docker compose logs app`. It names the variable; today that can only be `DATABASE_URL`. |
+| app exits 1 immediately | Boot-time env validation failed | `docker compose logs app`. It names the variable: not only `DATABASE_URL`, but also a malformed `SITE_URL`, or `RESEND_API_KEY`/`MAIL_FROM` set alone when `MAIL_TRANSPORT=resend`. |
 | app runs but shows `unhealthy` | Database unreachable from the app | `curl` the readiness endpoint inside: `docker compose exec app node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>r.text()).then(console.log)"` |
 | Styles missing, pages unstyled | `.next/static` not copied | Rebuild without cache: `docker compose build --no-cache app`. |
 | Build fails downloading fonts | No outbound HTTPS on the build host | Allow egress to `fonts.googleapis.com` / `fonts.gstatic.com`. |
-| Mailpit's inbox stays empty after a reset request | Mail is only sent through Resend today | Set `RESEND_API_KEY` and `MAIL_FROM`, or check back once the SMTP transport is wired up. |
+| Mailpit's inbox stays empty after a reset request | `MAIL_TRANSPORT` is not `smtp`, or `SITE_URL`/`DOMAIN` are both unset so the app has no public origin to build a link against | Check `docker compose logs app` for `[auth] password reset requested, but no ...` and set the missing variable. |
 
 Two commands worth knowing:
 
