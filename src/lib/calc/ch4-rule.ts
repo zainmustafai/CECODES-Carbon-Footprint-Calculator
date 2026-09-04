@@ -38,12 +38,9 @@
 //   - non-biogenic NON-FUELS (fugitive leaks, industrial processes, land use: 115 + 45 + 15 rows).
 //     We say 29.8; a literal reading of the Excel says 27.
 //
-// We cannot settle this from the workbook we have, because it contains no calculation formulas.
-// The parity harness can run a fixture under EITHER rule, so when a real client workbook arrives
-// (memo item 0, still outstanding) we can simply see which rule reproduces their totals. That
-// remains a better answer than either an opinion or a stated intent: CECODES telling us which rule
-// they MEANT to use is not evidence of which rule their spreadsheet EXECUTED, and Requirements
-// §14.1 makes the spreadsheet the acceptance test.
+// The parity harness can still run a fixture under EITHER rule, which is the only reason the
+// "is-a-fuel" branch below has not been deleted: it is how the question was settled, and it is
+// how a future workbook would be re-checked. It is not a live option.
 
 export type Ch4Rule = "biogenic-flag" | "is-a-fuel";
 

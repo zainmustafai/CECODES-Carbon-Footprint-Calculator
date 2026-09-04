@@ -7,18 +7,24 @@ import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
 // THE ACCEPTANCE TEST (Requirements section 14.1).
 //
 // The tool is "done" when it reproduces the client's Excel totals for an agreed sample company.
-// This harness is the thing that will prove it. It reads self-contained fixtures: a company-year
-// of activity data, plus the totals the EXCEL produced from it, and diffs them against rollupYear.
+// This harness is the thing that proves it. It reads self-contained fixtures: a company-year of
+// activity data, plus the totals the EXCEL produced from it, and diffs them against rollupYear.
 //
-// It is deliberately fixture-driven rather than hardcoded, because the fixture we actually need
-// does not exist yet: the only workbook CECODES has sent is the factor library, with no company
-// data and no totals in it. When they send a filled-in calculation workbook (item 0 of
-// docs/CLIENT_DECISION_MEMO.md), transcribing it into a JSON file in ./fixtures/parity/ is the
-// only work required to run the real comparison.
+// STATUS: a client-origin fixture exists and passes. CECODES sent a filled-in calculation
+// workbook on 2026-07-24, and cecodes-dashboard-principal-2024.json transcribes its PRINCIPAL
+// sheet - inputs and the Excel's OWN cached formula results - cell by cell. See
+// ./fixtures/parity/README.md.
 //
-// READ THIS BEFORE TRUSTING A GREEN RUN: the only fixture present today is hand-computed from the
-// same formulas the engine implements. It proves the harness works and the engine is
-// self-consistent. It does NOT prove parity. The `todo` at the bottom is the standing reminder.
+// What that fixture does NOT cover, and what therefore still rests on unit tests alone:
+//   - the non-QUANTITY entry modes. toRollupEntries below hardcodes entryMode "QUANTITY",
+//     because the 2024 sample has no MONEY_PER_GALLON or COUNT_TIMES_DISTANCE row in it.
+//   - gasType, fuelType and trip rows, all added after the workbook arrived.
+//   - the 2026-09-03 factor correction. The fixture carries its own factor values from the
+//     2026-07-24 workbook, so it pins the ENGINE, not the current factor library.
+// A workbook exercising any of those is worth transcribing as a second fixture.
+//
+// The it.todo at the bottom re-arms itself automatically if every client fixture is ever
+// removed. Leave it there.
 
 const FIXTURE_DIR = join(__dirname, "fixtures", "parity");
 

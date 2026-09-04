@@ -208,7 +208,7 @@ describe("resetUserPassword in local mode", () => {
   });
 });
 
-describe("setUserActive in local mode", () => {
+describe("setUserActive", () => {
   it("deactivating ends the sessions and the reset links together with the flag", async () => {
     const result = await actions.setUserActive({ userId: TARGET_ID, active: false });
 
@@ -234,6 +234,60 @@ describe("setUserActive in local mode", () => {
     const result = await actions.setUserActive({ userId: TARGET_ID, active: false });
 
     expect(result).toEqual({ error: "forbidden" });
+  });
+
+  it("sweeps under the Supabase providers too, so a rollback cannot revive the sessions", async () => {
+    // Same argument as the rotation: these rows decide nothing under `supabase`, and they decide
+    // everything again the moment AUTH_PROVIDER goes back to `local`. A user deactivated during
+    // the Supabase window must not come back holding a live cookie.
+    process.env.AUTH_PROVIDER = "supabase";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role";
+
+    expect(await actions.setUserActive({ userId: TARGET_ID, active: false })).toEqual({});
+
+    expect(userSession.deleteMany).toHaveBeenCalledWith({ where: { userId: TARGET_ID } });
+    expect(passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: TARGET_ID } });
+  });
+});
+
+// The self-lockout guards. CECODES runs one admin: an admin who demotes, deactivates or deletes
+// themselves locks the organisation out of its own admin area with no way back except SQL, because
+// there is no self-serve registration and nobody left who can create an account. Only
+// resetUserPassword's guard had a test; these three had none, and each is one line in the action.
+describe("an admin cannot lock themselves out", () => {
+  it("refuses to change their own role or company", async () => {
+    const result = await actions.updateUser({
+      userId: ADMIN_ID,
+      role: "COMPANY_USER",
+      companyId: COMPANY_ID,
+    });
+
+    expect(result).toEqual({ error: "cannotEditSelf" });
+    expect(appUser.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to deactivate themselves", async () => {
+    const result = await actions.setUserActive({ userId: ADMIN_ID, active: false });
+
+    expect(result).toEqual({ error: "cannotEditSelf" });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(appUser.updateMany).not.toHaveBeenCalled();
+    expect(userSession.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete themselves", async () => {
+    const result = await actions.deleteUser({ userId: ADMIN_ID });
+
+    expect(result).toEqual({ error: "cannotEditSelf" });
+    expect(appUser.deleteMany).not.toHaveBeenCalled();
+    expect(supabaseDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it("still lets them act on somebody else", async () => {
+    // The guard has to be an identity check and not a blanket refusal, or the screen it protects
+    // would do nothing at all.
+    expect(await actions.setUserActive({ userId: TARGET_ID, active: false })).toEqual({});
   });
 });
 
@@ -298,12 +352,47 @@ describe("the Supabase branch is unchanged", () => {
       password: "otra-clave-12",
       email_confirm: true,
     });
-    // No transaction, and no session revocation: GoTrue owns the sessions in this mode.
-    expect(transaction).not.toHaveBeenCalled();
-    expect(userSession.deleteMany).not.toHaveBeenCalled();
     expect(compareSync("otra-clave-12", writtenHash(appUser.updateMany.mock.calls[0][0]))).toBe(
       true,
     );
+    // GoTrue is asked FIRST and its verdict is what the caller waits on: a rotation this provider
+    // refused must not leave a new local hash behind for the cutover to promote.
+    expect(supabaseUpdateUserById.mock.invocationCallOrder[0]!).toBeLessThan(
+      transaction.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("still sweeps the local sessions a rollback would hand back", async () => {
+    // This used to assert the opposite (no transaction, no revocation) because GoTrue owns the
+    // sessions in this mode. It owns the ones that decide anything TODAY. A session minted during
+    // a `local` window sits in user_sessions through the whole Supabase window and is honoured
+    // again the moment AUTH_PROVIDER goes back, so an admin who rotated a password precisely to
+    // get somebody out of an account would find them still in it after a rollback and a
+    // roll-forward. Deleting rows this provider does not read costs nothing.
+    const result = await actions.resetUserPassword({
+      userId: TARGET_ID,
+      tempPassword: "otra-clave-12",
+    });
+
+    expect(result).toEqual({});
+    expect(userSession.deleteMany).toHaveBeenCalledWith({ where: { userId: TARGET_ID } });
+    expect(passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: TARGET_ID } });
+  });
+
+  it("does not write the local hash at all when GoTrue refuses the rotation", async () => {
+    supabaseUpdateUserById.mockResolvedValueOnce({
+      error: { message: "weak password" },
+    } as unknown as { error: null });
+
+    const result = await actions.resetUserPassword({
+      userId: TARGET_ID,
+      tempPassword: "otra-clave-12",
+    });
+
+    expect(result).toEqual({ error: "authFailed" });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(appUser.updateMany).not.toHaveBeenCalled();
+    expect(userSession.deleteMany).not.toHaveBeenCalled();
   });
 
   it("creates the auth user first and refuses an address that already has a profile", async () => {

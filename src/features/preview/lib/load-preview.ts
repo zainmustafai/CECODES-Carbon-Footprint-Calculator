@@ -23,7 +23,7 @@ const NO_LIBRARY: GroupedFactors = { SCOPE_1: [], SCOPE_2: [], SCOPE_3: [] };
 
 // Sums a source's reported activity for display. Floats are fine here and only here: nothing
 // in the preview is persisted, and every value is labelled "estimación referencial". The
-// Week 3 engine recomputes official totals from the stored Decimal strings.
+// rollup engine (lib/calc/rollup.ts) recomputes official totals from the stored Decimal strings.
 function toNumber(value: string): number {
   const normalized = normalizeDecimalInput(value);
   if (normalized === "" || !isValidEntryValue(normalized)) return 0;
@@ -208,6 +208,10 @@ export async function loadPreview(
           factorUnit: entry.emissionFactor.factorUnit,
           source: entry.emissionFactor.source,
           entryMode: entry.emissionFactor.entryMode,
+          // Which gas a pre-blended factor actually is. The query has always selected it; not
+          // passing it here made listFactorGases fall back to the anonymous "CO2e" label, so the
+          // same refrigerant read "SF6" on the data-entry summary and "CO2e" on the Resumen.
+          gasType: entry.emissionFactor.gasType,
           fuelType: entry.emissionFactor.fuelType,
         }
       : null,

@@ -13,7 +13,8 @@ temporary-use calculation workbook whose PRINCIPAL sheet contains a filled-in sa
 (four sedes, ten emission rows, twelve monthly electricity values) together with the Excel's
 own cached formula results per row and in total. That fixture transcribes the inputs and the
 **Excel's own outputs**, cell by cell, and `parity.test.ts` reproduces them through
-`rollupYear`. The standing `it.todo` reminder retired itself the moment the fixture landed.
+`rollupYear`. The standing `it.todo` reminder stopped firing the moment the fixture landed; it
+is kept, and re-arms on its own if every client fixture is ever removed.
 
 The same workbook settled the two questions this README used to warn about:
 
@@ -30,10 +31,20 @@ sit in their own table with their own total, never added to emissions) and BASE_
 One anomaly is reproduced faithfully rather than corrected: the workbook's urea factor
 (0.7333 = 0.2 × 44/12, a CO2 quantity labelled "kg CO2e/kg urea") sits in the factor sheet's
 N2O column, so the Excel multiplies it by 273. Parity means matching what the spreadsheet
-executes; the anomaly is flagged to CECODES separately.
+executes, and the placement is not a transcription slip on our side: the 2026-09-03 factor
+correction moved the urea factor into the N2O column in our own library too, exactly as
+CECODES's official sheet has it (see `src/lib/factor-correction.ts`).
 
 `hand-computed-reference.json` remains as a harness self-check. It proves the fixture
 machinery works; only the client-origin fixture proves parity.
+
+### What the client fixture does not reach
+
+Both fixtures are pure `QUANTITY` sources: the harness's own loader hardcodes that entry mode.
+`MONEY_PER_GALLON`, `COUNT_TIMES_DISTANCE`, trip rows, `gasType` and `fuelType` all postdate the
+2026-07-24 workbook and are covered by unit tests only. So does the 2026-09-03 factor correction:
+each fixture carries its own factor values, so what passes here is the **engine**, not the
+current state of the factor library.
 
 ## Adding further client workbooks
 

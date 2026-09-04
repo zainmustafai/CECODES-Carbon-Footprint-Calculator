@@ -9,7 +9,8 @@ import { isValidEntryValue, normalizeDecimalInput } from "@/lib/decimal-input";
 // user types ("Resumen del elemento").
 //
 // Floats are acceptable HERE and nowhere else in this codebase. Nothing computed here is
-// ever persisted: the Week 3 engine recomputes every total from the stored Decimal strings.
+// ever persisted: rollupYear (lib/calc/rollup.ts) recomputes every total from the stored
+// Decimal strings.
 // The stored value pipeline (input -> string -> Prisma Decimal) is untouched.
 //
 // It never reports a silent zero. A missing grid factor or a missing emission factor returns

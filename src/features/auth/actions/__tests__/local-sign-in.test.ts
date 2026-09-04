@@ -894,3 +894,277 @@ describe("updatePasswordAction while GoTrue still decides", () => {
     expect(resetTokens.get("reset-outstanding")!.consumedAt).toBeInstanceOf(Date);
   });
 });
+
+describe("the session a sign-in issues", () => {
+  it("never adopts a token the caller planted in the cookie jar", async () => {
+    const user = seedUser();
+    // Session fixation, in one line: an attacker sets cecodes_session to a value they know (a
+    // sibling subdomain, a shared machine), the victim signs in, and if the sign-in reused what was
+    // already there, the attacker's copy would now authenticate as the victim. Nothing in the suite
+    // put a value in the jar before a sign-in, so a code path that adopted one would have passed.
+    const planted = "un-token-que-el-atacante-ya-conoce";
+    cookieJar.set(SESSION_COOKIE, planted);
+
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({});
+
+    const issued = cookieJar.get(SESSION_COOKIE)!;
+    expect(issued).not.toBe(planted);
+    // And the planted value resolves to nothing: no row was ever written for its digest.
+    expect([...sessions.values()].some((row) => row.tokenHash === hashToken(planted))).toBe(false);
+    expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(issued)]);
+  });
+
+  it("issues a fresh token on every sign-in, so two devices are two sessions", async () => {
+    const user = seedUser();
+
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    const first = cookieJar.get(SESSION_COOKIE)!;
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    const second = cookieJar.get(SESSION_COOKIE)!;
+
+    expect(second).not.toBe(first);
+    expect(sessionsOf(user.id)).toHaveLength(2);
+  });
+
+  it("does not issue one to an account deactivated while the password was being checked", async () => {
+    // The race the `active: true` in the update's WHERE closes. setUserActive sweeps user_sessions
+    // in the same transaction as the flag, so a row inserted a moment AFTER that sweep survives it
+    // and never gets swept again. Authorization still refuses the person everywhere; what is left
+    // behind is a live-looking session for an account that is switched off, which is exactly the
+    // state an admin reading the table during an incident cannot interpret.
+    const user = seedUser();
+    const realVerify = verifyPassword.getMockImplementation()!;
+    verifyPassword.mockImplementationOnce(async (...args: unknown[]) => {
+      users.set(user.id, { ...users.get(user.id)!, active: false });
+      return realVerify(...args);
+    });
+
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({
+      error: "invalidCredentials",
+    });
+
+    expect(sessionsOf(user.id)).toHaveLength(0);
+    expect(cookieJar.size).toBe(0);
+  });
+});
+
+describe("signInAction when the store itself fails", () => {
+  it("answers with an opaque key instead of throwing out of the action", async () => {
+    // use-login.ts only ever reads the returned error key, so an unhandled rejection is a form that
+    // stops its spinner and says nothing at all. Every other auth path here already had a boundary;
+    // this one, the busiest, had none.
+    seedUser();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(appUser, "findUnique").mockRejectedValueOnce(new Error("connection terminated"));
+
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({ error: "generic" });
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    // The line names where it happened and never who was trying to sign in.
+    expect(logged.mock.calls[0]![0]).not.toContain(EMAIL);
+    logged.mockRestore();
+  });
+});
+
+describe("the password rules the server enforces on its own", () => {
+  const TOO_LONG = "a".repeat(73);
+
+  // bcrypt reads at most the first 72 bytes and ignores the rest. Without a ceiling the user is
+  // told they set a 100 character password, the column holds a hash of the first 72, and typing
+  // only those 72 opens the account afterwards. PASSWORD_MAX was declared and enforced in the
+  // schemas, and nothing anywhere sent a password longer than it.
+  it("refuses a password past the bcrypt ceiling on the signed-in change", async () => {
+    const user = seedUser();
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    getUser.mockResolvedValue({ id: user.id, email: user.email });
+
+    expect(
+      await updatePasswordAction({ password: TOO_LONG, currentPassword: PASSWORD }),
+    ).toEqual({ error: "invalidInput" });
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+  });
+
+  it("refuses it on the emailed reset too, and leaves the link usable", async () => {
+    seedUser();
+    const token = `token-largo`;
+    resetTokens.set("reset-largo", {
+      id: "reset-largo",
+      userId: "user-1",
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      consumedAt: null,
+      createdAt: new Date(),
+    });
+
+    expect(await resetPasswordWithTokenAction({ token, password: TOO_LONG })).toEqual({
+      error: "invalidInput",
+    });
+    expect(resetTokens.get("reset-largo")!.consumedAt).toBeNull();
+  });
+
+  it("bounds the address, so a multi-kilobyte one cannot reach the throttle key", async () => {
+    // auth_throttle.key is a TEXT PRIMARY KEY, and a btree entry caps at 2704 bytes. An unbounded
+    // address made recordSignInFailure raise out of an unauthenticated endpoint AFTER the full
+    // quarter second of bcrypt had been spent, and the failed write meant the attempt went
+    // uncounted: free CPU, forever, from a loop.
+    const enormous = `${"a".repeat(3000)}@empresa.com`;
+
+    expect(await signInAction({ email: enormous, password: PASSWORD })).toEqual({
+      error: "invalidInput",
+    });
+    expect(verifyPassword).not.toHaveBeenCalled();
+    expect(throttles.size).toBe(0);
+  });
+});
+
+describe("re-authenticating the signed-in password change", () => {
+  const NEW_PASSWORD = "una contrasena nueva";
+
+  async function signedIn() {
+    const user = seedUser();
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    getUser.mockResolvedValue({ id: user.id, email: user.email });
+    return user;
+  }
+
+  it("refuses a caller who cannot produce the current password", async () => {
+    // Thirty seconds at an unlocked laptop, or one injected script calling this action with the
+    // ambient cookie. Without this the holder of a session sets a password of their choosing, the
+    // sweep below ends every session but theirs, and the account has changed hands.
+    const user = await signedIn();
+    const cookie = cookieJar.get(SESSION_COOKIE)!;
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: "una suposicion" }),
+    ).toEqual({ error: "currentPasswordIncorrect" });
+
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+    // And nothing was revoked on the way out: a failed guess must not be a denial of service
+    // against the real owner's other devices.
+    expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(cookie)]);
+  });
+
+  it("refuses an omitted one in the same words, spending the same bcrypt", async () => {
+    const user = await signedIn();
+
+    expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({
+      error: "currentPasswordIncorrect",
+    });
+    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
+  });
+
+  it("ends the sessions the OLD password opened, and only that user's", async () => {
+    // The half of this action that was unproven: the fixture only ever created one session, so
+    // deleting the whole sweep failed nothing. Ending the sessions somebody else opened with the
+    // old password is most of the reason to change one.
+    const user = await signedIn();
+    const kept = cookieJar.get(SESSION_COOKIE)!;
+    // A second device of the same user, and a bystander who must not be touched.
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    const other = cookieJar.get(SESSION_COOKIE)!;
+    cookieJar.set(SESSION_COOKIE, kept);
+    const bystander = seedUser({ id: "user-2", email: "otra@empresa.com" });
+    await signInAction({ email: bystander.email, password: PASSWORD });
+    cookieJar.set(SESSION_COOKIE, kept);
+    expect(sessionsOf(user.id)).toHaveLength(2);
+
+    expect(
+      await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
+    ).toEqual({});
+
+    expect(sessionsOf(user.id).map((row) => row.tokenHash)).toEqual([hashToken(kept)]);
+    expect([...sessions.values()].some((row) => row.tokenHash === hashToken(other))).toBe(false);
+    // The blast radius is one user: the bystander is still signed in.
+    expect(sessionsOf(bystander.id)).toHaveLength(1);
+  });
+});
+
+describe("signOutAction outside local mode", () => {
+  it("clears a local session a rollback left behind, as well as GoTrue's", async () => {
+    // The rollback is one variable, and it is meant to be real. A user who signed in during a
+    // `local` window holds this cookie for thirty days: flip to `supabase`, let them sign out, and
+    // the old code cleared GoTrue's cookie and left ours sitting there with its row. Flip forward
+    // inside the TTL and that sign-out is undone, silently.
+    const user = seedUser();
+    await signInAction({ email: EMAIL, password: PASSWORD });
+    expect(sessionsOf(user.id)).toHaveLength(1);
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    const signOut = vi.fn(async () => ({}));
+    createClient.mockResolvedValue({ auth: { signOut } });
+
+    await signOutAction();
+
+    expect(sessionsOf(user.id)).toHaveLength(0);
+    expect(cookieJar.size).toBe(0);
+    // GoTrue is still told: it holds the cookie that decides who is signed in under this provider.
+    expect(signOut).toHaveBeenCalled();
+  });
+});
+
+describe("the reset request has its own allowance", () => {
+  beforeEach(() => {
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("MAIL_FROM", "CECODES <no-reply@example.org>");
+    vi.stubEnv("SITE_URL", "https://huella.example.org");
+  });
+
+  it("stops issuing links once the allowance is spent", async () => {
+    // The line this pins is the short-circuit itself. Deleting it failed no test, and what it
+    // stops is an unauthenticated endpoint that SENDS MAIL being looped: the provider quota goes,
+    // and whoever owns the address is buried in reset links.
+    seedUser();
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+    const issued = resetTokens.size;
+    sendMail.mockClear();
+
+    await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+
+    expect(resetTokens.size).toBe(issued);
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("does not lock the address out of signing in, which is what it is asking for the way back into", async () => {
+    // It used to count against the sign-in keys. Someone pressing "Solicitar un enlace nuevo" is by
+    // definition someone who cannot sign in, and five presses refused them at /login for fifteen
+    // minutes with nothing able to lift it, because clearSignInThrottle only runs when a link is
+    // consumed and no link had arrived.
+    seedUser();
+
+    for (let i = 0; i < MAX_ATTEMPTS + 2; i++) await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({});
+  });
+
+  it("cannot be used to refill the sign-in allowance either", async () => {
+    // The property the shared bucket was there for, kept: nothing on the reset path clears a
+    // sign-in key. Only consuming a real link does, and that takes control of the mailbox.
+    seedUser();
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await signInAction({ email: EMAIL, password: WRONG });
+
+    await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+
+    expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({
+      error: "tooManyAttempts",
+    });
+  });
+
+  it("gives the emailed link the short life its docblock claims", async () => {
+    // RESET_TTL_MINUTES is a security parameter with a long argument in its docblock and nothing
+    // holding it: every other test supplies its own expiry, so the constant could have read sixty
+    // DAYS and the suite would have stayed green.
+    seedUser();
+    const before = Date.now();
+
+    await requestPasswordResetAction(EMAIL);
+    await flushAfter();
+
+    const [row] = [...resetTokens.values()];
+    const minutes = (row!.expiresAt.getTime() - before) / 60_000;
+    expect(minutes).toBeGreaterThan(55);
+    expect(minutes).toBeLessThanOrEqual(60);
+  });
+});
