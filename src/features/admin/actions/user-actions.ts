@@ -9,12 +9,6 @@ import {
 } from "@/lib/auth/company-scope";
 import { hashPassword } from "@/lib/auth/password";
 import { clearSignInThrottle, signInThrottleKeys } from "@/lib/auth/throttle";
-import { authProvider } from "@/lib/env";
-import { reportError } from "@/lib/observability/report-error";
-import {
-  createSupabaseAdminClient,
-  findAuthUserIdByEmail,
-} from "@/lib/supabase/admin";
 import {
   createUserInput,
   updateUserInput,
@@ -23,20 +17,10 @@ import {
   resetUserPasswordInput,
 } from "../schemas/user-schemas";
 
-// Admin user management, across the move off Supabase Auth (src/lib/env.ts, AUTH_PROVIDER).
-//
-// Two credential stores, one set of actions. Under `supabase` and `shadow`, GoTrue owns the
-// password and every write here has to reach it over HTTP before touching Postgres. Under
-// `local` the password is a column on app_users and the same write is a single statement in the
-// same database as the profile. The guards do not vary with the provider: resolveAdminScope
-// first, then the self-edit refusals, then a checked row count on every write.
-//
-// The local hash is written in EVERY provider, not only `local`. It is dead weight while GoTrue
-// still decides sign-ins, and it is the whole game the day the flag flips: an account created,
-// or a password rotated, while running on `supabase` would otherwise carry no local credential
-// at all, and verifyPassword refuses a null hash rather than waving it through. Those people
-// would be locked out by the cutover itself rather than by anything they did, and the backfill
-// that gave everyone else a hash has already run.
+// Admin user management, backed by one credential store: the password is a column on app_users,
+// in the same database as the profile, and every write here is a Postgres statement. The guards
+// do not vary by action: resolveAdminScope first, then the self-edit refusals, then a checked row
+// count on every write.
 
 // app_users.email is a Prisma-owned @unique, so a collision surfaces as P2002. The raw driver
 // code "23505" is included for parity with the rest of the codebase's uniqueness checks.
@@ -44,51 +28,6 @@ function isUniqueViolation(error: unknown): boolean {
   if (typeof error !== "object" || error === null || !("code" in error)) return false;
   const code = (error as { code?: string }).code;
   return code === "P2002" || code === "23505";
-}
-
-// Whether a Supabase auth error means the email is already registered. The admin API returns
-// this in several shapes across versions, so match on both the code and the message.
-//
-// GoTrue-shaped, and so `supabase` and `shadow` only. Under `local` there is no second system to
-// disagree with: the same collision arrives as a P2002 on app_users.email, which isUniqueViolation
-// above already names.
-function isEmailAlreadyRegistered(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const code = (error as { code?: string }).code;
-  const message = (error as { message?: string }).message?.toLowerCase() ?? "";
-  return (
-    code === "email_exists" ||
-    code === "user_already_exists" ||
-    message.includes("already been registered") ||
-    message.includes("already registered") ||
-    message.includes("already exists")
-  );
-}
-
-// Whether a Supabase auth error means the user id does not exist. Used so deleting a profile
-// whose auth user was already removed (an orphan) still cleans up rather than failing.
-//
-// Same provider caveat as above, and the orphan it forgives is a two-store artefact: under
-// `local` a profile row IS the account, so there is no second half to have gone missing.
-function isAuthUserNotFound(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const status = (error as { status?: number }).status;
-  const code = (error as { code?: string }).code;
-  return status === 404 || code === "user_not_found";
-}
-
-// Whether a service-role client could be built, asked instead of built because
-// createSupabaseAdminClient throws on a missing variable. That is the right answer for the two
-// providers that cannot work without GoTrue and the wrong one for a caller that only wants to
-// reach it if it happens to still be standing, which is what deleteUser does under `local`.
-//
-// The variables are read here rather than through src/lib/env.ts because that module answers
-// "may the app boot", not "is this optional integration configured", and SUPABASE_SERVICE_ROLE_KEY
-// is deliberately absent from its runtime schema.
-function supabaseAdminConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
 }
 
 // Creates an account its owner can sign in with immediately: the admin sets a temporary password
@@ -126,83 +65,17 @@ export async function createUser(input: {
     // (BCRYPT_COST), and a caller who is not an admin must not be able to spend it.
     const { hash, algo } = await hashPassword(tempPassword);
     // An account whose password an admin chose and read out has no address to prove control of
-    // and no confirmation mail to wait for, so it is confirmed at creation. This mirrors the
-    // `email_confirm: true` the GoTrue branch below passes, and is provenance rather than a gate.
+    // and no confirmation mail to wait for, so it is confirmed at creation.
     const credentials = { passwordHash: hash, passwordAlgo: algo, emailConfirmedAt: new Date() };
 
-    let userId: string;
-
-    if (authProvider() === "local") {
-      // ONE INSERT, and that is the entire point of this branch.
-      //
-      // What used to be possible here and is not any more: auth.admin.createUser is an HTTP call,
-      // so it could never join the Postgres transaction that writes the profile. A failure landing
-      // between the two left a real, sign-in-capable GoTrue account attached to whatever the
-      // signup trigger had inserted, a COMPANY_USER profile with no company. The person it
-      // belonged to could sign in, landed in onboarding, and was invited to invent a company that
-      // nobody had asked for; the admin, meanwhile, had seen the create fail and had no screen
-      // that showed the half-made account. Retrying with the same address then hit the repair path
-      // below rather than a clean create.
-      //
-      // The credential and the profile are now columns of the same row, so there are no longer two
-      // writes to coordinate and no window to fail inside: it commits whole or not at all. No
-      // transaction wraps this because a single statement already is one.
-      //
-      // The email pre-check the GoTrue branch runs first goes away for the same reason. It exists
-      // only to keep a doomed INSERT away from the signup trigger, and the unique index answers
-      // the same question here without its read-then-write gap: a collision raises P2002, which
-      // the catch at the bottom reports as emailInUse.
-      userId = crypto.randomUUID();
-      await prisma.appUser.create({
-        data: { id: userId, email, role, companyId, active: true, ...credentials, ...contact },
-      });
-    } else {
-      // 2. Pre-check the profile. app_users.email is UNIQUE: if a profile row already exists
-      //    for this email but no auth user does, the auth.users INSERT trigger would violate
-      //    that constraint and GoTrue returns an opaque 500. Refuse cleanly first. This also
-      //    covers the case where both already exist. Only the auth-only orphan (a deleted
-      //    profile) falls through to the repair path in step 3.
-      const existingProfile = await prisma.appUser.findUnique({
-        where: { email },
-        select: { id: true },
-      });
-      if (existingProfile) return { error: "emailInUse" };
-
-      // 3. Create the auth user.
-      const supabase = createSupabaseAdminClient();
-      let authUserId: string | undefined;
-
-      const { data, error } = await supabase.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-      });
-
-      if (error) {
-        // Repair the auth-only orphan: an auth user exists but its profile row was deleted.
-        // The signup trigger is INSERT-only, so nothing recreated the profile. Find the auth
-        // id and let the upsert below re-create the profile row. Any other auth error is
-        // opaque to the client.
-        if (isEmailAlreadyRegistered(error)) {
-          authUserId = await findAuthUserIdByEmail(supabase, email);
-        }
-        if (!authUserId) return { error: "authFailed" };
-      } else {
-        authUserId = data.user?.id;
-      }
-      if (!authUserId) return { error: "authFailed" };
-      userId = authUserId;
-
-      // 4. app_users.id MUST equal the auth user id. The signup trigger already inserted a row
-      //    with role COMPANY_USER, ON CONFLICT (id) DO NOTHING, and it NEVER updates. Upsert to
-      //    force the role and companyId the admin chose (and to create the row on the repair
-      //    path, where the trigger never fired).
-      await prisma.appUser.upsert({
-        where: { id: userId },
-        update: { email, role, companyId, active: true, ...credentials, ...contact },
-        create: { id: userId, email, role, companyId, active: true, ...credentials, ...contact },
-      });
-    }
+    // ONE INSERT, credential and profile as columns of the same row: there is no window between
+    // "account exists" and "profile exists" for a failure to land inside, so it commits whole or
+    // not at all. A collision on the unique email index raises P2002, which the catch below
+    // reports as emailInUse.
+    const userId = crypto.randomUUID();
+    await prisma.appUser.create({
+      data: { id: userId, email, role, companyId, active: true, ...credentials, ...contact },
+    });
 
     revalidatePath("/admin/users");
     revalidatePath("/admin/companies"); // per-company user counts change
@@ -343,33 +216,8 @@ export async function resetUserPassword(input: {
     // After the guards, for the reason given in createUser.
     const { hash, algo } = await hashPassword(tempPassword);
 
-    if (authProvider() !== "local") {
-      // GoTrue decides this sign-in, so it is told first and its verdict is what the caller waits
-      // on. The local write below then follows, so the column does not fall behind before the
-      // cutover. A failure between the two leaves the local column holding the previous password,
-      // which costs a disagreement in the shadow log and nothing more, because nothing reads it.
-      //
-      // What this branch still does NOT buy is an immediate lockout: GoTrue's own sessions survive
-      // a rotation, so for that, deactivate the user instead.
-      const supabase = createSupabaseAdminClient();
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        password: tempPassword,
-        email_confirm: true,
-      });
-      if (error) return { error: "authFailed" };
-    }
-
-    // One transaction in every provider. Rotating the password ends every session the old one
-    // opened and every reset link it could still be overruled by, in the same statement that
-    // writes the new hash.
-    //
-    // The local sweep used to be conditional on the provider, on the reading that these rows
-    // decide nothing while GoTrue holds the passwords. They decide nothing UNTIL AUTH_PROVIDER
-    // moves: a session or a link minted during a `local` window sits here through the whole
-    // Supabase window and is honoured again the moment the flag goes back, up to thirty days
-    // later. An admin who rotated a password precisely to get somebody out of an account would
-    // find them still in it after a rollback and a roll-forward. Sweeping under the other two
-    // providers costs nothing, because nothing there reads what is being swept.
+    // One transaction: rotating the password ends every session the old one opened and every
+    // reset link it could still be overruled by, in the same statement that writes the new hash.
     //
     // Not destroyAllSessionsForUser: it holds the app's own client, so it would run outside this
     // transaction and could purge the sessions of a hash write that then rolled back. The deleted
@@ -393,12 +241,12 @@ export async function resetUserPassword(input: {
       await tx.passwordResetToken.deleteMany({ where: { userId } });
     });
 
-    // The lockout has to lift with the password, in every provider, or this action does not do the
-    // thing it exists for. The support call behind it is "I cannot get in": five wrong guesses put
-    // a fifteen minute hold on the ADDRESS (src/lib/auth/throttle-policy.ts), the hold is checked
-    // before any provider sees the credentials (signInAction), and it outlives the password it was
-    // protecting. Without this the admin dictates a new password, is told it worked, and the person
-    // on the phone still gets "demasiados intentos" for another quarter of an hour.
+    // The lockout has to lift with the password, or this action does not do the thing it exists
+    // for. The support call behind it is "I cannot get in": five wrong guesses put a fifteen
+    // minute hold on the ADDRESS (src/lib/auth/throttle-policy.ts), the hold is checked before
+    // the password is (signInAction), and it outlives the password it was protecting. Without
+    // this the admin dictates a new password, is told it worked, and the person on the phone
+    // still gets "demasiados intentos" for another quarter of an hour.
     //
     // The ADDRESS key only. An IP key is a fact about one machine working through many accounts,
     // and no single account's administrator gets to clear that on its behalf.
@@ -424,49 +272,13 @@ export async function deleteUser(input: {
     // Self-lockout guard: an admin cannot delete themselves.
     if (userId === scope.appUser.id) return { error: "cannotEditSelf" };
 
-    if (authProvider() !== "local") {
-      // Delete the AUTH user FIRST, then the profile row. The reverse order would leave a
-      // login-capable auth user with no app_users profile: on their next sign in they would
-      // land in onboarding and create a stray company, and because the signup trigger is
-      // INSERT-only, nothing would recreate the profile row to catch them.
-      const supabase = createSupabaseAdminClient();
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-      // A missing auth user (already gone) is fine: still remove the orphaned profile row.
-      if (authError && !isAuthUserNotFound(authError)) return { error: "authFailed" };
-    } else if (supabaseAdminConfigured()) {
-      // Local mode, with GoTrue still standing. That is every deployment inside the cutover
-      // window, because NEXT_PUBLIC_SUPABASE_URL is still required to boot (src/lib/env.ts), which
-      // means AUTH_PROVIDER=supabase is one variable away and is meant to be a real rollback.
-      //
-      // A profile deleted here and left behind in GoTrue is what that rollback would resurrect:
-      // an account that still signs in, with no app_users row to catch it, landing in onboarding
-      // to invent a company nobody asked for. Every other loose end of this migration fails
-      // closed, so it costs somebody a sign-in; this one fails OPEN, which is worth an HTTP call
-      // that this branch otherwise has no use for.
-      //
-      // Best effort, unlike the branch above, and that difference is the point: under `local` the
-      // profile row IS the account, so a GoTrue that is unreachable, or that never held this user
-      // because the id was minted here, must not be able to refuse a deletion it does not decide.
-      // The failure is logged and the deletion continues.
-      try {
-        const supabase = createSupabaseAdminClient();
-        const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-        if (authError && !isAuthUserNotFound(authError)) {
-          reportError({ where: "admin/delete-user", error: authError, context: { userId } });
-        }
-      } catch (error) {
-        reportError({ where: "admin/delete-user", error, context: { userId } });
-      }
-    }
-
-    // Under `local` this statement is the deletion that decides. The credential is a column on
-    // this row, and user_sessions and password_reset_tokens are ON DELETE CASCADE, so open
-    // sessions and any unused reset link go with the account instead of outliving it. The GoTrue
-    // call above is housekeeping against a rollback, and is allowed to fail; this one is not.
+    // This statement is the whole deletion. The credential is a column on this row, and
+    // user_sessions and password_reset_tokens are ON DELETE CASCADE, so open sessions and any
+    // unused reset link go with the account instead of outliving it.
     //
-    // deleteMany rather than delete, in both branches: a missing row has to answer the opaque
-    // "forbidden" that every other not-found does, and an unchecked count would report success on
-    // a delete that removed nobody.
+    // deleteMany rather than delete: a missing row has to answer the opaque "forbidden" that
+    // every other not-found does, and an unchecked count would report success on a delete that
+    // removed nobody.
     const deleted = await prisma.appUser.deleteMany({ where: { id: userId } });
     if (deleted.count !== 1) throw new ScopeError("not-found");
 

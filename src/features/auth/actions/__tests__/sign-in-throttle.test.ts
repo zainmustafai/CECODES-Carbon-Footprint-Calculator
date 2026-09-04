@@ -1,10 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MAX_ATTEMPTS } from "@/lib/auth/throttle-policy";
 
-// Sign-in reaches Supabase from this server, so Supabase's per-IP brute-force protection sees one
-// IP for every user of the app and is effectively pooled. These tests drive the real throttle
-// against an in-memory stand-in for the two Prisma calls it makes, so what is under test is the
-// actual counting and the actual short-circuit in the action, not a mock of either.
+// Sign-in checks the credential against this database, so a script working through a password
+// list burns real CPU on bcrypt for every attempt: an unmetered endpoint is a denial of service
+// lever as well as a guessing one. These tests drive the real throttle against an in-memory
+// stand-in for the two authThrottle Prisma calls it makes and the one appUser call the sign-in
+// itself makes, so what is under test is the actual counting and the actual short-circuit in the
+// action, not a mock of either.
+//
+// verifyPassword is mocked directly rather than driven through real bcrypt: this file is about the
+// throttle and the IP header parsing in front of it, not about password verification, which
+// local-sign-in.test.ts already proves with the real hash.
 
 type Row = {
   key: string;
@@ -42,8 +48,15 @@ const authThrottle = {
   },
 };
 
-const signInWithPassword = vi.fn();
-const findUnique = vi.fn(async () => ({ active: true }));
+const verifyPassword = vi.fn();
+const findUnique = vi.fn(async () => ({
+  id: "u1",
+  active: true,
+  passwordHash: "irrelevant, verifyPassword is mocked",
+  passwordAlgo: "bcrypt",
+}));
+const updateMany = vi.fn(async () => ({ count: 1 }));
+const userSessionCreate = vi.fn(async () => ({}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -52,17 +65,20 @@ vi.mock("@/lib/prisma", () => ({
     },
     appUser: {
       findUnique: (...args: unknown[]) => findUnique(...(args as [])),
+      updateMany: (...args: unknown[]) => updateMany(...(args as [])),
+    },
+    userSession: {
+      create: (...args: unknown[]) => userSessionCreate(...(args as [])),
     },
   },
 }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: {
-      signInWithPassword: (...args: unknown[]) => signInWithPassword(...(args as [])),
-      signOut: async () => ({}),
-    },
-  }),
+vi.mock("@/lib/auth/password", () => ({
+  verifyPassword: (...args: unknown[]) => verifyPassword(...(args as [])),
+  hashPassword: async () => ({ hash: "unused", algo: "bcrypt" }),
+  // Always false, so the rehash-on-sign-in branch never fires and never needs hashPassword for
+  // real: nothing in this file is about the legacy-hash upgrade.
+  needsRehash: () => false,
 }));
 
 /**
@@ -77,6 +93,7 @@ vi.mock("@/lib/supabase/server", () => ({
 const forwardedFor = { value: "203.0.113.7, 10.0.0.1" };
 vi.mock("next/headers", () => ({
   headers: async () => new Map([["x-forwarded-for", forwardedFor.value]]),
+  cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }),
 }));
 
 const { signInAction } = await import("../auth-actions");
@@ -84,13 +101,19 @@ const { signInAction } = await import("../auth-actions");
 const CREDENTIALS = { email: "victim@example.com", password: "wrong-password" };
 
 function rejectCredentials() {
-  signInWithPassword.mockResolvedValue({ data: {}, error: { message: "Invalid login" } });
+  verifyPassword.mockResolvedValue(false);
 }
 
 beforeEach(() => {
   rows.clear();
-  signInWithPassword.mockReset();
+  verifyPassword.mockReset();
   findUnique.mockClear();
+  findUnique.mockResolvedValue({
+    id: "u1",
+    active: true,
+    passwordHash: "irrelevant, verifyPassword is mocked",
+    passwordAlgo: "bcrypt",
+  });
   forwardedFor.value = "203.0.113.7, 10.0.0.1";
 });
 
@@ -100,16 +123,16 @@ describe("signInAction throttling", () => {
     for (let i = 0; i < MAX_ATTEMPTS - 1; i++) {
       expect(await signInAction(CREDENTIALS)).toEqual({ error: "invalidCredentials" });
     }
-    expect(signInWithPassword).toHaveBeenCalledTimes(MAX_ATTEMPTS - 1);
+    expect(verifyPassword).toHaveBeenCalledTimes(MAX_ATTEMPTS - 1);
   });
 
-  it("refuses further attempts once the allowance is spent, without asking Supabase", async () => {
+  it("refuses further attempts once the allowance is spent, without checking the password", async () => {
     rejectCredentials();
     for (let i = 0; i < MAX_ATTEMPTS; i++) await signInAction(CREDENTIALS);
-    signInWithPassword.mockClear();
+    verifyPassword.mockClear();
 
     expect(await signInAction(CREDENTIALS)).toEqual({ error: "tooManyAttempts" });
-    expect(signInWithPassword).not.toHaveBeenCalled();
+    expect(verifyPassword).not.toHaveBeenCalled();
   });
 
   it("locks the address, so switching to another password does not reset the count", async () => {
@@ -125,14 +148,19 @@ describe("signInAction throttling", () => {
     rejectCredentials();
     for (let i = 0; i < MAX_ATTEMPTS - 1; i++) await signInAction(CREDENTIALS);
 
-    signInWithPassword.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    verifyPassword.mockResolvedValue(true);
     expect(await signInAction(CREDENTIALS)).toEqual({});
     expect(rows.size).toBe(0);
   });
 
   it("does not count a correct password on a deactivated account as a guess", async () => {
-    signInWithPassword.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
-    findUnique.mockResolvedValue({ active: false });
+    verifyPassword.mockResolvedValue(true);
+    findUnique.mockResolvedValue({
+      id: "u1",
+      active: false,
+      passwordHash: "irrelevant, verifyPassword is mocked",
+      passwordAlgo: "bcrypt",
+    });
 
     expect(await signInAction(CREDENTIALS)).toEqual({ error: "accountDisabled" });
     expect(rows.size).toBe(0);

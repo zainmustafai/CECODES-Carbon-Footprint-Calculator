@@ -4,18 +4,14 @@ import { BCRYPT_COST, PASSWORD_ALGO } from "@/lib/auth/password";
 import { SESSION_COOKIE, hashToken } from "@/lib/auth/session";
 import { MAX_ATTEMPTS } from "@/lib/auth/throttle-policy";
 
-// AUTH_PROVIDER=local, which is the mode where this app decides its own sign-ins. The properties
-// under test are the ones that cannot be read off the code: that an address with no account is
-// answered exactly as an account with the wrong password, that a row with no hash can never
-// authenticate, that a deactivated account is refused without spending an attempt, and that a
-// reset link works once.
+// The properties under test are the ones that cannot be read off the code: that an address with
+// no account is answered exactly as an account with the wrong password, that a row with no hash
+// can never authenticate, that a deactivated account is refused without spending an attempt, and
+// that a reset link works once.
 //
 // Real bcrypt and the real session module throughout, against an in-memory stand-in for the Prisma
 // calls they make. A stubbed compare would pass every test in this file while the deployed sign-in
 // accepted the wrong password, and a stubbed session store would prove nothing about the cookie.
-//
-// The one thing genuinely mocked is Supabase: createClient throws here, so "GoTrue is never asked"
-// is enforced rather than assumed.
 
 type UserRow = {
   id: string;
@@ -231,9 +227,6 @@ vi.mock("next/server", () => ({
   },
 }));
 
-const createClient = vi.fn();
-vi.mock("@/lib/supabase/server", () => ({ createClient: () => createClient() }));
-
 const sendMail = vi.fn();
 vi.mock("@/lib/mail/send", () => ({ sendMail: (input: unknown) => sendMail(input) }));
 
@@ -252,17 +245,6 @@ vi.mock("@/lib/auth/password", async (importOriginal) => {
   verifyPassword.mockImplementation(actual.verifyPassword);
   return { ...actual, verifyPassword };
 });
-
-/**
- * Self-serve registration, forced open.
- *
- * The flag is false in the repository and signUpAction refuses on it first, which would make the
- * provider gate below it untestable and, worse, unreachable in exactly the situation it exists for:
- * the flag's own comment invites a maintainer to "flip to true to reopen it". Opening it here is
- * how the second gate gets exercised. signUpAction is the only reader of this flag in the module
- * under test, so nothing else in this file changes meaning.
- */
-vi.mock("@/lib/feature-flags", () => ({ FEATURE_SELF_ONBOARDING: true }));
 
 const {
   requestPasswordResetAction,
@@ -308,28 +290,25 @@ beforeEach(() => {
   cookieJar.clear();
   afterTasks.length = 0;
   nextId = 1;
-  createClient.mockReset();
   sendMail.mockReset();
   sendMail.mockResolvedValue({ ok: true });
   getUser.mockReset();
   // mockClear, not mockReset: the implementation set in the module factory is the real function,
   // and resetting would replace it with one that returns undefined for every password.
   verifyPassword.mockClear();
-  vi.stubEnv("AUTH_PROVIDER", "local");
 });
 
-// Vitest can run several files in one worker process, so a stub left standing here would decide
-// the provider for whichever file runs next.
+// Several describes below stub mail-related env vars. A stub left standing here would decide the
+// deployment for whichever test runs next, in this file or (Vitest can share a worker) another.
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
 describe("signInAction in local mode", () => {
-  it("issues a session cookie for the right password, without asking Supabase", async () => {
+  it("issues a session cookie for the right password", async () => {
     const user = seedUser();
 
     expect(await signInAction({ email: EMAIL, password: PASSWORD })).toEqual({});
-    expect(createClient).not.toHaveBeenCalled();
 
     const cookie = cookieJar.get(SESSION_COOKIE);
     expect(cookie).toBeTruthy();
@@ -456,7 +435,6 @@ describe("signOutAction in local mode", () => {
 
     expect(sessions.size).toBe(0);
     expect(cookieJar.size).toBe(0);
-    expect(createClient).not.toHaveBeenCalled();
   });
 
   it("does not throw when there is no cookie to sign out", async () => {
@@ -567,28 +545,12 @@ describe("requestPasswordResetAction in local mode", () => {
   });
 });
 
-describe("signUpAction in local mode", () => {
-  it("refuses, because GoTrue is not the store that decides a local sign-in", async () => {
-    // The account it would create has no app_users row and no passwordHash, and verifyPassword
-    // refuses a null hash. The person would confirm their address and then be unable to sign in
-    // with the password they had just chosen, forever.
+describe("signUpAction", () => {
+  it("refuses unconditionally, and writes nothing", async () => {
     expect(await signUpAction({ email: "nuevo@empresa.com", password: PASSWORD })).toEqual({
       error: "registrationDisabled",
     });
-    expect(createClient).not.toHaveBeenCalled();
     expect(users.size).toBe(0);
-  });
-
-  it("still reaches Supabase while GoTrue holds the passwords", async () => {
-    vi.stubEnv("AUTH_PROVIDER", "supabase");
-    createClient.mockReturnValue({
-      auth: { signUp: async () => ({ data: { session: null }, error: null }) },
-    });
-
-    expect(await signUpAction({ email: "nuevo@empresa.com", password: PASSWORD })).toEqual({
-      needsConfirmation: true,
-    });
-    expect(createClient).toHaveBeenCalled();
   });
 });
 
@@ -750,16 +712,6 @@ describe("resetPasswordWithTokenAction", () => {
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
   });
 
-  it("decides nothing outside local mode, where GoTrue still holds the password", async () => {
-    seedUser();
-    const { token } = seedToken();
-    vi.stubEnv("AUTH_PROVIDER", "shadow");
-
-    expect(await resetPasswordWithTokenAction({ token, password: NEW_PASSWORD })).toEqual({
-      error: "invalidResetLink",
-    });
-    expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
-  });
 });
 
 describe("updatePasswordAction, the signed-in change", () => {
@@ -820,78 +772,6 @@ describe("updatePasswordAction, the signed-in change", () => {
       await updatePasswordAction({ password: NEW_PASSWORD, currentPassword: PASSWORD }),
     ).toEqual({ error: "sessionExpired" });
     expect(users.get("user-1")!.passwordHash).toBe(CURRENT_HASH);
-  });
-});
-
-describe("updatePasswordAction while GoTrue still decides", () => {
-  const NEW_PASSWORD = "una contrasena nueva";
-  const updateUser = vi.fn();
-
-  beforeEach(() => {
-    updateUser.mockReset();
-    updateUser.mockResolvedValue({ error: null });
-    createClient.mockResolvedValue({ auth: { updateUser } });
-    getUser.mockResolvedValue({ id: "user-1", email: EMAIL });
-  });
-
-  // Both non-local modes, because supabase mode is defined as "the local hash column is written
-  // but never read": the writing half is what makes shadow mode meaningful and what makes the
-  // cutover survivable, and it was the half this path skipped.
-  it.each(["supabase", "shadow"])(
-    "in %s mode, mirrors the password GoTrue just accepted into the local hash",
-    async (provider) => {
-      const user = seedUser();
-      vi.stubEnv("AUTH_PROVIDER", provider);
-
-      expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({});
-
-      expect(updateUser).toHaveBeenCalledWith({ password: NEW_PASSWORD });
-      const stored = users.get(user.id)!;
-      // Left behind, the backfilled hash makes the shadow log cry wolf on every later sign-in by
-      // this user, and it becomes the live credential the day AUTH_PROVIDER flips to local: the
-      // retired password would open the account and the current one would not.
-      expect(compareSync(NEW_PASSWORD, stored.passwordHash!)).toBe(true);
-      expect(compareSync(PASSWORD, stored.passwordHash!)).toBe(false);
-      expect(stored.passwordAlgo).toBe(PASSWORD_ALGO);
-    },
-  );
-
-  it("writes no local hash when GoTrue refused the change", async () => {
-    const user = seedUser();
-    vi.stubEnv("AUTH_PROVIDER", "shadow");
-    updateUser.mockResolvedValue({ error: new Error("weak password") });
-
-    expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({ error: "generic" });
-
-    expect(users.get(user.id)!.passwordHash).toBe(CURRENT_HASH);
-  });
-
-  it("retires the local sessions a rollback would otherwise reinstate", async () => {
-    const user = await (async () => {
-      const row = seedUser();
-      vi.stubEnv("AUTH_PROVIDER", "local");
-      await signInAction({ email: EMAIL, password: PASSWORD });
-      vi.stubEnv("AUTH_PROVIDER", "shadow");
-      return row;
-    })();
-    // A link the user had asked for before they remembered the password, still live for the hour.
-    resetTokens.set("reset-outstanding", {
-      id: "reset-outstanding",
-      userId: user.id,
-      tokenHash: hashToken("emailed-token"),
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      consumedAt: null,
-      createdAt: new Date(),
-    });
-
-    expect(await updatePasswordAction({ password: NEW_PASSWORD })).toEqual({});
-
-    // This used to assert the opposite, on the reading that GoTrue holds the only session that
-    // decides anything here. True while the flag stays put, and the flag is one variable: the row
-    // sits through the whole Supabase window and is honoured again the moment AUTH_PROVIDER goes
-    // back to local, up to thirty days later, on a password the user retired in the interim.
-    expect(sessionsOf(user.id)).toHaveLength(0);
-    expect(resetTokens.get("reset-outstanding")!.consumedAt).toBeInstanceOf(Date);
   });
 });
 
@@ -1076,28 +956,6 @@ describe("re-authenticating the signed-in password change", () => {
     expect([...sessions.values()].some((row) => row.tokenHash === hashToken(other))).toBe(false);
     // The blast radius is one user: the bystander is still signed in.
     expect(sessionsOf(bystander.id)).toHaveLength(1);
-  });
-});
-
-describe("signOutAction outside local mode", () => {
-  it("clears a local session a rollback left behind, as well as GoTrue's", async () => {
-    // The rollback is one variable, and it is meant to be real. A user who signed in during a
-    // `local` window holds this cookie for thirty days: flip to `supabase`, let them sign out, and
-    // the old code cleared GoTrue's cookie and left ours sitting there with its row. Flip forward
-    // inside the TTL and that sign-out is undone, silently.
-    const user = seedUser();
-    await signInAction({ email: EMAIL, password: PASSWORD });
-    expect(sessionsOf(user.id)).toHaveLength(1);
-    vi.stubEnv("AUTH_PROVIDER", "supabase");
-    const signOut = vi.fn(async () => ({}));
-    createClient.mockResolvedValue({ auth: { signOut } });
-
-    await signOutAction();
-
-    expect(sessionsOf(user.id)).toHaveLength(0);
-    expect(cookieJar.size).toBe(0);
-    // GoTrue is still told: it holds the cookie that decides who is signed in under this provider.
-    expect(signOut).toHaveBeenCalled();
   });
 });
 

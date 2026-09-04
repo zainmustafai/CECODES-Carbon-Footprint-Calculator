@@ -54,7 +54,7 @@ const { SESSION_COOKIE } = await import("@/lib/auth/session");
 const AUTH_PAGES = ["/login", "/forgot-password"];
 
 /** Public and not a sign-in page: reachable from either side of the gate, never redirected. */
-const PUBLIC_NON_AUTH = ["/", "/reset-password", "/auth", "/auth/callback", "/auth/confirm"];
+const PUBLIC_NON_AUTH = ["/", "/reset-password"];
 
 /** One of each shape of protected route the app actually serves. */
 const PROTECTED = [
@@ -70,6 +70,10 @@ const PROTECTED = [
   "/admin/factors/new",
   "/admin/companies/a3f1/dashboard",
   "/api/reports/export",
+  // Used to be exempted via PUBLIC_PREFIXES for the Supabase email-link handlers that lived here.
+  // Both are gone and PUBLIC_PREFIXES is empty, so this is now an ordinary protected path like any
+  // other: nothing is public here just because something used to be.
+  "/auth/confirm",
 ];
 
 describe("isAuthPage", () => {
@@ -103,12 +107,6 @@ describe("isPublicPath", () => {
 
   it.each(PROTECTED)("keeps %s behind the gate", (path) => {
     expect(isPublicPath(path)).toBe(false);
-  });
-
-  // "/auth" is a prefix because the email-link handlers live under it, not because those five
-  // characters are special.
-  it("does not extend the /auth prefix to a path that merely starts with those letters", () => {
-    expect(isPublicPath("/authors")).toBe(false);
   });
 });
 
@@ -149,11 +147,6 @@ describe("decideRoute", () => {
   // make the site's own front door unreachable to the people who use it.
   it("leaves a signed-in visitor on the landing page", () => {
     expect(decideRoute({ pathname: "/", signedIn: true })).toEqual({ kind: "allow" });
-  });
-
-  // Reaching the handler is what creates the session, so a signed-out visitor has to get through.
-  it("lets an anonymous visitor finish an email link under /auth", () => {
-    expect(decideRoute({ pathname: "/auth/confirm", signedIn: false })).toEqual({ kind: "allow" });
   });
 });
 

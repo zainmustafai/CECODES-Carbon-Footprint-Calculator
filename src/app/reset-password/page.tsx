@@ -8,8 +8,7 @@ import { ResetPasswordScreen } from "@/features/auth";
 // requireUser() must not run on that branch, or the only people the link exists for are bounced
 // to /login before they can type anything.
 //
-// Without a token it is the signed-in "Cambiar contraseña" item in the account menu (and the
-// Supabase recovery link, which signs the user in at /auth/callback before landing here), so the
+// Without a token it is the signed-in "Cambiar contraseña" item in the account menu, so the
 // session guard stays exactly where it has always been.
 //
 // It lives OUTSIDE the (auth) route group on purpose: that layout redirects anyone with a session

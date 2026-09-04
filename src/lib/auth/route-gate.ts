@@ -50,15 +50,21 @@ const AUTH_PAGES = [
 const PUBLIC_PAGES = ["/", "/reset-password"];
 
 /**
- * Route handlers under /auth: currently the Supabase PKCE code exchange and token_hash
- * verification (src/app/auth/callback/route.ts, src/app/auth/confirm/route.ts).
+ * Public path PREFIXES, as opposed to the exact-match pages above.
  *
- * They have to be reachable signed out, because a visitor following an email link has no session
- * yet. Being listed here grants nothing: getUser() reads only our own session cookie and never the
- * Supabase cookie either handler sets (src/lib/auth/server.ts), so neither can authenticate anyone
- * in this app regardless of what it decides.
+ * Deliberately empty. It used to list "/auth", which existed only so
+ * src/app/auth/callback/route.ts and src/app/auth/confirm/route.ts, the Supabase PKCE code
+ * exchange and token_hash verification, could be reached signed out. Both are gone: there is no
+ * recovery link left to finish, and nothing lives under /auth at all.
+ *
+ * The array and isUnder below stay rather than being deleted along with the entry, because they
+ * are the mechanism for a prefix rule, not the data. Without them, a future route added under some
+ * new prefix would have nowhere to declare itself public except by falling through to
+ * PUBLIC_PAGES's exact match, which a path with children cannot use. Leaving PUBLIC_PREFIXES empty
+ * is also what keeps that future route from being public by default: nothing is exempted here
+ * until it is named here.
  */
-const PUBLIC_PREFIXES = ["/auth"];
+const PUBLIC_PREFIXES: string[] = [];
 
 /**
  * Whole-segment prefix match, so "/login" covers "/login" and "/login/anything" and stops there.
