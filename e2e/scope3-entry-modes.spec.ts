@@ -20,6 +20,21 @@ test.describe.configure({ mode: "serial" });
 // the 5s default on a slow night. Generous on purpose; these assert existence, not speed.
 test.setTimeout(300_000);
 
+// The wait for the FIRST thing a Server Action produces in a given flow, as opposed to the
+// steady-state waits below it.
+//
+// The 15s used everywhere else is a fine steady-state number and a bad cold-start one. Running
+// this file on its own, the add-source action's chunk is compiled on demand, and the source it
+// creates can take well past 15s to appear; the test then fails with an empty category and a
+// still-disabled "Agregar fuente" button, which reads as a broken action rather than a slow
+// compile. Because the file is serial, that one timeout also skips every test after it. In a
+// full-suite run the route is already warm and none of this is visible, so the failure only
+// ever showed up for whoever ran this file alone to work on it.
+//
+// The file already allows five minutes per test for exactly this reason (above). This is that
+// allowance applied to the assertions that actually pay the compile.
+const FIRST_ACTION = 60_000;
+
 function category(page: Page, name: string | RegExp) {
   return page.locator("section").filter({ has: page.getByRole("heading", { name }) });
 }
@@ -107,7 +122,7 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
     const value = page.getByLabel(
       new RegExp(`valor anual: ${escapeRegExp(MONEY_ELEMENT)} \\(COP\\)`, "i"),
     );
-    await expect(value).toBeVisible({ timeout: 15_000 });
+    await expect(value).toBeVisible({ timeout: FIRST_ACTION });
     await value.fill(moneyValueForTwentyFourGallons);
     await value.blur();
     await expect(page.getByText(SAVED)).toBeVisible({ timeout: 15_000 });
@@ -140,7 +155,9 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
     // count/distance field with one row per route, because the templates CECODES sent are that
     // shape and the old field made the user pre-multiply by hand. The source therefore arrives
     // with no routes at all rather than with an empty number to fill in.
-    await expect(c7.getByText(/aún no hay viajes registrados/i)).toBeVisible({ timeout: 15_000 });
+    await expect(c7.getByText(/aún no hay viajes registrados/i)).toBeVisible({
+      timeout: FIRST_ACTION,
+    });
 
     await c7.getByRole("button", { name: /agregar viaje/i }).click();
 
@@ -149,7 +166,7 @@ test.describe("data entry: Scope 3 Categoria 6/7 entry modes", () => {
     const route = `${escapeRegExp(DISTANCE_ELEMENT)}, #1`;
     const count = page.getByLabel(new RegExp(`cantidad: ${route}`, "i"));
     const distance = page.getByLabel(new RegExp(`distancia \\(km\\): ${route}`, "i"));
-    await expect(count).toBeVisible({ timeout: 15_000 });
+    await expect(count).toBeVisible({ timeout: FIRST_ACTION });
     await expect(distance).toBeVisible();
 
     await count.fill("3");
@@ -199,7 +216,7 @@ test.describe("admin: transport-subsidy price CRUD", () => {
     // "Eliminar: 2030"), so a non-exact name matches both that cell and the year cell.
     await expect(
       page.getByRole("cell", { name: String(E2E_SUBSIDY_YEAR), exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: FIRST_ACTION });
 
     // Creating the same year again must be refused, not silently overwritten.
     await page.getByRole("button", { name: /agregar precio/i }).click();
