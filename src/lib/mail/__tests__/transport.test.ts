@@ -60,6 +60,25 @@ describe("sendMail", () => {
     expect(info.mock.calls.flat().join(" ")).not.toContain("a@b.test");
   });
 
+  // Moved from the deleted mail/send.test.ts: a stalled provider connection would otherwise hold
+  // the Server Action open until the platform kills the request, with the user watching a spinner
+  // for a message that was never going to arrive.
+  it("bounds the resend call, so a stalled provider cannot hold the request open", async () => {
+    vi.stubEnv("MAIL_TRANSPORT", "resend");
+    vi.stubEnv("RESEND_API_KEY", "re_valid_key");
+    vi.stubEnv("MAIL_FROM", "CECODES <no-reply@x.test>");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    const { sendMail } = await import("@/lib/mail/transport");
+
+    await sendMail(MESSAGE);
+
+    const signal = fetchMock.mock.calls[0]![1]!.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal!.aborted).toBe(false);
+  });
+
   // Moved from the deleted mail/send.test.ts: a .env file cannot comment one line out per server,
   // so an operator turning mail off empties MAIL_FROM instead of deleting the line, and docker
   // compose passes that through as "".
