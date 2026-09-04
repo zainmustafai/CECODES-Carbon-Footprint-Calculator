@@ -1,14 +1,15 @@
 /**
  * Proves a virgin Postgres can be initialized from nothing, twice.
  *
- * Run against a THROWAWAY database only. It applies the bootstrap, every migration and the seed.
- * It never drops or truncates anything, but a database that already holds data will simply be
- * migrated and seeded, which is not what this script is for.
+ * !!! THROWAWAY DATABASE ONLY !!! Never export DATABASE_URL/DIRECT_URL from .env.local for this
+ * script, and never point it at any database holding real data. It applies the bootstrap, every
+ * migration and the seed; it never drops or truncates anything, but a database that already
+ * holds data will simply be migrated and seeded, which is not what this script is for.
  *
  *   docker run -d --name cecodes-verify -e POSTGRES_PASSWORD=verify -p 55432:5432 postgres:17-alpine
  *   DATABASE_URL=postgresql://postgres:verify@127.0.0.1:55432/postgres \
  *   DIRECT_URL=postgresql://postgres:verify@127.0.0.1:55432/postgres \
- *   ADMIN_EMAIL=verify@example.org ADMIN_PASSWORD=verify-password-1234 \
+ *   AUTH_PROVIDER=local ADMIN_EMAIL=verify@example.org ADMIN_PASSWORD=verify-password-1234 \
  *   bun scripts/verify-fresh-db.ts
  */
 import { spawnSync } from "node:child_process";

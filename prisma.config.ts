@@ -2,10 +2,20 @@
 // npm install --save-dev prisma dotenv
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "prisma/config";
+import { restoreShellEnv } from "./src/lib/env-precedence";
+
+// Snapshot the shell's own environment before dotenv touches anything. See restoreShellEnv for
+// why this exists: without it, a shell-exported DATABASE_URL/DIRECT_URL meant for a throwaway
+// verification database gets silently replaced by .env.local's committed production connection
+// string, and the command that follows runs against the shared production database instead.
+const shellSnapshot = { ...process.env };
 
 // Load .env then .env.local (the latter wins) so the Prisma CLI sees the Supabase creds.
 loadEnv({ path: ".env", quiet: true });
 loadEnv({ path: ".env.local", override: true, quiet: true });
+
+// Shell exports win over both files. Precedence is now: shell env > .env.local > .env.
+restoreShellEnv(process.env, shellSnapshot);
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
