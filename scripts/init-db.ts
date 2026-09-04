@@ -19,6 +19,7 @@
  * Logs name variables, never values: these lines get pasted into chat windows.
  */
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { Client } from "pg";
 import { INIT_ENV_KEYS, validateInitEnv } from "../src/lib/env";
 
@@ -104,6 +105,21 @@ async function main() {
   if (!migrationUrl) fail("Neither DIRECT_URL nor DATABASE_URL is set.");
   log("Waiting for the database...");
   await waitForDatabase(migrationUrl);
+
+  // 2b. Objects the migration chain needs that only Supabase supplies. Idempotent and guarded per
+  //     object, so this is a no-op on a Supabase database and the reason a plain Postgres works at
+  //     all. See scripts/bootstrap-db.sql for why migration 2 cannot simply be edited.
+  log("Applying database bootstrap...");
+  const bootstrapClient = new Client({ connectionString: migrationUrl });
+  try {
+    await bootstrapClient.connect();
+    await bootstrapClient.query(readFileSync("scripts/bootstrap-db.sql", "utf8"));
+    log("Database bootstrap completed.");
+  } catch (error) {
+    fail("Database bootstrap failed.", error);
+  } finally {
+    await bootstrapClient.end().catch(() => {});
+  }
 
   // 3. Schema. Forward-only; applies just the pending migrations and prints which.
   run("Applying pending migrations", "bunx", ["prisma", "migrate", "deploy"]);
