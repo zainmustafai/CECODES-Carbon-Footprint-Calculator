@@ -71,11 +71,15 @@ services:
       - path: .env.local
         required: false
     environment:
-      # The default points at the db service above, so `docker compose up -d` works with no .env
-      # at all. A .env or .env.local entry overrides it, which is how a deployment points at a
-      # managed Postgres instead.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}
-      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}}
+      # The default points at the db service above and is built from the same POSTGRES_* variables
+      # it uses, so changing one cannot drift from the other. That default resolves with no
+      # configuration at all, and is overridden by a project-root .env or by --env-file, because
+      # those feed ${...} interpolation directly. An env_file: entry such as .env.local does NOT
+      # override it: env_file only injects variables into the container's own environment, after
+      # interpolation has already happened. To point THIS default at what .env.local names, run
+      # `docker compose --env-file .env.local up -d`, as the file header above documents.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
     depends_on:
       db:
@@ -103,11 +107,15 @@ services:
       - path: .env.local
         required: false
     environment:
-      # The default points at the db service above, so `docker compose up -d` works with no .env
-      # at all. A .env or .env.local entry overrides it, which is how a deployment points at a
-      # managed Postgres instead.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}
-      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://cecodes:cecodes-local-dev@db:5432/cecodes}}
+      # The default points at the db service above and is built from the same POSTGRES_* variables
+      # it uses, so changing one cannot drift from the other. That default resolves with no
+      # configuration at all, and is overridden by a project-root .env or by --env-file, because
+      # those feed ${...} interpolation directly. An env_file: entry such as .env.local does NOT
+      # override it: env_file only injects variables into the container's own environment, after
+      # interpolation has already happened. To point THIS default at what .env.local names, run
+      # `docker compose --env-file .env.local up -d`, as the file header above documents.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
     depends_on:
       init:
@@ -169,8 +177,8 @@ services:
     networks: [internal]
 
 networks:
-  # A private bridge. Nothing here publishes a database port, because there is no database
-  # container; the app reaches Supabase outbound over TLS.
+  # A private bridge. Nothing here publishes a database port to the host or the internet; db is
+  # reachable only from other containers on this network, by service name.
   internal:
     driver: bridge
 
