@@ -29,6 +29,12 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
+# prisma.config.ts imports this one file, and package.json's postinstall runs `prisma generate`
+# during `bun install` below, so it has to exist here even though the rest of src/ does not yet.
+# Copying only this file, not all of src/, keeps this stage's cache keyed on the lockfile and
+# prisma/, not on every source edit - copying the whole of src/ here would defeat the reason this
+# stage is separate from builder/migrator in the first place.
+COPY src/lib/env-precedence.ts ./src/lib/env-precedence.ts
 RUN bun install --frozen-lockfile
 
 # ---------------------------------------------------------------------------------------------
