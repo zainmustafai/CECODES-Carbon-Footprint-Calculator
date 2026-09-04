@@ -115,7 +115,10 @@ services:
       MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
-      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      # MAIL_FROM is deliberately NOT defaulted here. src/lib/env.ts's runtimeSchema requires
+      # RESEND_API_KEY and MAIL_FROM both-or-neither; defaulting MAIL_FROM alone, with no matching
+      # RESEND_API_KEY default, would make every boot fail that check. It comes back the moment
+      # Task 4 replaces that both-or-neither rule with one that understands MAIL_TRANSPORT.
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
     depends_on:
       db:
@@ -153,7 +156,10 @@ services:
       MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
-      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      # MAIL_FROM is deliberately NOT defaulted here. src/lib/env.ts's runtimeSchema requires
+      # RESEND_API_KEY and MAIL_FROM both-or-neither; defaulting MAIL_FROM alone, with no matching
+      # RESEND_API_KEY default, would make every boot fail that check. It comes back the moment
+      # Task 4 replaces that both-or-neither rule with one that understands MAIL_TRANSPORT.
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
     depends_on:
       init:
