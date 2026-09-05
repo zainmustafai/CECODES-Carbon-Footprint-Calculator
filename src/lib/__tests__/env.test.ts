@@ -60,17 +60,23 @@ describe("validateRuntimeEnv", () => {
     expect(reported[0]).toMatch(/DATABASE_URL/);
   });
 
-  // These messages go straight to a container log, and container logs get pasted into issue
-  // trackers and chat windows. A DATABASE_URL carries a database password.
-  it("reports the name of a bad variable and never its value", () => {
-    let message = "";
-    try {
-      validateRuntimeEnv({ ...VALID, SITE_URL: "s3cr3t-looking-value" });
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    expect(message).toContain("SITE_URL");
-    expect(message).not.toContain("s3cr3t-looking-value");
+  // The whole list of things that may stop this process, in one assertion, because the list is the
+  // design and not an implementation detail. A rule in this schema costs every route on the site,
+  // /api/health/live included, so it has to be a rule about being able to SERVE at all. Anything
+  // that only one feature reads is reported instead. If a second variable is ever added here, this
+  // is the test that has to be argued with first.
+  it("has DATABASE_URL as its only fatal rule", () => {
+    expect(boot({ DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
+    expect(
+      boot({
+        SITE_URL: "huella.cecodes.org",
+        MAIL_TRANSPORT: "sendgrid",
+        RESEND_API_KEY: "re_LiveKey\nwrapped",
+        MAIL_FROM: "CECODES",
+        SMTP_PORT: "not-a-number",
+        SMTP_USER: "relay-user",
+      }),
+    ).not.toThrow();
   });
 
   describe("optional variables", () => {
@@ -88,22 +94,31 @@ describe("validateRuntimeEnv", () => {
     });
   });
 
+  // SITE_URL used to be fatal here, and it is the same mistake the mail rules were: a rule that
+  // belongs to one feature, enforced with the one consequence that costs every feature. It is
+  // worse than the mail case in one respect, because the value that trips it is the one an
+  // operator is most likely to type. DOMAIN is a bare hostname, so SITE_URL gets copied from it as
+  // a bare hostname, validateRuntimeEnv threw, instrumentation.ts exited, and the site answered
+  // 500 everywhere while edge middleware kept serving. A password-reset link pointing at the wrong
+  // hostname is a bad day; a site that will not serve its dashboard is an outage.
+  //
+  // The rule itself is not relaxed. It moved to validateMailConfig, asserted at the bottom of this
+  // file, where it is named at boot and costs nothing else.
   describe("SITE_URL", () => {
     it("accepts an absolute http(s) origin, development ports included", () => {
       expect(boot({ SITE_URL: "https://huella.example.org" })).not.toThrow();
       expect(boot({ SITE_URL: "http://localhost:3000" })).not.toThrow();
     });
 
-    // The wrong answer an operator actually gives: DOMAIN is a bare hostname, so it gets copied
-    // here as one. resolveSiteOrigin() cannot parse it, silently ignores the override and mails
-    // links built from a fallback, or from nothing at all.
-    it("refuses a bare hostname copied from DOMAIN", () => {
-      expect(boot({ SITE_URL: "huella.example.org" })).toThrow(/SITE_URL/);
+    // The exact value that would have taken production down: a hostname with no scheme, which is
+    // what DOMAIN holds and what an operator setting SITE_URL for the first time copies.
+    it("boots on a bare hostname copied from DOMAIN", () => {
+      expect(boot({ SITE_URL: "huella.cecodes.org" })).not.toThrow();
     });
 
-    it("refuses a scheme no browser would follow to a reset page", () => {
-      expect(boot({ SITE_URL: "ftp://huella.example.org" })).toThrow(/SITE_URL/);
-      expect(boot({ SITE_URL: "javascript:alert(1)" })).toThrow(/SITE_URL/);
+    it("boots on a scheme no browser would follow to a reset page", () => {
+      expect(boot({ SITE_URL: "ftp://huella.example.org" })).not.toThrow();
+      expect(boot({ SITE_URL: "javascript:alert(1)" })).not.toThrow();
     });
   });
 
@@ -297,10 +312,16 @@ describe("validateMailConfig", () => {
     expect(mailConfigured(source)).toBe(true);
   });
 
-  // Mail simply off is not a misconfiguration, it is what a trial run looks like.
+  // Mail simply off is not a misconfiguration, it is what a trial run looks like. Nothing that is
+  // only required BY a transport may be reported when no transport was selected, or the boot log
+  // of a deployment that never wanted mail fills with demands it has no reason to meet. The SMTP
+  // pair is the case worth naming, because it is a cross-field rule and those are the ones that
+  // forget to check whether they apply at all.
   it("reports nothing when no transport is selected", () => {
     expect(validateMailConfig({})).toEqual([]);
     expect(validateMailConfig({ RESEND_API_KEY: "re_live_key" })).toEqual([]);
+    expect(validateMailConfig({ SMTP_USER: "relay-user" })).toEqual([]);
+    expect(validateMailConfig({ SMTP_PASSWORD: "relay-pass" })).toEqual([]);
     expect(mailConfigured({})).toBe(false);
   });
 
@@ -316,6 +337,33 @@ describe("validateMailConfig", () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]).toContain("RESEND_API_KEY");
     expect(mailConfigured(source)).toBe(false);
+  });
+
+  // The newline above is the one that took the site down, but it is the least interesting of the
+  // three, because a wrapped line is at least VISIBLE in a .env file if you look hard. These are
+  // the ones that survive a careful operator: a non-breaking space and a smart quote ride along
+  // with a paste out of a browser or a chat window and render exactly like the characters they
+  // are not, and an interior plain space looks like nothing at all. Each one makes the key
+  // unusable as an HTTP header value, so Resend would reject every send, and without this rule the
+  // deployment would look configured, write token rows, and lose the mail silently.
+  it("names RESEND_API_KEY for an interior non-breaking space, smart quote or plain space", () => {
+    // Written as escapes on purpose. The whole point of the first two is that they are invisible
+    // in a .env file, and a literal one pasted in here would be just as invisible in this test: a
+    // later edit could turn it into an ordinary space and the assertion would still pass while
+    // asserting something else entirely.
+    const NBSP = " ";
+    const SMART_QUOTE = "’";
+    for (const key of [`re_Live${NBSP}Key`, `re_Live${SMART_QUOTE}Key`, "re_Live Key"]) {
+      const source = {
+        MAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: key,
+        MAIL_FROM: "CECODES <no-reply@example.org>",
+      };
+      const issues = validateMailConfig(source);
+      expect(issues).toHaveLength(1);
+      expect(issues[0]).toContain("RESEND_API_KEY");
+      expect(mailConfigured(source)).toBe(false);
+    }
   });
 
   // These lines go to a Vercel runtime log and a container log alike, and both get pasted into
@@ -404,5 +452,77 @@ describe("validateMailConfig", () => {
     };
     expect(validateMailConfig(source).join("\n")).toContain("SMTP_PORT");
     expect(mailConfigured(source)).toBe(false);
+  });
+
+  /**
+   * SITE_URL is reported here rather than being fatal at boot, and it is reported HERE rather than
+   * by a reporter of its own because the only thing that ever reads it is the mail path: both
+   * callers of siteOrigin() are the two Server Actions that build an emailed link. A deployment
+   * with mail off cannot be harmed by a wrong SITE_URL, which is another way of saying it is a
+   * mail variable.
+   */
+  describe("SITE_URL", () => {
+    // Named, because the failure it causes is otherwise silent in the worst way: resolveSiteOrigin
+    // discards what it cannot parse and falls through to DOMAIN and then VERCEL_URL, so the
+    // override an operator set ON PURPOSE is ignored and the link goes out pointing somewhere
+    // else. Nobody discovers that from the app; they discover it from a user forwarding the mail.
+    it("names SITE_URL for a bare hostname copied from DOMAIN", () => {
+      const issues = validateMailConfig({ SITE_URL: "huella.cecodes.org" });
+      expect(issues).toHaveLength(1);
+      expect(issues[0]).toContain("SITE_URL");
+    });
+
+    it("names SITE_URL for a scheme no browser would follow to a reset page", () => {
+      expect(validateMailConfig({ SITE_URL: "ftp://huella.example.org" }).join("\n")).toContain("SITE_URL");
+      expect(validateMailConfig({ SITE_URL: "javascript:alert(1)" }).join("\n")).toContain("SITE_URL");
+    });
+
+    // The same hygiene rule the rest of this reporter follows. SITE_URL is not a credential, but
+    // these lines are assembled by shared code that also prints RESEND_API_KEY's issues, and a
+    // reporter that quotes one value will eventually quote the other.
+    it("names SITE_URL without printing the value", () => {
+      const issues = validateMailConfig({ SITE_URL: "s3cr3t-looking-value" });
+      expect(issues.join("\n")).toContain("SITE_URL");
+      expect(issues.join("\n")).not.toContain("s3cr3t-looking-value");
+    });
+
+    it("reports nothing for an absolute http(s) origin, or for no SITE_URL at all", () => {
+      expect(validateMailConfig({ SITE_URL: "https://huella.cecodes.org" })).toEqual([]);
+      expect(validateMailConfig({ SITE_URL: "http://localhost:3000" })).toEqual([]);
+      expect(validateMailConfig({ SITE_URL: " https://huella.cecodes.org " })).toEqual([]);
+      expect(validateMailConfig({ SITE_URL: "" })).toEqual([]);
+      expect(validateMailConfig({})).toEqual([]);
+    });
+
+    /**
+     * And the decision this whole change turns on: reported, but NOT disabling.
+     *
+     * mailConfigured() answers false on every other line this reporter can produce, because every
+     * other line means a send that cannot succeed: a key Resend rejects, a From with no address, a
+     * relay that will answer 530. A wrong SITE_URL means none of that. The mail leaves, arrives,
+     * and carries a link that works, built from DOMAIN or VERCEL_URL instead, which on Vercel is
+     * the canonical hostname anyway.
+     *
+     * The cost of getting this wrong is asymmetric and that is what settles it. Answering false
+     * would mean nobody on that deployment can reset a password at all, which is the recovery path
+     * for people who are ALREADY locked out, taken away over a hostname preference. Answering true
+     * costs, at worst, a link on the wrong one of the deployment's own hostnames.
+     *
+     * The case where there is no fallback is already handled, and not here: requestPasswordReset
+     * and createUser both read siteOrigin() and refuse when it is empty, so an unusable SITE_URL
+     * with no DOMAIN and no VERCEL_URL still writes no token row and mails nothing. This function
+     * does not need to duplicate that guard, and duplicating it would break the case where the
+     * fallback exists.
+     */
+    it("does not disable mail: an unusable SITE_URL is reported, and mail still sends", () => {
+      const source = {
+        MAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: "re_1AbCdEf_GhIjKlMnOpQrStUvWxYz",
+        MAIL_FROM: "CECODES <no-reply@example.org>",
+        SITE_URL: "huella.cecodes.org",
+      };
+      expect(validateMailConfig(source).join("\n")).toContain("SITE_URL");
+      expect(mailConfigured(source)).toBe(true);
+    });
   });
 });

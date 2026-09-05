@@ -35,6 +35,11 @@ sets `MAIL_TRANSPORT=resend` with `RESEND_API_KEY` and `MAIL_FROM` instead, at w
 sits idle. `MAIL_TRANSPORT=none` turns mail off entirely, and the password-reset action then
 refuses up front rather than telling a user to watch an inbox nothing will arrive in.
 
+**No mail setting can stop this app**, and a broken one behaves exactly like `none`: the boot log
+names the offending variable, the site serves every page as usual, and password reset refuses up
+front. That is deliberate and it is the quieter failure of the two, so section 7 says where to look
+before a user has to tell you.
+
 > ### Read the init log for the admin password
 >
 > `ADMIN_PASSWORD` is optional, and leaving it unset is the safer choice. When it is unset,
@@ -119,6 +124,11 @@ system that answers requests is worse than one that is plainly down. Step 6 is t
 warns instead: a missing factor library leaves an app that works and reports its own gaps, which is
 better than no app at all.
 
+Step 1 checks a deliberately short list: `DATABASE_URL`, the shape of `SITE_URL` if one is set, and
+`ADMIN_EMAIL` / `ADMIN_PASSWORD`. It does **not** look at the mail variables at all. A mail mistake
+therefore passes initialization untouched, reaches the `app` container, and is reported there
+without stopping it, which is why section 7 sends you to the app's log and not this one for mail.
+
 ---
 
 ## 4. Environment variables
@@ -167,14 +177,20 @@ bundled reset flow works with no configuration at all.
 
 ### Mail
 
+**None of these can stop the app.** `src/lib/env.ts` checks every mail rule at boot through
+`validateMailConfig()`, which reports rather than throws: a problem prints a banner naming the
+variable, the app serves normally, and `mailConfigured()` answers false so password reset and the
+welcome mail are refused up front. "Required" in the table below therefore means "required for mail
+to work at all", never "required to start".
+
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `MAIL_TRANSPORT` | `smtp` | One of `smtp`, `resend`, `none`. Anything else stops the app at boot. |
-| `MAIL_FROM` | `CECODES <no-reply@localhost>` | **Required whenever `MAIL_TRANSPORT` is `smtp` or `resend`**; the app and init both refuse to start without it. A From header, so either a bare address or `Name <address>`, and it must contain an `@`. |
-| `SMTP_HOST` | `mailpit` | Required when `MAIL_TRANSPORT=smtp`. |
+| `MAIL_TRANSPORT` | `smtp` | One of `smtp`, `resend`, `none`. Anything else is reported at boot and read as `none`, so mail is off and the app runs. |
+| `MAIL_FROM` | `CECODES <no-reply@localhost>` | **Required for mail whenever `MAIL_TRANSPORT` is `smtp` or `resend`.** Missing it disables mail and names itself in the boot log; nothing refuses to start, and `init` never looks at it. A From header, so either a bare address or `Name <address>`, and it must contain an `@`. |
+| `SMTP_HOST` | `mailpit` | Required for mail when `MAIL_TRANSPORT=smtp`. |
 | `SMTP_PORT` | `1025` | Implicit TLS on port 465 only. Anything else starts plaintext and upgrades with STARTTLS when the relay offers it. |
-| `SMTP_USER` / `SMTP_PASSWORD` | unset | Omitted from the connection entirely when unset, which is what Mailpit wants. A real relay usually needs both. |
-| `RESEND_API_KEY` | unset | Required when `MAIL_TRANSPORT=resend`, together with `MAIL_FROM`. Both or neither. |
+| `SMTP_USER` / `SMTP_PASSWORD` | unset | A pair. Both unset is normal and is what Mailpit wants; they are then omitted from the connection entirely. One without the other is not a partial login but no authentication at all, so it disables mail and is reported by name rather than left to fail as a relay's "530 Authentication required". A real relay usually needs both. |
+| `RESEND_API_KEY` | unset | Required for mail when `MAIL_TRANSPORT=resend`, together with `MAIL_FROM`. Both or neither; one alone disables mail. It must also be plain visible ASCII, so a key that wrapped on paste or picked up a smart quote is caught here instead of dropping every message later. |
 
 ### Other
 
@@ -234,6 +250,19 @@ old value. Vercel hides this behind a shared cache layer. Compose does not.
 **The build needs internet.** `src/app/layout.tsx` loads fonts via `next/font/google`, which fetches
 from Google during `docker build`.
 
+**Broken mail is now silent, and that is the trade.** It used to stop the process, which was
+unmissable and also wrong: a mistyped API key for an auxiliary feature took down a site that could
+serve every page it has, and on a single-process platform such as Vercel that meant every route
+answering 500 at once, `/api/health/live` included. Mail no longer has that power. What you get
+instead is a deployment that is up, healthy, green, and quietly unable to send a password reset: the
+action refuses before writing a token row, so the user is not lied to, but nobody is told either.
+The boot log is the only place it appears. Read it at deploy time, not when somebody reports being
+locked out.
+
+```bash
+docker compose logs app | head -40   # the MAIL IS MISCONFIGURED banner, if there is one, is near the top
+```
+
 **Nothing is published beyond loopback.** Every published port is bound to `127.0.0.1`: the app on
 3000, Mailpit on 1025 and 8025, and the database on **55432** (not 5432, so it cannot collide with
 a Postgres the host already runs). On a public server none of them is reachable from the internet
@@ -249,13 +278,15 @@ one service.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | You never saw the generated admin password | The banner prints once, on the run that creates the admin row, and `docker compose down` removed the log along with the container | Set `ADMIN_PASSWORD` in `.env` (12+ characters) and re-run initialization: `docker compose run --rm init`. That rewrites the password and ends every open session. |
-| init exits 1, "Invalid environment" | A variable is missing or malformed | The message names it. Commonly `ADMIN_EMAIL` not parsing as an address, `ADMIN_PASSWORD` under 12 characters, `SITE_URL` given as a bare hostname, or `MAIL_FROM` missing next to the selected transport. |
+| init exits 1, "Invalid environment" | A variable is missing or malformed | The message names it. Commonly `ADMIN_EMAIL` not parsing as an address, `ADMIN_PASSWORD` under 12 characters, `DATABASE_URL` unset, or `SITE_URL` given as a bare hostname. It is never a mail variable: init does not validate mail. |
 | init exits 1, "Database unreachable after 30 attempts" | Wrong host or password, or your Postgres is unreachable from the container network | Check `DIRECT_URL`. If you pointed it at an external database, confirm the containers can actually reach that host. |
 | init exits 1, "Database bootstrap failed" | The connecting role cannot create the objects `scripts/bootstrap-db.sql` supplies | On a fresh database it needs to create a role and a schema. On a managed Postgres, connect as an owner-level role. |
 | init exits 1, "Cannot seed the admin account. Missing: ADMIN_EMAIL" | `ADMIN_EMAIL` is empty | Set it. Without an admin there is no way in: self-serve registration is off. |
 | init exits 1, "DEMO_SEED_ALLOWED=true is set" | Demo flag copied from a dev `.env` | Remove it. This guard is protecting real data. |
 | app container never starts | init failed | `docker compose logs init`. The app is gated on init succeeding. |
-| app exits 1 immediately | Boot-time env validation failed | `docker compose logs app`. It names the variable: `DATABASE_URL`, a malformed `SITE_URL`, an unknown `MAIL_TRANSPORT`, or a half-configured transport (`SMTP_HOST`/`MAIL_FROM` for smtp, `RESEND_API_KEY`/`MAIL_FROM` for resend). |
+| app exits 1 immediately, or restarts in a loop | Boot-time env validation failed | `docker compose logs app`. It names the variable, and as `src/lib/env.ts` stands there are only two candidates: `DATABASE_URL` unset, or `SITE_URL` set to something that is not an absolute http(s) URL. No mail variable can do this any more. The container carries `restart: unless-stopped`, so a boot refusal looks like a crash loop rather than a single exit. |
+| Every route returns 500 on a deployment that just went out green, and only some of them | The same boot refusal as the row above, on a platform that serves the whole deployment from one process (Vercel) instead of a container it can mark unhealthy. The boot hook exits, so every Node route 500s at once, `/api/health/live` included, while edge middleware keeps answering normally, which is what makes the site look half alive | Read the platform's **runtime** log, not the build log. The build succeeded; that is why the deployment is green. One line at the top names the variable. This happened in production: the cause was a single environment variable, and mail was the reason, which is exactly why mail no longer sits in the fatal path. Today only `DATABASE_URL` and a malformed `SITE_URL` can still produce it. |
+| The site works, but password reset does nothing and no mail arrives | Mail is misconfigured, so `mailConfigured()` is false and the action refuses before writing a token row. Nothing is broken from the outside, which is why this can run for weeks | `docker compose logs app \| head -40`, or the platform's runtime log. A `MAIL IS MISCONFIGURED` banner names the variable at fault. Fix it and redeploy; the boot log is the only place this is reported. |
 | app runs but shows `unhealthy` | Database unreachable from the app | Hit the readiness endpoint inside: `docker compose exec app node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>r.text()).then(console.log)"` |
 | Styles missing, pages unstyled | `.next/static` not copied | Rebuild without cache: `docker compose build --no-cache app`. |
 | Build fails downloading fonts | No outbound HTTPS on the build host | Allow egress to `fonts.googleapis.com` / `fonts.gstatic.com`. |

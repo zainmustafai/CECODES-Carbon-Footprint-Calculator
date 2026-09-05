@@ -94,15 +94,18 @@ const mailTransportSchema = z.enum(MAIL_TRANSPORTS, {
 const runtimeSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  // Checked here for the first time. resolveSiteOrigin() in src/lib/site-url.ts discards anything
-  // it cannot parse and falls through to DOMAIN and then VERCEL_URL, so the commonest wrong answer
-  // (a bare hostname copied from DOMAIN) failed silently in the worst way: the override an
-  // operator set on purpose was ignored, and the reset mail went out pointing at whatever the
-  // fallbacks named, or nowhere at all when there were none. Naming the variable at boot is
-  // cheaper than a user discovering it in their inbox.
-  SITE_URL: optionalVar(
-    z.url({ protocol: /^https?$/, message: "SITE_URL must be an absolute http(s) URL" }),
-  ),
+  // Carried as a plain optional string, exactly like the mail variables below and for the same
+  // reason. Its shape rule lives in siteUrlSchema and is REPORTED, not fatal.
+  //
+  // It used to be enforced here, and that was the mail mistake made a second time, with a worse
+  // trigger. The value that trips the rule is the one an operator is most likely to type: DOMAIN
+  // holds a bare hostname, so SITE_URL gets set to a bare hostname, and a first deploy that sets
+  // it would refuse to start. Nothing about a wrong SITE_URL stops this app from serving a single
+  // page. resolveSiteOrigin() discards what it cannot parse and falls through to DOMAIN and then
+  // VERCEL_URL, so the honest consequence is a mailed link on the wrong hostname, or on Vercel the
+  // right one by accident. That is a reason to shout at boot. It is not a reason to answer 500 on
+  // /api/health/live.
+  SITE_URL: optionalVar(z.string()),
 
   // The mail variables are carried here as plain optional strings and nothing more. Every rule
   // about their CONTENT lives in mailSchema below, because a rule in this schema is fatal and
@@ -199,6 +202,32 @@ const mailSchema = z
   });
 
 /**
+ * SITE_URL's shape, kept apart from both schemas above on purpose, because it belongs to neither.
+ *
+ * Not in runtimeSchema, because failing it stops the process, and a wrong SITE_URL is not a reason
+ * the app cannot serve. See the field's own comment there.
+ *
+ * Not folded into mailSchema either, even though validateMailConfig reports it, because
+ * mailConfigured() reads mailSchema and must NOT read this one. A separate object is what keeps
+ * those two answers separable; see mailConfigured() for the argument.
+ *
+ * Reported by validateMailConfig rather than by a reporter of its own for a reason worth stating,
+ * since a reporter of its own was the obvious alternative. SITE_URL has exactly one reader:
+ * siteOrigin() in src/lib/site-url.ts, whose only two callers are the password reset action and
+ * the admin's create-user welcome mail. It is read to build an emailed link and for nothing else,
+ * so a deployment with mail off cannot be harmed by a wrong value, which is another way of saying
+ * it is a mail variable. The practical half of the argument matters too: the boot hook already
+ * calls validateMailConfig and already prints its lines by name, so this rule reaches an operator
+ * through machinery that exists, instead of through a second reporter that src/instrumentation.ts
+ * would have to be taught to call and could silently forget to.
+ */
+const siteUrlSchema = z.object({
+  SITE_URL: optionalVar(
+    z.url({ protocol: /^https?$/, message: "SITE_URL must be an absolute http(s) URL" }),
+  ),
+});
+
+/**
  * Additionally required by the init job: migrations, and creating the first admin.
  */
 function initSchemaFor() {
@@ -234,6 +263,12 @@ function issueLines(error: z.ZodError): string[] {
   });
 }
 
+/** Every issue `schema` finds in `source`, as reportable lines. Empty when it parses. */
+function issuesFor(schema: z.ZodType, source: EnvSource): string[] {
+  const parsed = schema.safeParse(source);
+  return parsed.success ? [] : issueLines(parsed.error);
+}
+
 function formatIssues(error: z.ZodError): string {
   return issueLines(error)
     .map((line) => `  - ${line}`)
@@ -266,6 +301,10 @@ export function validateInitEnv(source: EnvSource = process.env) {
  * Every mail problem in `source`, one line each, naming the variable and never quoting its value.
  * An empty array means the mail configuration is coherent, which includes "no mail at all".
  *
+ * "Mail problem" includes SITE_URL, which is the origin every emailed link is built from and is
+ * read for nothing else. See siteUrlSchema for why it is reported here and why it is kept in a
+ * schema of its own rather than merged into mailSchema.
+ *
  * Returns instead of throwing, and that is the whole point of it. The caller at boot
  * (src/instrumentation.ts) logs these and carries on, because a wrong RESEND_API_KEY is a reason
  * for password reset to stop working, not for /api/health/live to answer 500. The caller that
@@ -277,8 +316,7 @@ export function validateInitEnv(source: EnvSource = process.env) {
  * trackers and chat windows.
  */
 export function validateMailConfig(source: EnvSource = process.env): string[] {
-  const parsed = mailSchema.safeParse(source);
-  return parsed.success ? [] : issueLines(parsed.error);
+  return [...issuesFor(mailSchema, source), ...issuesFor(siteUrlSchema, source)];
 }
 
 /** The transport in force. Unset, or unreadable, answers "none". */
