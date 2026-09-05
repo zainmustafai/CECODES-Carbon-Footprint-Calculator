@@ -8,10 +8,13 @@
 # thing you must read rather than set is the admin password, which init generates and prints once
 # (see the init service, and `docker compose logs init`).
 #
-# On a developer machine that already has .env.local, point compose at it so its overrides reach
-# ${...} substitution too (env_file feeds the containers; --env-file feeds ${...} substitution):
+# Two env files, two audiences, and they are not interchangeable:
 #
-#   docker compose --env-file .env.local up -d --build
+#   .env         configures the CONTAINERS. compose reads it for ${...} substitution, so a value
+#                here REPLACES a default below. Copy it from .env.example.
+#   .env.local   configures the HOST (Next.js, prisma.config.ts, vitest, playwright). It names
+#                127.0.0.1:55432 for the database and 127.0.0.1:1025 for mailpit, addresses that
+#                mean "myself" inside a container. Nothing here reads it, on purpose.
 #
 # Four containers by default:
 #   db      Postgres, with a named volume. DATABASE_URL can point at this container or at any
@@ -121,22 +124,28 @@ services:
     build:
       context: .
       target: migrator
-    # Either file, neither required at parse time. A deployed server has .env; a developer's
-    # machine already has .env.local full of the same secrets, and asking them to keep a second
-    # copy in step is how the two drift. Later entries win, so .env.local overrides .env locally.
+    # .env ONLY, and deliberately not .env.local.
+    #
+    # The two files answer different questions and must not be mixed. .env configures the
+    # CONTAINERS; .env.local configures the HOST - Next.js and prisma.config.ts read it, and it
+    # names 127.0.0.1:55432 for the published database and 127.0.0.1:1025 for mailpit. Feeding
+    # .env.local to a container injects host loopback addresses into a process for which 127.0.0.1
+    # is itself.
+    #
+    # It also let a developer's local switch stop a deployment: DEMO_SEED_ALLOWED=true in
+    # .env.local reached init through this list, init correctly refuses to run with it set, so
+    # `docker compose up -d` failed and the app never started. Neither file should be able to do
+    # that to the other.
     env_file:
       - path: .env
-        required: false
-      - path: .env.local
         required: false
     environment:
       # The default points at the db service above and is built from the same POSTGRES_* variables
       # it uses, so changing one cannot drift from the other. That default resolves with no
-      # configuration at all, and is overridden by a project-root .env or by --env-file, because
-      # those feed ${...} interpolation directly. An env_file: entry such as .env.local does NOT
-      # override it: env_file only injects variables into the container's own environment, after
-      # interpolation has already happened. To point THIS default at what .env.local names, run
-      # `docker compose --env-file .env.local up -d`, as the file header above documents.
+      # configuration at all, and is overridden by a project-root .env, because that is the file
+      # compose feeds to ${...} interpolation. Note that an env_file: entry could never override
+      # this line anyway: env_file injects into the container's environment AFTER interpolation,
+      # and an environment: key wins over it.
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       # Both lines are character for character what the app service below sets, and kept that way
@@ -171,19 +180,28 @@ services:
     build:
       context: .
       target: runner
+    # .env ONLY, and deliberately not .env.local.
+    #
+    # The two files answer different questions and must not be mixed. .env configures the
+    # CONTAINERS; .env.local configures the HOST - Next.js and prisma.config.ts read it, and it
+    # names 127.0.0.1:55432 for the published database and 127.0.0.1:1025 for mailpit. Feeding
+    # .env.local to a container injects host loopback addresses into a process for which 127.0.0.1
+    # is itself.
+    #
+    # It also let a developer's local switch stop a deployment: DEMO_SEED_ALLOWED=true in
+    # .env.local reached init through this list, init correctly refuses to run with it set, so
+    # `docker compose up -d` failed and the app never started. Neither file should be able to do
+    # that to the other.
     env_file:
       - path: .env
-        required: false
-      - path: .env.local
         required: false
     environment:
       # The default points at the db service above and is built from the same POSTGRES_* variables
       # it uses, so changing one cannot drift from the other. That default resolves with no
-      # configuration at all, and is overridden by a project-root .env or by --env-file, because
-      # those feed ${...} interpolation directly. An env_file: entry such as .env.local does NOT
-      # override it: env_file only injects variables into the container's own environment, after
-      # interpolation has already happened. To point THIS default at what .env.local names, run
-      # `docker compose --env-file .env.local up -d`, as the file header above documents.
+      # configuration at all, and is overridden by a project-root .env, because that is the file
+      # compose feeds to ${...} interpolation. Note that an env_file: entry could never override
+      # this line anyway: env_file injects into the container's environment AFTER interpolation,
+      # and an environment: key wins over it.
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}
       DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL:-postgresql://${POSTGRES_USER:-cecodes}:${POSTGRES_PASSWORD:-cecodes-local-dev}@db:5432/${POSTGRES_DB:-cecodes}}}
       # The origin in every emailed link (password reset, the admin's welcome mail).
