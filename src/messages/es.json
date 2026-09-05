@@ -1009,7 +1009,7 @@
       },
       "versions": {
         "title": "Historial de versiones",
-        "subtitle": "Control de cambios de la biblioteca, igual que en el Excel.",
+        "subtitle": "Cada publicación de la biblioteca de factores, con la fecha, quién la elaboró, revisó y autorizó, y qué cambió.",
         "create": "Nueva versión",
         "createTitle": "Nueva versión de la biblioteca",
         "createSubtitle": "Registra una publicación de la biblioteca de factores.",

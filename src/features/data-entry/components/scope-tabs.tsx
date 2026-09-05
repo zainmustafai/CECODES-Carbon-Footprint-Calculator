@@ -66,7 +66,10 @@ export function ScopeTabs({
       {/* The wrapper scrolls so three tabs plus badges never force the page sideways on a
           narrow phone. */}
       <div className="-mx-1 overflow-x-auto px-1">
-        <TabsList variant="line">
+        {/* The default (filled) variant, not "line". The line variant marks the active tab with
+            a 2px underline, which on a screen this dense was easy to miss; the scope you are
+            editing is the single most important piece of state here. */}
+        <TabsList>
           {scopes.map((scope) => {
             const sources = scope.categories.reduce(
               (n, c) => n + c.sources.length,

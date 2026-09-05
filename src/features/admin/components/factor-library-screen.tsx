@@ -79,7 +79,9 @@ async function TabBar({ tab }: { tab: Tab }) {
   ];
 
   return (
-    <div className="inline-flex gap-1 rounded-lg bg-muted p-1">
+    // flex-wrap, not a horizontal scroller: four tabs at this size overflow a phone, and a
+    // wrapped second row is easier to hit than a scroll region with no visible affordance.
+    <div className="inline-flex flex-wrap gap-1.5 rounded-xl bg-muted p-1.5">
       {items.map((item) => {
         const active = item.key === tab;
         return (
@@ -88,10 +90,16 @@ async function TabBar({ tab }: { tab: Tab }) {
             href={`/admin/factors?tab=${item.key}`}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "rounded-lg px-6 py-3 text-sm font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              // The active tab is filled with --primary rather than swapped to --background.
+              // The old treatment (background fill plus shadow-xs) differed from its neighbours
+              // by a few percent of lightness, which is not a state you notice at a glance,
+              // and it disappeared almost entirely in dark mode where --muted and --background
+              // are only six steps apart.
               active
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
             )}
           >
             {item.label}

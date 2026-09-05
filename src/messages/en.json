@@ -1009,7 +1009,7 @@
       },
       "versions": {
         "title": "Version history",
-        "subtitle": "The library's change log, mirroring the Excel.",
+        "subtitle": "Each published release of the factor library, with the date, who prepared, reviewed and authorized it, and what changed.",
         "create": "New version",
         "createTitle": "New library version",
         "createSubtitle": "Record a release of the emission-factor library.",
