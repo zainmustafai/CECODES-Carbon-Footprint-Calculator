@@ -1,4 +1,4 @@
-import { validateMailConfig, validateRuntimeEnv } from "@/lib/env";
+import { mailConfigured, validateMailConfig, validateRuntimeEnv } from "@/lib/env";
 
 /**
  * Next's boot hook: the one place this app can refuse to start, and the one place it must be
@@ -57,16 +57,34 @@ export function register() {
   // mail simply stop working, with no error anywhere a user can see.
   const mailIssues = validateMailConfig();
   if (mailIssues.length > 0) {
+    // SITE_URL is the one issue here that does NOT turn mail off, so the banner has to say which
+    // of the two situations this is. Announcing "mail is NOT sent" when mail is in fact sending,
+    // merely with links built from DOMAIN instead, sends the operator hunting the wrong fault,
+    // and a warning that overstates its own consequence is how warnings stop being read.
+    //
+    // mailConfigured() is the authority on that split, so ask it rather than inferring from the
+    // text of the issues. That also means this stays correct on its own if a future rule joins
+    // the reported set on either side of the line.
+    const consequence = mailConfigured()
+      ? [
+          "  Mail still sends. Emailed links fall back to DOMAIN or VERCEL_URL,",
+          "  so they may point at a hostname other than the one you intended.",
+        ]
+      : [
+          "  Mail is NOT sent. Password reset and the welcome mail are refused",
+          "  up front, rather than promising an inbox nothing will reach.",
+        ];
+
     console.error(
       [
         "",
         "================================================================",
-        "  MAIL IS MISCONFIGURED. The app is running; mail is NOT sent.",
-        "  Password reset and the welcome mail will be refused up front.",
+        "  MAIL CONFIGURATION PROBLEM. The app is running.",
+        ...consequence,
         "",
         ...mailIssues.map((issue) => `  - ${issue}`),
         "",
-        "  See .env.example. Fix these and redeploy to restore mail.",
+        "  See .env.example. Fix these and redeploy.",
         "================================================================",
         "",
       ].join("\n"),

@@ -85,9 +85,33 @@ describe("register", () => {
     expect(logged).toContain("RESEND_API_KEY");
     // The reason the app stayed up has to be in the log too, or the next operator reads a warning
     // about mail and starts looking for an outage that is not happening.
-    expect(logged).toContain("MAIL IS MISCONFIGURED");
+    expect(logged).toContain("MAIL CONFIGURATION PROBLEM");
+    // And it must state the RIGHT consequence, not just any consequence. This key genuinely stops
+    // sending, so the banner has to say so. The SITE_URL-only case below says the opposite, and
+    // the two together are what stop the banner drifting back into announcing one outcome for
+    // situations that do not share it.
+    expect(logged).toContain("Mail is NOT sent");
     // A live API key in a log that gets pasted into an issue tracker is a second incident.
     expect(logged).not.toContain("re_LiveKeyThatMustNotBeLogged");
+  });
+
+  // The other side of the banner's one conditional, and the reason it has one at all. SITE_URL is
+  // reported alongside the mail rules but does NOT stop mail: an unusable value is discarded and
+  // the link is built from DOMAIN or VERCEL_URL instead, so the message still leaves and still
+  // arrives, merely on a hostname nobody chose. Announcing "mail is NOT sent" here would send an
+  // operator hunting a delivery failure that is not happening, while the actual fault, a link on
+  // the wrong host, went unmentioned.
+  it("says mail still sends when SITE_URL is the only thing wrong", () => {
+    const { exitCodes, logged } = boot({
+      MAIL_TRANSPORT: "resend",
+      RESEND_API_KEY: "re_perfectly_fine_key",
+      MAIL_FROM: "CECODES <no-reply@example.org>",
+      SITE_URL: "bare.hostname.example.org",
+    });
+    expect(exitCodes).toEqual([]);
+    expect(logged).toContain("SITE_URL");
+    expect(logged).toContain("Mail still sends");
+    expect(logged).not.toContain("Mail is NOT sent");
   });
 
   it("does not exit for any other mail slip either", () => {
