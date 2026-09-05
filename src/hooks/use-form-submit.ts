@@ -1,7 +1,51 @@
 "use client";
 
-import { useTransition } from "react";
+import { useSyncExternalStore, useTransition } from "react";
 import type { FieldValues, SubmitHandler, UseFormReturn } from "react-hook-form";
+
+// A store that never changes, so useHydrated below re-renders exactly once, when React swaps the
+// server snapshot for the client one. Defined at module scope because useSyncExternalStore
+// resubscribes whenever the subscribe function changes identity.
+const subscribeToNothing = () => () => {};
+
+// False on the server and through hydration, true from the moment the component is live on the
+// client. Gate the submit button of every onSubmit form on it: `disabled={!hydrated}`.
+//
+// The bug it exists for. Every form here submits through onSubmit and declares no action, so the
+// markup the server sends is a plain <form> with no handler attached yet. Before hydration a
+// submit is therefore a NATIVE submit, and it was reaching production: the login form put
+// ?email=...&password=... in the address bar, which is browser history and the CDN access log.
+// method="post" (now on every form) keeps the fields out of the URL, but the better outcome is
+// that the submit never happens, because a POST to a page route with no POST handler is a 405 in
+// the user's face. Per the HTML spec, implicit submission does nothing when the form's default
+// button is disabled, so disabling that one button closes the click path and the Enter-in-a-field
+// path together, and it is the only thing that works with no JavaScript running yet.
+//
+// Why it is a hook of its own rather than another field on useFormSubmit's return, which is where
+// it belongs by rights: no form component calls useFormSubmit. Each calls its feature hook
+// (useLogin, useUserForm, ...) which returns a fixed { form, onSubmit, isSubmitting, serverError }
+// shape, so a new field here would stop at seventeen intermediate hooks and never reach a button.
+// The decision still lives in one place, which is the point; only the wiring is per component, and
+// src/__tests__/conventions.test.ts holds every form to it.
+//
+// Why this creates no hydration mismatch: React uses getServerSnapshot both when rendering on the
+// server and while hydrating, so the client's first render produces the same disabled button the
+// server did. Only after hydration commits does React read the client snapshot and re-render with
+// the button enabled. A component that mounts later (every dialog form here) never hydrates at
+// all, so it reads the client snapshot on its first render and its button is enabled immediately,
+// with no disabled frame to see.
+//
+// Why not useState plus useEffect, the usual mounted flag: it cannot tell hydration from a normal
+// mount, so every dialog would paint one frame with a dead submit button each time it opened.
+// Both shapes survive the React Compiler for the same reason useTransition does below: the value
+// is real React state that the compiler cannot cache stale, not a read through a proxy.
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
 
 // The reliable pending state for a form with a visible submit button (feedback shape 1 in
 // IMPLEMENTATION.md section 4). Use this instead of `form.formState.isSubmitting`.

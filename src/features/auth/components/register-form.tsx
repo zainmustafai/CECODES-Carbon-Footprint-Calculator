@@ -5,11 +5,14 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form/text-field";
 import { PasswordField } from "@/components/form/password-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useRegister } from "../hooks/use-register";
 
 export function RegisterForm() {
   const t = useTranslations("auth.register");
   const tc = useTranslations("auth.common");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const { form, onSubmit, isSubmitting, serverError, awaitingConfirmation, submittedEmail } =
     useRegister();
   const {
@@ -29,7 +32,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
       <TextField
         label={tc("emailLabel")}
         type="email"
@@ -56,7 +59,7 @@ export function RegisterForm() {
         {...register("confirmPassword")}
       />
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
-      <Button type="submit" className="w-full" loading={isSubmitting}>
+      <Button type="submit" disabled={!hydrated} className="w-full" loading={isSubmitting}>
         {t("submit")}
       </Button>
     </form>

@@ -11,6 +11,20 @@ import { z } from "zod";
  * container they come from a .env file that a human edits per server, so a typo is routine and
  * has to be caught at boot rather than at first request.
  *
+ * Two schemas, and the split between them is the important part of this file.
+ *
+ * runtimeSchema holds what the app cannot serve a single request without, and failing it is
+ * fatal: instrumentation.ts stops the process. The mail rules used to live there too, and that
+ * cost a full outage. A deploy went out with a RESEND_API_KEY that had wrapped when it was
+ * pasted, validateRuntimeEnv() threw, the boot hook exited, and every route answered 500,
+ * /api/health/live included. One auxiliary feature's typo took down a site that was otherwise
+ * perfectly able to serve every page it has.
+ *
+ * So mail lives in mailSchema, checked by validateMailConfig(), which REPORTS rather than throws.
+ * Not one rule was dropped in the move: what changes is the consequence. A mail slip now costs
+ * the mail feature (mailConfigured() answers false, so the reset is refused up front and no token
+ * row is written) and a named, unmissable line in the boot log, instead of the whole site.
+ *
  * Deliberately NOT validated as a URL: DATABASE_URL. Prisma and pg accept forms zod's url()
  * rejects, and a false rejection at boot would be worse than the late failure it replaces.
  */
@@ -54,12 +68,13 @@ type EnvSource = Record<string, string | undefined>;
  * value back in its error, and a wrapped key would then print in full in the one log an operator is
  * most likely to ship somewhere else. But refusing at send time is far too late for the OTHER
  * failure. A key with a stray non-visible character (wrapped on paste, a smart quote, a
- * non-breaking space picked up from a browser) boots clean, mailConfigured() answers true, the
- * reset action writes a live token row and tells the user to check their inbox, and only then is
- * the send dropped with a single console.warn: silent production mail loss, which is the exact
- * thing this file's header says it exists to prevent. So the rule is enforced here too, at boot,
- * while an operator is still watching, and both enforcers read the same constant rather than each
- * carrying a copy that can drift.
+ * non-breaking space picked up from a browser) would otherwise boot clean, mailConfigured() would
+ * answer true, the reset action would write a live token row and tell the user to check their
+ * inbox, and only then would the send be dropped with a single console.warn: silent production
+ * mail loss, which is the exact thing this file's header says it exists to prevent. So the rule is
+ * enforced here too, in mailSchema below, where it is checked at boot while an operator is still
+ * watching AND read by mailConfigured() so the reset refuses instead of lying. Both enforcers read
+ * the same constant rather than each carrying a copy that can drift.
  */
 export const HEADER_SAFE_VALUE = /^[\x21-\x7e]+$/;
 
@@ -89,47 +104,71 @@ const runtimeSchema = z.object({
     z.url({ protocol: /^https?$/, message: "SITE_URL must be an absolute http(s) URL" }),
   ),
 
-  // Password-reset mail, and nothing else, needs these two. Absent, the app runs and every other
-  // feature works; the reset flow refuses up front (mailConfigured below) rather than accepting a
-  // request it cannot deliver on.
-  //
-  // The placeholder check guards against the same slip as .env.example's other commented-out
-  // examples: uncommenting the two RESEND lines and pasting only one of them is a routine
-  // slip, and it is invisible: mailConfigured() would say yes, the token row would be written,
-  // the user would be told to check an inbox, and Resend would reject the key.
-  //
-  // The header-safety rule is the second half of the same argument, and it is the half that
-  // survives a careful operator: a key can be entirely correct and still unusable because the line
-  // wrapped, or because a smart quote or a non-breaking space rode along with the paste. Neither is
-  // visible in a .env file. See HEADER_SAFE_VALUE above for why the check cannot wait for the send.
-  RESEND_API_KEY: optionalVar(
-    z
-      .string()
-      .refine((v) => !v.includes("<resend-api-key>"), {
-        message: "RESEND_API_KEY still holds the .env.example placeholder",
-      })
-      .refine((v) => HEADER_SAFE_VALUE.test(v), {
-        message:
-          "RESEND_API_KEY is not usable as an HTTP header value: it must be visible ASCII, with no spaces, line breaks or smart quotes",
-      }),
-  ),
-  // Not validated as an email address: a From header is normally "CECODES <no-reply@example.org>",
-  // which z.email() rejects. The one mistake worth catching at boot is a From with no address in
-  // it at all, which the provider refuses at send time, long after the token row was written.
-  MAIL_FROM: optionalVar(
-    z.string().refine((v) => v.includes("@"), {
-      message: "MAIL_FROM must contain an email address",
-    }),
-  ),
-  MAIL_TRANSPORT: optionalVar(mailTransportSchema),
+  // The mail variables are carried here as plain optional strings and nothing more. Every rule
+  // about their CONTENT lives in mailSchema below, because a rule in this schema is fatal and
+  // mail is not: the app serves every page, people sign in, and one feature is off. Keeping the
+  // fields (rather than dropping them) preserves the one behaviour that is shared, the trim in
+  // optionalVar, so a value with surrounding whitespace still gets one answer everywhere.
+  RESEND_API_KEY: optionalVar(z.string()),
+  MAIL_FROM: optionalVar(z.string()),
+  MAIL_TRANSPORT: optionalVar(z.string()),
   SMTP_HOST: optionalVar(z.string()),
-  SMTP_PORT: optionalVar(z.coerce.number().int().positive().max(65535)),
+  SMTP_PORT: optionalVar(z.string()),
   SMTP_USER: optionalVar(z.string()),
   SMTP_PASSWORD: optionalVar(z.string()),
-})
+});
+
+/**
+ * Every rule about mail, and the only place any of them is written.
+ *
+ * Separate from runtimeSchema for one reason, paid for in a production outage: failing this is
+ * not a reason to refuse to serve. See the header of this file. What failing it DOES cost is the
+ * feature itself, because mailConfigured() reads this schema, so a deployment that would drop or
+ * bounce its mail refuses the password reset up front instead of writing a token row and telling
+ * a user to watch an inbox nothing will arrive in.
+ *
+ * The rules are the ones that used to sit in runtimeSchema, moved verbatim. Every one of them
+ * catches a slip that is otherwise invisible until a user reports a mail that never came.
+ */
+const mailSchema = z
+  .object({
+    // The placeholder check guards against the same slip as .env.example's other commented-out
+    // examples: uncommenting the two RESEND lines and pasting only one of them is a routine slip,
+    // and it is invisible: mailConfigured() would say yes, the token row would be written, the
+    // user would be told to check an inbox, and Resend would reject the key.
+    //
+    // The header-safety rule is the second half of the same argument, and it is the half that
+    // survives a careful operator: a key can be entirely correct and still unusable because the
+    // line wrapped, or because a smart quote or a non-breaking space rode along with the paste.
+    // Neither is visible in a .env file. See HEADER_SAFE_VALUE above for why the check cannot wait
+    // for the send.
+    RESEND_API_KEY: optionalVar(
+      z
+        .string()
+        .refine((v) => !v.includes("<resend-api-key>"), {
+          message: "RESEND_API_KEY still holds the .env.example placeholder",
+        })
+        .refine((v) => HEADER_SAFE_VALUE.test(v), {
+          message:
+            "RESEND_API_KEY is not usable as an HTTP header value: it must be visible ASCII, with no spaces, line breaks or smart quotes",
+        }),
+    ),
+    // Not validated as an email address: a From header is normally "CECODES <no-reply@example.org>",
+    // which z.email() rejects. The one mistake worth catching is a From with no address in it at
+    // all, which the provider refuses at send time, long after the token row was written.
+    MAIL_FROM: optionalVar(
+      z.string().refine((v) => v.includes("@"), {
+        message: "MAIL_FROM must contain an email address",
+      }),
+    ),
+    MAIL_TRANSPORT: optionalVar(mailTransportSchema),
+    SMTP_HOST: optionalVar(z.string()),
+    SMTP_PORT: optionalVar(z.coerce.number().int().positive().max(65535)),
+    SMTP_USER: optionalVar(z.string()),
+    SMTP_PASSWORD: optionalVar(z.string()),
+  })
   // Half a mail configuration is always a mistake and never a state anyone chose, and nothing
   // downstream can raise it: sendMail() warns only once a user has already asked for a reset.
-  // This is the one line that says so at boot.
   .superRefine((env, ctx) => {
     const transport = env.MAIL_TRANSPORT ?? "none";
     if (transport === "none") return;
@@ -175,7 +214,8 @@ export type RuntimeEnv = z.infer<typeof runtimeSchema>;
 
 /**
  * Reports the NAMES of variables that failed validation, never their values. These messages reach
- * container logs, which are routinely pasted into chat windows and issue trackers.
+ * container logs and Vercel runtime logs alike, both of which are routinely pasted into chat
+ * windows and issue trackers.
  *
  * The name is taken from the issue path rather than trusted to the message, because a message
  * written for one failure does not cover the others. `z.string().min(1, "DATABASE_URL is
@@ -184,15 +224,19 @@ export type RuntimeEnv = z.infer<typeof runtimeSchema>;
  * lines reading "Invalid input: expected string, received undefined" and named nothing at all.
  * Only zod's own defaults are ever printed unprefixed, and none of them quote the value.
  */
+function issueLines(error: z.ZodError): string[] {
+  return error.issues.map((issue) => {
+    const name = typeof issue.path[0] === "string" ? issue.path[0] : "";
+    // Cross-field rules carry no path, and a message that already names its variable reads worse
+    // for having it twice.
+    if (!name || issue.message.includes(name)) return issue.message;
+    return `${name}: ${issue.message}`;
+  });
+}
+
 function formatIssues(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const name = typeof issue.path[0] === "string" ? issue.path[0] : "";
-      // Cross-field rules carry no path, and a message that already names its variable reads worse
-      // for having it twice.
-      if (!name || issue.message.includes(name)) return `  - ${issue.message}`;
-      return `  - ${name}: ${issue.message}`;
-    })
+  return issueLines(error)
+    .map((line) => `  - ${line}`)
     .join("\n");
 }
 
@@ -218,6 +262,25 @@ export function validateInitEnv(source: EnvSource = process.env) {
   return parsed.data;
 }
 
+/**
+ * Every mail problem in `source`, one line each, naming the variable and never quoting its value.
+ * An empty array means the mail configuration is coherent, which includes "no mail at all".
+ *
+ * Returns instead of throwing, and that is the whole point of it. The caller at boot
+ * (src/instrumentation.ts) logs these and carries on, because a wrong RESEND_API_KEY is a reason
+ * for password reset to stop working, not for /api/health/live to answer 500. The caller that
+ * matters for users is mailConfigured() below, which refuses the feature outright on any line
+ * this returns.
+ *
+ * The values are never included: RESEND_API_KEY and SMTP_PASSWORD are live credentials, and these
+ * lines land in a Vercel runtime log or a container log, both of which get pasted into issue
+ * trackers and chat windows.
+ */
+export function validateMailConfig(source: EnvSource = process.env): string[] {
+  const parsed = mailSchema.safeParse(source);
+  return parsed.success ? [] : issueLines(parsed.error);
+}
+
 /** The transport in force. Unset, or unreadable, answers "none". */
 export function mailTransport(source: EnvSource = process.env): MailTransport {
   const parsed = mailTransportSchema.safeParse(source.MAIL_TRANSPORT?.trim());
@@ -228,8 +291,17 @@ export function mailTransport(source: EnvSource = process.env): MailTransport {
  * Whether mail can be sent at all. Callers check it before writing a token row, so a deployment
  * with no mail refuses the reset up front rather than telling a user to watch an inbox nothing
  * will arrive in.
+ *
+ * Any issue at all answers false, and this line is what carries the mail rules now that they no
+ * longer stop the process. Before the split, a key that had wrapped on paste could not reach here
+ * because boot had already refused it; with boot only logging, presence alone would let
+ * requestPasswordResetAction write a live token row and tell the user to check their inbox, while
+ * the send is dropped later with one console.warn. That is exactly the silent loss the
+ * header-safety rule was written to prevent, so the rule has to be read here, not just reported.
  */
 export function mailConfigured(source: EnvSource = process.env): boolean {
+  if (validateMailConfig(source).length > 0) return false;
+
   const from = Boolean(source.MAIL_FROM?.trim());
   switch (mailTransport(source)) {
     case "smtp":

@@ -19,6 +19,7 @@ import { TextField } from "@/components/form/text-field";
 import { DecimalField } from "@/components/form/decimal-field";
 import { SelectField } from "@/components/form/select-field";
 import { ComboboxField } from "@/components/form/combobox-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useFactorForm } from "../hooks/use-factor-form";
 import type { FactorFormValues } from "../schemas/factor-schemas";
 
@@ -69,6 +70,8 @@ export function FactorForm({
   const t = useTranslations("admin.factors");
   const tf = useTranslations("admin.factors.fields");
   const tc = useTranslations("common");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const { form, onSubmit, isSubmitting, serverError } = useFactorForm({
     mode,
     factorId,
@@ -87,7 +90,7 @@ export function FactorForm({
   ];
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-6">
+    <form method="post" onSubmit={onSubmit} noValidate className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>{t("form.identification")}</CardTitle>
@@ -283,7 +286,7 @@ export function FactorForm({
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
           {tc("save")}
         </Button>
         <Button asChild variant="ghost">

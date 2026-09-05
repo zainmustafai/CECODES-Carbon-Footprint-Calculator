@@ -30,6 +30,7 @@ import { TextField } from "@/components/form/text-field";
 import { SelectField } from "@/components/form/select-field";
 import { Controller } from "react-hook-form";
 import { useToastAction } from "@/hooks/use-toast-action";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { removeCleanTechAction } from "../actions/clean-tech";
 import { useCleanTechForm, type CleanTechRowVM } from "../hooks/use-clean-tech-form";
 
@@ -176,6 +177,8 @@ function CleanTechDialog({
   onClose: () => void;
 }) {
   const t = useTranslations("dataEntry.cleanTech");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const { form, onSubmit, isSubmitting, serverError } = useCleanTechForm({
     reportingYearId,
     row,
@@ -186,7 +189,7 @@ function CleanTechDialog({
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-lg">
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{row ? t("editTitle") : t("addTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -238,7 +241,7 @@ function CleanTechDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {row ? t("save") : t("add")}
             </Button>
           </DialogFooter>

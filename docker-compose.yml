@@ -34,12 +34,31 @@ services:
   # -------------------------------------------------------------------------------------------
   # db - the application database
   # -------------------------------------------------------------------------------------------
-  # No published port, deliberately. Every consumer is on the internal network, and publishing
-  # 5432 on a VPS is how a database ends up in a botnet's scan results the same afternoon.
-  # The password below is therefore a default rather than a secret; override it in .env if you
-  # ever do publish the port.
+  # Published on 127.0.0.1 ONLY, never 0.0.0.0 - the same rule mailpit follows below, and for the
+  # same reason. The short form "5432:5432" would publish the database to the internet on a VPS,
+  # which is how one ends up in a botnet's scan results the same afternoon. Bound to loopback it
+  # is reachable only from a process already on this host.
+  #
+  # It is published at all because the host-side tooling has no other route to it: `bun run dev`,
+  # the Vitest suite, the Playwright suite and every `bun run db:*` script (prisma migrate deploy,
+  # seed, import-factors, studio) run on the HOST, not inside this network, and cannot resolve the
+  # "db" hostname. Containers reach it as db:5432 and ignore this mapping entirely.
+  #
+  # 55432 rather than 5432, because a developer machine very often already runs a native Postgres
+  # on 5432 (this one does), and the bind then fails with a Windows socket-permission error that
+  # names neither the port nor the conflict. A non-default host port cannot collide with it, and
+  # costs only the ":55432" in the connection string that .env.local-testing already carries.
+  #
+  # The password below is a default rather than a secret. On a multi-user host, loopback is not a
+  # boundary between local accounts: override POSTGRES_PASSWORD in .env there.
   db:
     image: postgres:17-alpine
+    # DB_HOST_BINDING exists because a port conflict is fatal to the WHOLE deployment: compose
+    # refuses to start any service when one binding fails, so a server already using 55432 could
+    # not run this stack at all. Override it in .env, e.g. DB_HOST_BINDING=127.0.0.1:55433.
+    # Keep the 127.0.0.1 prefix: the bare form "55432" binds 0.0.0.0 and publishes the database.
+    ports:
+      - "${DB_HOST_BINDING:-127.0.0.1:55432}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cecodes}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cecodes-local-dev}

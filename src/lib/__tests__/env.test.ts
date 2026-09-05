@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { mailConfigured, mailTransport, validateInitEnv, validateRuntimeEnv } from "../env";
+import {
+  mailConfigured,
+  mailTransport,
+  validateInitEnv,
+  validateMailConfig,
+  validateRuntimeEnv,
+} from "../env";
 
 // This contract is the app's only chance to refuse a bad deployment: src/instrumentation.ts calls
 // validateRuntimeEnv() once and exits non-zero if it throws. Everything it lets through boots and
 // serves traffic, so the cases worth pinning are the ones where a wrong value would otherwise be
 // discovered by a user rather than by the operator who typed it.
+//
+// Which makes what belongs in it a load-bearing question, and one this file gets to state. Only
+// what the app cannot SERVE without may throw here, because throwing here means the whole site is
+// down: an exit at boot returns 500 for every route, /api/health/live included. Mail is checked by
+// validateMailConfig() instead, which reports the same rules without stopping anything.
 
 /** A deployment that should boot: the one genuinely required variable, nothing else. */
 const VALID: Record<string, string | undefined> = {
@@ -62,12 +73,6 @@ describe("validateRuntimeEnv", () => {
     expect(message).not.toContain("s3cr3t-looking-value");
   });
 
-  it("rejects the .env.example placeholder rather than booting with it", () => {
-    expect(
-      boot({ RESEND_API_KEY: "<resend-api-key>", MAIL_FROM: "CECODES <a@example.org>" }),
-    ).toThrow(/RESEND_API_KEY/);
-  });
-
   describe("optional variables", () => {
     // An operator turning something off empties the line instead of deleting it, and compose
     // hands that through as "". Treating it as a value would stop the container.
@@ -102,6 +107,11 @@ describe("validateRuntimeEnv", () => {
     });
   });
 
+  // The mail rules used to be asserted here, as reasons validateRuntimeEnv() throws, and that is
+  // precisely what took the site down: a wrapped RESEND_API_KEY exited the process at boot and
+  // every route answered 500. Every one of those rules still exists and is still asserted, in
+  // "validateMailConfig" at the bottom of this file. What is pinned here is the other half of the
+  // trade, that none of them can stop the app any more.
   describe("the mail transport", () => {
     it("boots with no transport selected, and with either transport fully configured", () => {
       expect(boot()).not.toThrow();
@@ -117,138 +127,10 @@ describe("validateRuntimeEnv", () => {
       ).not.toThrow();
     });
 
-    // Selecting a transport is what turns its pair into a requirement. Setting the resend
-    // variables with no MAIL_TRANSPORT leaves mail simply off (mailConfigured() answers false),
-    // rather than half-configured: nobody chose resend, so there is nothing to refuse yet.
+    // Selecting a transport is what turns its pair into a requirement, and that requirement is now
+    // validateMailConfig's to enforce. Booting is unaffected either way.
     it("boots with mail variables set but no transport selected", () => {
       expect(boot({ RESEND_API_KEY: "re_live_key" })).not.toThrow();
-    });
-
-    // Half a mail configuration is always a mistake once a transport is chosen, and it is
-    // invisible everywhere else: the app boots, every page works, and password reset is quietly
-    // dead until somebody reads a log line that only appears once a user has already asked for one.
-    it("refuses half a resend configuration, naming the missing half", () => {
-      expect(boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" })).toThrow(/MAIL_FROM/);
-      expect(
-        boot({ MAIL_TRANSPORT: "resend", MAIL_FROM: "CECODES <no-reply@example.org>" }),
-      ).toThrow(/RESEND_API_KEY/);
-    });
-
-    it("refuses half an smtp configuration, naming the missing half", () => {
-      expect(boot({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "mailpit" })).toThrow(/MAIL_FROM/);
-      expect(
-        boot({ MAIL_TRANSPORT: "smtp", MAIL_FROM: "CECODES <no-reply@example.org>" }),
-      ).toThrow(/SMTP_HOST/);
-    });
-
-    // SMTP credentials are the other pair, and they were not paired. smtp.ts writes
-    // `auth: user && password ? {...} : undefined`, so one without the other is not a partial
-    // login, it is NO auth at all: nodemailer connects anonymously and a real relay answers
-    // "530 Authentication required" with nothing anywhere naming the variable that was left out.
-    // Both halves are still optional together, because Mailpit accepts anything and needs neither.
-    describe("the smtp credential pair", () => {
-      function smtp(overrides: Record<string, string | undefined>) {
-        return boot({
-          MAIL_TRANSPORT: "smtp",
-          SMTP_HOST: "relay.example.org",
-          MAIL_FROM: "CECODES <no-reply@example.org>",
-          ...overrides,
-        });
-      }
-
-      it("boots with neither half, which is the Mailpit case", () => {
-        expect(smtp({})).not.toThrow();
-      });
-
-      it("boots with both halves", () => {
-        expect(smtp({ SMTP_USER: "relay-user", SMTP_PASSWORD: "relay-pass" })).not.toThrow();
-      });
-
-      it("refuses a user with no password, naming the password", () => {
-        expect(smtp({ SMTP_USER: "relay-user" })).toThrow(/SMTP_PASSWORD/);
-      });
-
-      it("refuses a password with no user, naming the user", () => {
-        expect(smtp({ SMTP_PASSWORD: "relay-pass" })).toThrow(/SMTP_USER/);
-      });
-
-      // The shape an operator actually produces: the line is emptied rather than deleted, and
-      // compose hands that through as "". Every other reader treats blank as absent, so this one
-      // has to as well, or "half a configuration" would depend on which of the two spellings of
-      // "off" was used.
-      it("reads a blanked half the same as an absent one", () => {
-        expect(smtp({ SMTP_USER: "relay-user", SMTP_PASSWORD: "   " })).toThrow(/SMTP_PASSWORD/);
-      });
-
-      // Nobody chose smtp, so there is no half-configuration to refuse yet: the same rule the
-      // resend pair already follows.
-      it("says nothing about the pair when no transport is selected", () => {
-        expect(boot({ SMTP_USER: "relay-user" })).not.toThrow();
-      });
-    });
-
-    // resend.ts refuses to send with a key that is not a usable header value, and refusing there
-    // is far too late: the app boots, mailConfigured() answers true, the reset action writes a
-    // live token row and tells the user to check their inbox, and only then is the send dropped
-    // with a single console.warn. That is the silent production mail loss this file's own header
-    // says it exists to prevent, so the rule belongs at boot, where an operator is still watching.
-    describe("RESEND_API_KEY header safety", () => {
-      function withKey(key: string) {
-        return boot({
-          MAIL_TRANSPORT: "resend",
-          RESEND_API_KEY: key,
-          MAIL_FROM: "CECODES <no-reply@example.org>",
-        });
-      }
-
-      it("boots on an ordinary key", () => {
-        expect(withKey("re_1AbCdEf_GhIjKlMnOpQrStUvWxYz")).not.toThrow();
-      });
-
-      // A key that wrapped when it was pasted into a .env file. The outer trim in optionalVar
-      // cannot help: the break is in the middle.
-      it("refuses a key carrying a line break", () => {
-        expect(withKey("re_1AbCdEf\n_GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
-      });
-
-      // The two invisible characters a paste from a browser or a document actually introduces.
-      it("refuses a key carrying a non-breaking space or a smart quote", () => {
-        expect(withKey("re_1AbCdEf GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
-        expect(withKey("re_1AbCdEf’GhIjKlMnOpQrStUvWxYz")).toThrow(/RESEND_API_KEY/);
-      });
-
-      // Same rule as every other message this file produces: these go to a container log, and a
-      // container log gets pasted into an issue tracker. A live API key must not travel with it.
-      it("names the variable and never prints the key", () => {
-        let message = "";
-        try {
-          validateRuntimeEnv({
-            ...VALID,
-            MAIL_TRANSPORT: "resend",
-            RESEND_API_KEY: "re_LiveKeyThatMustNotBeLogged\nwrapped",
-            MAIL_FROM: "CECODES <no-reply@example.org>",
-          });
-        } catch (error) {
-          message = (error as Error).message;
-        }
-        expect(message).toContain("RESEND_API_KEY");
-        expect(message).not.toContain("re_LiveKeyThatMustNotBeLogged");
-      });
-    });
-
-    // A From header is normally "Name <address>", which is not an email address by itself, so the
-    // only shape worth rejecting is one with no address in it at all.
-    it("accepts a display-name From and rejects one with no address", () => {
-      expect(
-        boot({
-          MAIL_TRANSPORT: "resend",
-          RESEND_API_KEY: "re_live_key",
-          MAIL_FROM: "CECODES <no-reply@example.org>",
-        }),
-      ).not.toThrow();
-      expect(
-        boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES" }),
-      ).toThrow(/MAIL_FROM/);
     });
   });
 });
@@ -324,5 +206,203 @@ describe("mailConfigured", () => {
     expect(
       mailConfigured({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "   ", MAIL_FROM: "a@example.org" }),
     ).toBe(false);
+  });
+});
+
+/**
+ * Mail configuration is reported, never fatal.
+ *
+ * A deploy went out with a RESEND_API_KEY that had wrapped when it was pasted. The mail rules
+ * lived in the fatal runtime schema, so validateRuntimeEnv() threw, instrumentation.ts exited the
+ * process, and every route answered 500 including /api/health/live, which does nothing but return
+ * OK. Edge middleware kept working, which is what pinned it: only the node runtime validates.
+ *
+ * A mail typo taking the whole site down is a far worse failure than the silent mail loss the
+ * rule was written to prevent. The line is now drawn at "can the app serve": DATABASE_URL is
+ * fatal because nothing works without it, mail is not, because the app serves, people sign in,
+ * and exactly one feature is off.
+ *
+ * So none of the rules is relaxed. They move: validateMailConfig() reports them, mailConfigured()
+ * answers false on any of them so no password_reset_tokens row is ever written for a deployment
+ * that cannot deliver, and boot logs the names and carries on.
+ */
+
+/** A key that wrapped mid-value, which the outer trim in optionalVar cannot help with. */
+const WRAPPED_KEY = "re_LiveKeyThatMustNotBeLogged\nwrapped";
+
+describe("mail misconfiguration never stops the app", () => {
+  it("boots with a RESEND_API_KEY that wrapped on paste", () => {
+    expect(
+      boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: WRAPPED_KEY, MAIL_FROM: "CECODES <a@example.org>" }),
+    ).not.toThrow();
+  });
+
+  it("boots with a transport selected and its other half missing", () => {
+    expect(boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" })).not.toThrow();
+    expect(boot({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "relay.example.org" })).not.toThrow();
+  });
+
+  it("boots on every other mail slip: placeholder, bad transport, bad port, half a credential pair", () => {
+    expect(boot({ RESEND_API_KEY: "<resend-api-key>", MAIL_FROM: "CECODES <a@example.org>" })).not.toThrow();
+    expect(boot({ MAIL_TRANSPORT: "sendgrid" })).not.toThrow();
+    expect(boot({ SMTP_PORT: "not-a-number" })).not.toThrow();
+    expect(
+      boot({
+        MAIL_TRANSPORT: "smtp",
+        SMTP_HOST: "relay.example.org",
+        MAIL_FROM: "CECODES <a@example.org>",
+        SMTP_USER: "relay-user",
+      }),
+    ).not.toThrow();
+    expect(
+      boot({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES" }),
+    ).not.toThrow();
+  });
+
+  // Same principle one layer down: a container must not refuse to run its migrations and create
+  // its first admin because the mail variables are wrong. Nothing the init job does sends mail.
+  it("lets the init job run with mail misconfigured", () => {
+    expect(() =>
+      validateInitEnv({
+        DATABASE_URL: "postgresql://u:p@db:5432/cecodes",
+        ADMIN_EMAIL: "admin@cecodes.local",
+        MAIL_TRANSPORT: "resend",
+        RESEND_API_KEY: WRAPPED_KEY,
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("validateMailConfig", () => {
+  it("reports nothing for a fully configured resend deployment, and mailConfigured agrees", () => {
+    const source = {
+      MAIL_TRANSPORT: "resend",
+      RESEND_API_KEY: "re_1AbCdEf_GhIjKlMnOpQrStUvWxYz",
+      MAIL_FROM: "CECODES <no-reply@example.org>",
+    };
+    expect(validateMailConfig(source)).toEqual([]);
+    expect(mailConfigured(source)).toBe(true);
+  });
+
+  it("reports nothing for a fully configured smtp deployment, and mailConfigured agrees", () => {
+    const source = {
+      MAIL_TRANSPORT: "smtp",
+      SMTP_HOST: "relay.example.org",
+      SMTP_PORT: "587",
+      SMTP_USER: "relay-user",
+      SMTP_PASSWORD: "relay-pass",
+      MAIL_FROM: "CECODES <no-reply@example.org>",
+    };
+    expect(validateMailConfig(source)).toEqual([]);
+    expect(mailConfigured(source)).toBe(true);
+  });
+
+  // Mail simply off is not a misconfiguration, it is what a trial run looks like.
+  it("reports nothing when no transport is selected", () => {
+    expect(validateMailConfig({})).toEqual([]);
+    expect(validateMailConfig({ RESEND_API_KEY: "re_live_key" })).toEqual([]);
+    expect(mailConfigured({})).toBe(false);
+  });
+
+  // The exact deploy that caused the outage. The app must serve, the issue must be reported by
+  // name, and the reset must refuse up front rather than writing a token nothing will deliver.
+  it("names RESEND_API_KEY for a key that is not a usable header value, and mailConfigured is false", () => {
+    const source = {
+      MAIL_TRANSPORT: "resend",
+      RESEND_API_KEY: WRAPPED_KEY,
+      MAIL_FROM: "CECODES <no-reply@example.org>",
+    };
+    const issues = validateMailConfig(source);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toContain("RESEND_API_KEY");
+    expect(mailConfigured(source)).toBe(false);
+  });
+
+  // These lines go to a Vercel runtime log and a container log alike, and both get pasted into
+  // issue trackers. The variable is named; the live key never travels with it.
+  it("never prints the key it rejects", () => {
+    const issues = validateMailConfig({
+      MAIL_TRANSPORT: "resend",
+      RESEND_API_KEY: WRAPPED_KEY,
+      MAIL_FROM: "CECODES <no-reply@example.org>",
+    });
+    expect(issues.join("\n")).not.toContain("re_LiveKeyThatMustNotBeLogged");
+  });
+
+  it("names the missing half of a resend configuration", () => {
+    expect(validateMailConfig({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" }).join("\n")).toContain(
+      "MAIL_FROM",
+    );
+    expect(
+      validateMailConfig({ MAIL_TRANSPORT: "resend", MAIL_FROM: "CECODES <a@example.org>" }).join("\n"),
+    ).toContain("RESEND_API_KEY");
+    expect(mailConfigured({ MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key" })).toBe(false);
+  });
+
+  it("names the missing half of an smtp configuration", () => {
+    expect(validateMailConfig({ MAIL_TRANSPORT: "smtp", SMTP_HOST: "relay.example.org" }).join("\n")).toContain(
+      "MAIL_FROM",
+    );
+    expect(
+      validateMailConfig({ MAIL_TRANSPORT: "smtp", MAIL_FROM: "CECODES <a@example.org>" }).join("\n"),
+    ).toContain("SMTP_HOST");
+  });
+
+  // The pair that fails without ever naming itself: smtp.ts sends no auth at all when one half is
+  // missing, so a real relay answers "530 Authentication required" and nothing names the variable.
+  it("still catches an SMTP_USER with no SMTP_PASSWORD, and the reverse", () => {
+    function smtp(overrides: Record<string, string | undefined>) {
+      return validateMailConfig({
+        MAIL_TRANSPORT: "smtp",
+        SMTP_HOST: "relay.example.org",
+        MAIL_FROM: "CECODES <no-reply@example.org>",
+        ...overrides,
+      });
+    }
+    expect(smtp({ SMTP_USER: "relay-user" }).join("\n")).toContain("SMTP_PASSWORD");
+    expect(smtp({ SMTP_PASSWORD: "relay-pass" }).join("\n")).toContain("SMTP_USER");
+    // A blanked half reads the same as an absent one, the way every other reader treats it.
+    expect(smtp({ SMTP_USER: "relay-user", SMTP_PASSWORD: "   " }).join("\n")).toContain("SMTP_PASSWORD");
+    // Neither half is the Mailpit case and stays legal.
+    expect(smtp({})).toEqual([]);
+    expect(
+      mailConfigured({
+        MAIL_TRANSPORT: "smtp",
+        SMTP_HOST: "relay.example.org",
+        MAIL_FROM: "CECODES <no-reply@example.org>",
+        SMTP_USER: "relay-user",
+      }),
+    ).toBe(false);
+  });
+
+  it("still catches the .env.example placeholder", () => {
+    const source = {
+      MAIL_TRANSPORT: "resend",
+      RESEND_API_KEY: "<resend-api-key>",
+      MAIL_FROM: "CECODES <a@example.org>",
+    };
+    expect(validateMailConfig(source).join("\n")).toContain("RESEND_API_KEY");
+    expect(mailConfigured(source)).toBe(false);
+  });
+
+  it("still catches a MAIL_FROM with no address in it", () => {
+    const source = { MAIL_TRANSPORT: "resend", RESEND_API_KEY: "re_live_key", MAIL_FROM: "CECODES" };
+    expect(validateMailConfig(source).join("\n")).toContain("MAIL_FROM");
+    expect(mailConfigured(source)).toBe(false);
+  });
+
+  it("still catches a transport name nothing can dispatch to", () => {
+    expect(validateMailConfig({ MAIL_TRANSPORT: "sendgrid" }).join("\n")).toContain("MAIL_TRANSPORT");
+  });
+
+  it("still catches an SMTP_PORT that is not a port", () => {
+    const source = {
+      MAIL_TRANSPORT: "smtp",
+      SMTP_HOST: "relay.example.org",
+      MAIL_FROM: "CECODES <a@example.org>",
+      SMTP_PORT: "not-a-number",
+    };
+    expect(validateMailConfig(source).join("\n")).toContain("SMTP_PORT");
+    expect(mailConfigured(source)).toBe(false);
   });
 });

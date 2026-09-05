@@ -16,10 +16,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TextField } from "@/components/form/text-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useVersionForm } from "../hooks/use-version-form";
 
 export function VersionDialog() {
   const t = useTranslations("admin.factors.versions");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const { form, onSubmit, isSubmitting, serverError } = useVersionForm({
     onDone: () => setOpen(false),
@@ -36,7 +39,7 @@ export function VersionDialog() {
       </DialogTrigger>
 
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{t("createTitle")}</DialogTitle>
             <DialogDescription>{t("createSubtitle")}</DialogDescription>
@@ -84,7 +87,7 @@ export function VersionDialog() {
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("save")}
             </Button>
           </DialogFooter>

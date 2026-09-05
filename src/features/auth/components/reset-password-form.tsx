@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PasswordField } from "@/components/form/password-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useResetPassword } from "../hooks/use-reset-password";
 
 // The token is handed straight to the hook and never to a field, a label or an error. It is a
@@ -20,6 +21,8 @@ export function ResetPasswordForm({
 }) {
   const t = useTranslations("auth.reset");
   const tc = useTranslations("auth.common");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const { form, onSubmit, isSubmitting, serverError } = useResetPassword({
     token,
     requireCurrentPassword,
@@ -30,7 +33,7 @@ export function ResetPasswordForm({
   } = form;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
       {requireCurrentPassword ? (
         <PasswordField
           label={tc("currentPasswordLabel")}
@@ -59,7 +62,7 @@ export function ResetPasswordForm({
         {...register("confirmPassword")}
       />
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
-      <Button type="submit" className="w-full" loading={isSubmitting}>
+      <Button type="submit" disabled={!hydrated} className="w-full" loading={isSubmitting}>
         {t("submit")}
       </Button>
     </form>

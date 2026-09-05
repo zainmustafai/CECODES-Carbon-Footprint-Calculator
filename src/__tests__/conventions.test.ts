@@ -108,3 +108,85 @@ function offendingLines(file: string): number[] {
     .map((line, index) => (line.includes(EM_DASH) ? index + 1 : 0))
     .filter((line) => line > 0);
 }
+
+// The pre-hydration form leak, and the two halves of the fix.
+//
+// Observed in production, not theorised: driving the login form landed the browser on
+// /login?email=...%40gmail.com&password=... The password went into the query string, and from
+// there into browser history and the CDN access log. The cause is that every form in this app
+// is wired with onSubmit only, so the server-rendered markup is <form noValidate> with no
+// method and no action. Before React hydrates there is no submit handler, so a submit is a
+// NATIVE submit, and a form with no method defaults to GET against the current URL, which
+// serialises every named field into the query string. Pressing Enter in a text field is enough
+// to trigger it, and on a slow connection the unhydrated window lasts seconds.
+//
+// Half one, checked here: method="post" on every form that has an onSubmit. When the form is
+// hydrated this changes nothing, because handleSubmit calls preventDefault. When it is not, the
+// fields go in the request body instead of the URL, and a POST to a page route with no POST
+// handler is a 405, which is a loud failure rather than a silent leak.
+//
+// Half two, also checked here: the submit button is disabled until the component has mounted
+// (useHydrated in src/hooks/use-form-submit.ts). Per the HTML spec, implicit submission does
+// nothing when the form's default button is disabled, so one disabled attribute closes both the
+// click path and the Enter path. That wiring is per component and therefore the part most
+// likely to be forgotten on the nineteenth form, which is exactly what a conventions test is for.
+describe("forms cannot leak their fields into the URL", () => {
+  it("declares method=post on every form that submits through onSubmit", () => {
+    const offenders = formComponents().flatMap(({ file, text }) =>
+      openingTags(text, "form")
+        .filter((tag) => tag.text.includes("onSubmit") && !tag.text.includes('method="post"'))
+        .map((tag) => ({ file, line: tag.line })),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("disables the submit button of every such form until it has hydrated", () => {
+    // The `disabled` expression only has to mention `hydrated`, not equal `!hydrated`, so a form
+    // whose button is also disabled on some other condition can compose the two.
+    const offenders = formComponents()
+      .filter(({ text }) => openingTags(text, "form").some((tag) => tag.text.includes("onSubmit")))
+      .flatMap(({ file, text }) =>
+        openingTags(text, "Button")
+          .filter((tag) => tag.text.includes('type="submit"'))
+          .filter((tag) => !/disabled=\{[^}]*hydrated/.test(tag.text))
+          .map((tag) => ({ file, line: tag.line })),
+      );
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+function formComponents(): { file: string; text: string }[] {
+  return walk("src", (f) => f.endsWith(".tsx")).map((file) => ({
+    file,
+    text: readFileSync(file, "utf8"),
+  }));
+}
+
+// Every opening tag of `name` with the line it starts on, so a failure names the exact spot the
+// way the em-dash check does. The tag ends at the first ">" that is not inside a JSX expression
+// container, which is enough for the attribute lists this codebase writes and does not need a
+// parser dependency to be right about them.
+function openingTags(text: string, name: string): { text: string; line: number }[] {
+  const tags: { text: string; line: number }[] = [];
+  // The lookahead is what stops <formatted> matching <form>: the tag name has to end here.
+  const opener = new RegExp(`<${name}(?=[^A-Za-z0-9])`, "g");
+  for (const match of text.matchAll(opener)) {
+    const start = match.index;
+    let depth = 0;
+    let end = start;
+    while (end < text.length) {
+      const char = text[end];
+      if (char === "{") depth += 1;
+      else if (char === "}") depth -= 1;
+      else if (char === ">" && depth === 0) break;
+      end += 1;
+    }
+    tags.push({
+      text: text.slice(start, end + 1),
+      line: text.slice(0, start).split("\n").length,
+    });
+  }
+  return tags;
+}

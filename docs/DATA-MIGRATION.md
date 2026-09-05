@@ -20,16 +20,20 @@ machine.
 
 ## 0. How these commands reach a database
 
-The container database publishes no port. `docker-compose.yml`'s `db` service has no `ports:` key
-at all, and the comment above it says why: publishing 5432 on a VPS is how a database ends up in a
-botnet's scan results the same afternoon. Only `mailpit`, `app` and `caddy` publish anything.
+The container database publishes **`127.0.0.1:55432`**, and nothing else. It is bound to loopback
+rather than `0.0.0.0` because publishing 5432 on a VPS is how a database ends up in a botnet's scan
+results the same afternoon, and it is published at all because the host-side tooling (`bun run
+dev`, Vitest, Playwright, every `bun run db:*` script) cannot resolve the `db` hostname.
 
-So a host-side `psql postgresql://cecodes:cecodes-local-dev@127.0.0.1:5432/cecodes` does not reach
-this stack. Worse than failing, it may succeed: port 5432 on a developer or operations machine very
-often is a local Postgres, and `.env.example` teaches almost exactly that string
-(`...@localhost:5432/cecodes`). A runbook written that way can bootstrap and migrate the wrong
-cluster, restore a client's data into it, and then offer a truncate confirmation naming the
-database `cecodes`, which is the name the operator expected to see.
+The host port is deliberately **not** 5432. Port 5432 on a developer or operations machine very
+often is a different, local Postgres, and `.env.example` teaches almost exactly that string
+(`...@localhost:5432/cecodes`). A runbook written that way would not fail, which is the danger: it
+can bootstrap and migrate the wrong cluster, restore a client's data into it, and then offer a
+truncate confirmation naming the database `cecodes`, which is the name the operator expected to
+see. `55432` cannot be confused with anything, and `.env.local-testing` carries it.
+
+That still leaves a host-side `...@127.0.0.1:5432/...` reaching some *other* cluster, so the rule
+below has not changed: the commands in this file do not use the host port at all.
 
 Two prefixes therefore carry every command in this file, and neither can reach the host's own
 Postgres:

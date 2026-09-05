@@ -17,6 +17,7 @@ import {
 import { TextField } from "@/components/form/text-field";
 import { DecimalField } from "@/components/form/decimal-field";
 import { SelectField } from "@/components/form/select-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useSubsidyPriceForm, type SubsidyFuel } from "../hooks/use-subsidy-price-form";
 
 type SubsidyPriceDialogProps = {
@@ -31,6 +32,8 @@ type SubsidyPriceDialogProps = {
 
 export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
   const t = useTranslations("admin.factors.subsidy");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const isEdit = Boolean(subsidyPrice);
   const fuelOptions = [
@@ -68,7 +71,7 @@ export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
       </DialogTrigger>
 
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{isEdit ? t("editTitle") : t("addTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -121,7 +124,7 @@ export function SubsidyPriceDialog({ subsidyPrice }: SubsidyPriceDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("save")}
             </Button>
           </DialogFooter>

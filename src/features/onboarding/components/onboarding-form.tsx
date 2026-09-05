@@ -7,11 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectField } from "@/components/form/select-field";
 import { TextField } from "@/components/form/text-field";
 import { SECTORS } from "@/lib/sectors";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useOnboarding } from "../hooks/use-onboarding";
 
 export function OnboardingForm() {
   const t = useTranslations("onboarding");
   const tSectors = useTranslations("company.sectors");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const { form, onSubmit, isSubmitting, serverError } = useOnboarding();
   const {
     register,
@@ -22,7 +25,7 @@ export function OnboardingForm() {
   const sectorOptions = SECTORS.map((slug) => ({ value: slug, label: tSectors(slug) }));
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-6" noValidate>
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -77,7 +80,7 @@ export function OnboardingForm() {
       {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
       <div className="flex justify-end">
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
           {t("submit")}
         </Button>
       </div>

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
 import { SelectField } from "@/components/form/select-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { NO_COMPANY } from "../schemas/user-schemas";
 import { CredentialsBox } from "./credentials-box";
 import { useUserForm, type EditableUser, type Role } from "../hooks/use-user-form";
@@ -35,6 +36,8 @@ type UserDialogProps = {
 export function UserDialog({ companies, user, open, onOpenChange }: UserDialogProps) {
   const t = useTranslations("admin.users");
   const tCred = useTranslations("admin.credentials");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const isEdit = Boolean(user);
   const isControlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -100,7 +103,7 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
             </DialogFooter>
           </div>
         ) : (
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{isEdit ? t("editTitle") : t("createTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -210,7 +213,7 @@ export function UserDialog({ companies, user, open, onOpenChange }: UserDialogPr
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {isEdit ? t("save") : t("create")}
             </Button>
           </DialogFooter>

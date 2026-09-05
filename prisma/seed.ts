@@ -11,13 +11,39 @@ const adapter = new PrismaPg({ connectionString: datasourceUrl() });
 const prisma = new PrismaClient({ adapter });
 
 // Scope-2 national grid factor (SIN) by year - kg CO2 / kWh (source: UPME/XM). Req. §7.3
+//
+// TRANSCRIBED FROM THE OFFICIAL SHEET, and it has to stay that way. These rows are written
+// create-only, and prisma/import-factors.ts likewise refuses to overwrite an existing year (it
+// reports GRID WARN and leaves the resolution to a human). So a value that is wrong HERE is wrong
+// permanently on every database this seed reaches first, and the import that would have supplied
+// the right one declines to correct it.
+//
+// That is exactly what happened before 2026-09-05: six years were seeded from an older UPME
+// reading and five of them disagreed with the official sheet (2024 0,217 vs 0,21742; 2023 0,1728
+// vs 0,177; 2022 0,1123708 vs 0,112; 2021 0,126378 vs 0,126; 2019 0,17 vs 0,166), so a fresh
+// deployment silently priced its electricity wrong and said so only in a log line nobody reads.
+//
+// All eighteen years the official sheet carries are listed now, so the import has nothing left to
+// add and nothing to disagree with. When CECODES sends a new workbook, add the new year here too.
 const gridFactors = [
+  { year: 2008, factor: "0.2849" },
+  { year: 2009, factor: "0.19" },
+  { year: 2010, factor: "0.19" },
+  { year: 2011, factor: "0.22" },
+  { year: 2012, factor: "0.15" },
   { year: 2013, factor: "0.2" },
-  { year: 2019, factor: "0.17" },
-  { year: 2021, factor: "0.126378" },
-  { year: 2022, factor: "0.1123708" },
-  { year: 2023, factor: "0.1728" },
-  { year: 2024, factor: "0.217" },
+  { year: 2014, factor: "0.194" },
+  { year: 2015, factor: "0.194" },
+  { year: 2016, factor: "0.21" },
+  { year: 2017, factor: "0.11" },
+  { year: 2018, factor: "0.13" },
+  { year: 2019, factor: "0.166" },
+  { year: 2020, factor: "0.203" },
+  { year: 2021, factor: "0.126" },
+  { year: 2022, factor: "0.112" },
+  { year: 2023, factor: "0.177" },
+  { year: 2024, factor: "0.21742" },
+  { year: 2025, factor: "0.097018445" },
 ];
 
 // Emission-factor library version history (from the Excel "Control de Cambios").

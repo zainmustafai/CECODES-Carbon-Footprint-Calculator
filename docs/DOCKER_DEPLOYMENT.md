@@ -102,6 +102,7 @@ docker compose up -d
         |  3. scripts/bootstrap-db.sql    four objects the migration chain needs (see section 8)
         |  4. prisma migrate deploy       applies ONLY migrations not yet recorded
         |  5. prisma/seed.ts              reference data + the admin account
+        |  6. import-factors (first run)  the full library, only if none is loaded yet
         |
         v  exits 0
    app container starts        <- only now, because of service_completed_successfully
@@ -113,8 +114,10 @@ docker compose up -d
       READY
 ```
 
-If any of those five steps fails, **the app never starts**. That is deliberate: a partly-initialized
-system that answers requests is worse than one that is plainly down.
+If any of steps 1 to 5 fails, **the app never starts**. That is deliberate: a partly-initialized
+system that answers requests is worse than one that is plainly down. Step 6 is the exception and
+warns instead: a missing factor library leaves an app that works and reports its own gaps, which is
+better than no app at all.
 
 ---
 
@@ -144,6 +147,8 @@ This is the only way into a fresh system: self-serve registration is off.
 | `DATABASE_URL` | points at the `db` container | Point it at any Postgres instead and the `db` service is not required. |
 | `DIRECT_URL` | same as `DATABASE_URL` | Used for migrations, and the connection init waits on. If you front `DATABASE_URL` with a pooler, point this at the same database without the pooler. |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `cecodes` / `cecodes-local-dev` / `cecodes` | Only relevant when the `db` container is the one running; change the password before exposing this anywhere but a loopback interface. |
+| `DB_HOST_BINDING` | `127.0.0.1:55432` | Where the `db` container is published on the host. Only host-side tooling uses it; containers reach the database as `db:5432`. Change it if 55432 is taken, and keep the `127.0.0.1:` prefix. |
+| `SKIP_FACTOR_IMPORT` | unset | `true` stops `init` importing the full factor library on a first deployment. Leave it unset unless you intend to load the library yourself. |
 
 ### Public address, which is what emailed links are built from
 
@@ -189,23 +194,29 @@ bundled reset flow works with no configuration at all.
 
 ## 5. After the first deploy
 
-Initialization gets you a working system with an admin account, but **two things are deliberately
-left to a human**:
+Initialization gets you a working system with an admin account and the full factor library. **One
+thing is deliberately left to a human**:
 
 **Create the first company.** Log in as `ADMIN_EMAIL` and create it in the admin UI. Automated
 bootstrap creates reference data only; it never invents tenant data.
 
-**Import the real factor library.** A fresh database has 13 starter emission factors and six years
-of grid electricity factors, enough to render the app and not enough to use it. The full library
-lives in the workbook under `docs/reference/` and is shipped in the init image:
+**The factor library loads itself on a first deployment**, so this is no longer a step. `init`
+checks the library after seeding, and when it still holds nothing but the starter subset it imports
+the full workbook from `docs/reference/` (shipped in the init image) with `--apply-grid`. A fresh
+system therefore comes up with the real library, not a dozen placeholder rows.
+
+It fires **only** into an untouched library. The moment a real one exists the check stops it for
+good, and the import goes back to being a command you run deliberately, because from then on it
+rewrites rows an admin may have edited:
 
 ```bash
 docker compose run --rm init bun prisma/import-factors.ts --dry-run   # look first
 docker compose run --rm init bun prisma/import-factors.ts
 ```
 
-This is a separate command on purpose: it rewrites the shared factor library, and that should be a
-decision, not a side effect of restarting a container.
+Set `SKIP_FACTOR_IMPORT=true` to suppress the first-run import. If it fails, the app still starts:
+a partial library is a visible condition (the app reports unpriced sources) rather than a reason to
+refuse service, and `init` prints the command to re-run.
 
 ---
 
@@ -223,10 +234,13 @@ old value. Vercel hides this behind a shared cache layer. Compose does not.
 **The build needs internet.** `src/app/layout.tsx` loads fonts via `next/font/google`, which fetches
 from Google during `docker build`.
 
-**Nothing is published beyond loopback.** The `db` service publishes no port at all; every consumer
-reaches it over the internal network, by service name. The app port and both of Mailpit's are bound
-to `127.0.0.1`, so on a public server none of them is reachable from the internet until you put a
-proxy in front.
+**Nothing is published beyond loopback.** Every published port is bound to `127.0.0.1`: the app on
+3000, Mailpit on 1025 and 8025, and the database on **55432** (not 5432, so it cannot collide with
+a Postgres the host already runs). On a public server none of them is reachable from the internet
+until you put a proxy in front. Containers reach the database as `db:5432` and ignore the published
+mapping entirely; it exists for host-side tooling. If 55432 is already taken on your server, set
+`DB_HOST_BINDING=127.0.0.1:55433` in `.env` - a failed binding stops the whole stack, not just that
+one service.
 
 ---
 

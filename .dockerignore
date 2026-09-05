@@ -45,9 +45,12 @@ vitest.config.ts
 
 # --- Docs and reference material --------------------------------------------------------------
 # Keep docs/reference: prisma/import-factors.ts reads the emission-factor workbook from there and
-# the migrator image runs that script. docs/sample-data is ~5.5 MB of workbooks nothing needs at
+# the migrator image runs that script. Its superseded/ subfolder is excluded below - that is the
+# PRE-CORRECTION workbook, kept for provenance and dangerous to import (see its README).
+# docs/sample-data is ~5.5 MB of workbooks nothing needs at
 # runtime.
 docs/sample-data
+docs/reference/superseded
 docs/superpowers
 docs/client-comments
 reference/

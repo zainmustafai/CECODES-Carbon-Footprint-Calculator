@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { CredentialsBox } from "./credentials-box";
 import { useRegenerateCredentials } from "../hooks/use-regenerate-credentials";
 
@@ -30,6 +31,8 @@ export function RegenerateCredentialsDialog({
 }) {
   const t = useTranslations("admin.users");
   const tCred = useTranslations("admin.credentials");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const {
     form,
     fillGeneratedPassword,
@@ -64,7 +67,7 @@ export function RegenerateCredentialsDialog({
             </DialogFooter>
           </div>
         ) : (
-          <form onSubmit={onSubmit} noValidate>
+          <form method="post" onSubmit={onSubmit} noValidate>
             <DialogHeader>
               <DialogTitle>{t("regenerateTitle")}</DialogTitle>
               <DialogDescription>
@@ -95,7 +98,7 @@ export function RegenerateCredentialsDialog({
             </div>
 
             <DialogFooter>
-              <Button type="submit" loading={isSubmitting}>
+              <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
                 {t("regenerateConfirm")}
               </Button>
             </DialogFooter>

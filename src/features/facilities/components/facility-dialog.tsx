@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useFacilityForm } from "../hooks/use-facility-form";
 
 type FacilityDialogProps = {
@@ -23,6 +24,8 @@ type FacilityDialogProps = {
 
 export function FacilityDialog({ companyId, facility }: FacilityDialogProps) {
   const t = useTranslations("facilities");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const isEdit = Boolean(facility);
 
@@ -48,7 +51,7 @@ export function FacilityDialog({ companyId, facility }: FacilityDialogProps) {
       </DialogTrigger>
 
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{isEdit ? t("editTitle") : t("addTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -71,7 +74,7 @@ export function FacilityDialog({ companyId, facility }: FacilityDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {isEdit ? t("save") : t("add")}
             </Button>
           </DialogFooter>

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form/text-field";
 import { SelectField, type SelectFieldOption } from "@/components/form/select-field";
 import { SECTORS, isKnownSector } from "@/lib/sectors";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useCompanyForm } from "../hooks/use-company-form";
 
 type CompanyDialogProps = {
@@ -32,6 +33,8 @@ type CompanyDialogProps = {
 export function CompanyDialog({ company, trigger }: CompanyDialogProps) {
   const t = useTranslations("admin.companies");
   const tSectors = useTranslations("company.sectors");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
 
   const { form, onSubmit, isSubmitting, serverError } = useCompanyForm({
@@ -55,7 +58,7 @@ export function CompanyDialog({ company, trigger }: CompanyDialogProps) {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{t("editTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -89,7 +92,7 @@ export function CompanyDialog({ company, trigger }: CompanyDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("save")}
             </Button>
           </DialogFooter>

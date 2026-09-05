@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SelectField, type SelectFieldOption } from "@/components/form/select-field";
 import { TextField } from "@/components/form/text-field";
 import { SECTORS, isKnownSector } from "@/lib/sectors";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useCompanyProfileForm } from "../hooks/use-company-profile-form";
 
 export function CompanyProfileForm({
@@ -35,6 +36,8 @@ export function CompanyProfileForm({
 }) {
   const t = useTranslations("company");
   const tSectors = useTranslations("company.sectors");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
 
   const { form, onSubmit, serverError, isSubmitting } = useCompanyProfileForm({
     companyId,
@@ -70,7 +73,7 @@ export function CompanyProfileForm({
         <CardDescription>{t("profileSubtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form method="post" onSubmit={onSubmit} className="space-y-4">
           {/* Two columns at sm, three only at xl: three ~220px columns at tablet width crush
               the sector select and the email. */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -159,7 +162,7 @@ export function CompanyProfileForm({
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
           <div className="flex justify-end">
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("save")}
             </Button>
           </div>

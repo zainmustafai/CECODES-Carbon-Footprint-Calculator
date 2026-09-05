@@ -38,6 +38,7 @@ import { TextField } from "@/components/form/text-field";
 import { SelectField, type SelectFieldOption } from "@/components/form/select-field";
 import { SECTORS } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { CredentialsBox } from "./credentials-box";
 import { useCompanyOnboarding, type OnboardingResult } from "../hooks/use-company-onboarding";
 
@@ -65,6 +66,8 @@ export function CompanyWizardDialog() {
 function WizardDialog({ onClose }: { onClose: () => void }) {
   const t = useTranslations("admin.onboarding");
   const tSectors = useTranslations("company.sectors");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const {
     form,
     step,
@@ -138,7 +141,7 @@ function WizardDialog({ onClose }: { onClose: () => void }) {
           {result ? (
             <WizardSummary result={result} onRestart={restart} onClose={onClose} />
           ) : (
-            <form onSubmit={onSubmit} noValidate className="space-y-6">
+            <form method="post" onSubmit={onSubmit} noValidate className="space-y-6">
               <DialogHeader>
                 <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
                   <DialogTitle>{t("pageTitle")}</DialogTitle>
@@ -285,7 +288,7 @@ function WizardDialog({ onClose }: { onClose: () => void }) {
                     "Siguiente"; the reused node also let that hide behind a button that never
                     disabled. Separate identities keep the last step's submit its own control. */}
                 {isLastStep ? (
-                  <Button key="submit" type="submit" loading={isSubmitting}>
+                  <Button key="submit" type="submit" disabled={!hydrated} loading={isSubmitting}>
                     {t("submit")}
                   </Button>
                 ) : (

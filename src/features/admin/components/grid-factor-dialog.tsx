@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
 import { DecimalField } from "@/components/form/decimal-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useGridFactorForm } from "../hooks/use-grid-factor-form";
 
 type GridFactorDialogProps = {
@@ -24,6 +25,8 @@ type GridFactorDialogProps = {
 
 export function GridFactorDialog({ gridFactor }: GridFactorDialogProps) {
   const t = useTranslations("admin.factors.grid");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const isEdit = Boolean(gridFactor);
 
@@ -53,7 +56,7 @@ export function GridFactorDialog({ gridFactor }: GridFactorDialogProps) {
       </DialogTrigger>
 
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{isEdit ? t("editTitle") : t("addTitle")}</DialogTitle>
             <DialogDescription>{t("dialogSubtitle")}</DialogDescription>
@@ -84,7 +87,7 @@ export function GridFactorDialog({ gridFactor }: GridFactorDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("save")}
             </Button>
           </DialogFooter>

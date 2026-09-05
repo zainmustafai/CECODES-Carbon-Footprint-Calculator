@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DecimalField } from "@/components/form/decimal-field";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useCompanyTargetForm } from "../hooks/use-company-target-form";
 
 // The company's single reduction goal: one percentage, measured against its first reported
@@ -20,6 +21,8 @@ export function CompanyTargetForm({
   initialReductionPct: string;
 }) {
   const t = useTranslations("company.target");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
 
   const { form, onSubmit, serverError, isSubmitting } = useCompanyTargetForm({
     companyId,
@@ -40,7 +43,7 @@ export function CompanyTargetForm({
         {firstReportedYear === null ? (
           <p className="text-sm text-muted-foreground">{t("noBaselineBody")}</p>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form method="post" onSubmit={onSubmit} className="space-y-4">
             <div className="max-w-40">
               <DecimalField
                 label={t("label")}
@@ -53,7 +56,7 @@ export function CompanyTargetForm({
             {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
             <div className="flex justify-end">
-              <Button type="submit" loading={isSubmitting}>
+              <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
                 {t("save")}
               </Button>
             </div>

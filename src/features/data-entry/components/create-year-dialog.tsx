@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/form/text-field";
 import { resolveGwpSet } from "@/lib/gwp";
+import { useHydrated } from "@/hooks/use-form-submit";
 import { useCreateYear } from "../hooks/use-create-year";
 
 type CreateYearDialogProps = {
@@ -29,6 +30,8 @@ export function CreateYearDialog({
   variant = "outline",
 }: CreateYearDialogProps) {
   const t = useTranslations("dataEntry.year");
+  // Pre-hydration a submit is native, not React: see useHydrated in @/hooks/use-form-submit.
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const { form, onSubmit, isSubmitting, serverError } = useCreateYear({
     facilityId,
@@ -48,7 +51,7 @@ export function CreateYearDialog({
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={onSubmit} noValidate>
+        <form method="post" onSubmit={onSubmit} noValidate>
           <DialogHeader>
             <DialogTitle>{t("createTitle")}</DialogTitle>
             <DialogDescription>{t("createSubtitle")}</DialogDescription>
@@ -69,7 +72,7 @@ export function CreateYearDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" disabled={!hydrated} loading={isSubmitting}>
               {t("create")}
             </Button>
           </DialogFooter>

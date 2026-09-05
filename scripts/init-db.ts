@@ -27,6 +27,13 @@ import { Client } from "pg";
 import { INIT_ENV_KEYS, validateInitEnv } from "../src/lib/env";
 import { datasourceUrl } from "./datasource";
 
+/**
+ * Above this many emission factors, the library is a real one and the first-run import must not
+ * fire. prisma/seed.ts's starter subset is a dozen rows and CECODES's library is over 1.700, so
+ * any threshold between the two behaves identically; 100 is far from both edges on purpose.
+ */
+const STARTER_LIBRARY_MAX = 100;
+
 const WAIT_ATTEMPTS = 30;
 const WAIT_BASE_MS = 1000;
 const WAIT_MAX_MS = 8000;
@@ -82,6 +89,73 @@ function run(label: string, command: string, args: string[]) {
   if (result.error) fail(`${label} could not start.`, result.error);
   if (result.status !== 0) fail(`${label} exited with code ${result.status}.`);
   log(`${label} completed.`);
+}
+
+/**
+ * Loads the full emission-factor library on a FIRST deployment, and never again.
+ *
+ * The seed leaves a starter subset: enough rows to render the app, nowhere near enough to compute
+ * a real footprint. Loading the real library used to be a documented manual command after every
+ * fresh install, which made "deploy" a two-part procedure whose second part is easy to forget and
+ * whose absence looks like a working system rather than a broken one - the app renders, the
+ * categories are there, and the totals are simply missing most of their sources.
+ *
+ * It is safe to do here precisely BECAUSE it only ever runs against an untouched library. The
+ * reason the import is otherwise a deliberate human decision is that it rewrites rows an admin may
+ * have edited; on a database that has never held more than the starter subset there is no such
+ * edit to overwrite, and no decision to take away from anyone. The moment a real library exists,
+ * this stops firing for good and `prisma/import-factors.ts` goes back to being run by hand.
+ *
+ * --apply-grid is passed for the same reason. It creates only grid years that are ABSENT, and on a
+ * first run the absent ones are simply the years the seed does not list.
+ *
+ * A failure here is not fatal. Every other step in this file gates the app on success, because a
+ * missing table or a missing admin means nothing works. A partial factor library means the app
+ * works and some sources cannot be priced, which the app already reports honestly through
+ * unpricedCount. Refusing to start would be the worse answer, so this warns and continues, and
+ * the operator runs the import by hand.
+ */
+async function importFactorLibraryOnFirstRun(connectionString: string): Promise<void> {
+  if (process.env.SKIP_FACTOR_IMPORT === "true") {
+    log("Factor library import skipped: SKIP_FACTOR_IMPORT=true was set explicitly.");
+    return;
+  }
+
+  // "Untouched" asked of the database, not assumed from a flag: the starter subset is a dozen or
+  // so rows and a real library is over a thousand, so nothing has to guess at the boundary.
+  const client = new Client({ connectionString });
+  let factorCount: number;
+  try {
+    await client.connect();
+    const result = await client.query<{ count: string }>("SELECT count(*) FROM emission_factors");
+    factorCount = Number(result.rows[0]?.count ?? "0");
+  } catch (error) {
+    console.error("[init] WARNING: could not read the factor library, skipping the import.");
+    if (error instanceof Error) console.error(`[init] ${error.message}`);
+    return;
+  } finally {
+    await client.end().catch(() => {});
+  }
+
+  if (factorCount > STARTER_LIBRARY_MAX) {
+    log(`Factor library already loaded (${factorCount} factors); import not run.`);
+    return;
+  }
+
+  log(`Factor library holds only the starter subset (${factorCount} factors). Importing the full library...`);
+  const result = spawnSync("bun", ["prisma/import-factors.ts", "--apply-grid"], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  if (result.error || result.status !== 0) {
+    console.error(
+      "[init] WARNING: the factor library import did not complete. The app will still start, " +
+        "but sources with no factor cannot be priced. Re-run it with: " +
+        "docker compose run --rm init bun prisma/import-factors.ts --apply-grid",
+    );
+    return;
+  }
+  log("Importing the full factor library completed.");
 }
 
 async function main() {
@@ -144,6 +218,9 @@ async function main() {
 
   // 4. Required system data + the admin account. Idempotent; safe on every restart.
   run("Seeding reference data and admin", "bun", ["prisma/seed.ts"]);
+
+  // 5. The real emission-factor library, but ONLY into a library nobody has touched yet.
+  await importFactorLibraryOnFirstRun(migrationUrl);
 
   log("Initialization complete. The application may start.");
 }
