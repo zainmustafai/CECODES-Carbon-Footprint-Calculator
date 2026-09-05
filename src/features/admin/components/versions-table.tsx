@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import type { EmissionFactorVersion } from "@/lib/generated/prisma/client";
 import { VersionDialog } from "./version-dialog";
 
@@ -63,8 +64,10 @@ export async function VersionsTable({
                   <TableCell className="text-muted-foreground">
                     {version.authorizedBy ?? "-"}
                   </TableCell>
-                  <TableCell className="max-w-xs truncate text-muted-foreground">
-                    {version.description ?? t("noDescription")}
+                  {/* A version description is a free-text changelog entry and routinely longer
+                      than the column, which is the whole reason someone opens this tab. */}
+                  <TableCell className="max-w-xs text-muted-foreground">
+                    <TruncatedText>{version.description ?? t("noDescription")}</TruncatedText>
                   </TableCell>
                 </TableRow>
               ))}

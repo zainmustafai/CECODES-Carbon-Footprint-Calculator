@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import {
   Table,
   TableBody,
@@ -71,15 +72,20 @@ export async function FactorTable({ factors }: { factors: CachedFactor[] }) {
                 </TableCell>
                 <TableCell className="max-w-56">
                   <div className="min-w-0">
-                    <div className="truncate">{factor.category}</div>
+                    <TruncatedText>{factor.category}</TruncatedText>
                     {factor.subcategory ? (
-                      <div className="truncate text-xs text-muted-foreground">
+                      <TruncatedText className="text-xs text-muted-foreground">
                         {factor.subcategory}
-                      </div>
+                      </TruncatedText>
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell className="max-w-72 truncate font-medium">{factor.element}</TableCell>
+                {/* The element name is the one that regularly overflows: these come verbatim from
+                    the workbook and run past a hundred characters, at which point two different
+                    factors can look identical in the column. */}
+                <TableCell className="max-w-72 font-medium">
+                  <TruncatedText>{factor.element}</TruncatedText>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{factor.unit}</TableCell>
                 <TableCell>
                   {display ? (
