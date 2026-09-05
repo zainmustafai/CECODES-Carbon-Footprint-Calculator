@@ -129,13 +129,28 @@
   --chart-3: oklch(0.68 0.09 261.3);
   --chart-4: oklch(0.78 0.07 159.3);
   --chart-5: oklch(0.65 0.02 261.3);
-  --sidebar: oklch(0.24 0.09 261.3);
+  /* The sidebar is NOT the light theme's navy panel repeated. That block used to be copied here
+     verbatim, and it was the one thing in dark mode that did not belong to the theme: at
+     L=0.24 it was LIGHTER than --background (0.16) and than --card (0.20), so the navigation
+     advanced instead of receding, and at C=0.09 it was the only saturated surface in a palette
+     whose neutrals are all chroma 0. It read as a blue slab pasted onto a grey app.
+     
+     Light mode earns that navy: a deep brand panel against a near-white app is an anchor. Dark
+     mode has no such contrast to trade on, so the sidebar follows the dark convention instead -
+     chrome sits BELOW the content plane. L=0.13 puts it just under the background, and C=0.025
+     keeps a trace of the brand hue so it reads as very dark navy rather than flat charcoal.
+     
+     --sidebar-accent (hover and the active row fill) is the one surface that still has to rise
+     off that ground, so it keeps more lift than the light theme needs. The bright green
+     --sidebar-primary is unchanged: it carries only the active indicator bar and icon, never
+     14px text, and it reads better against the darker ground than it did against the navy. */
+  --sidebar: oklch(0.13 0.025 261.3);
   --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.68 0.13 159.3);
-  --sidebar-primary-foreground: oklch(0.18 0.05 261.3);
-  --sidebar-accent: oklch(0.32 0.08 261.3);
+  --sidebar-primary-foreground: oklch(0.14 0.02 261.3);
+  --sidebar-accent: oklch(0.3 0.035 261.3);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.68 0.13 159.3);
 }
 
