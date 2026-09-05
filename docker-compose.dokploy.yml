@@ -1,0 +1,158 @@
+# CECODES - Huella de Carbono, on Dokploy
+#
+# In Dokploy: create a Compose service, provider "Docker Compose" (NOT "Docker Stack"), and set
+# Compose Path to
+#
+#   ./docker-compose.dokploy.yml
+#
+# Docker Stack cannot build images, and this stack builds two of them from the Dockerfile, so the
+# Stack option fails before it starts.
+#
+# THE DATABASE IS NOT IN THIS FILE.
+#
+# It is a Dokploy-managed Postgres, created separately under the project's Databases section, and
+# reached over dokploy-network by its appName. That is what buys the scheduled backups, the
+# restore path and the monitoring, none of which exist for a Postgres container this file would
+# start and forget. DATABASE_URL is therefore required and has no default: there is no bundled db
+# service for it to fall back to, and a deployment that silently invents a database is worse than
+# one that stops with a message.
+#
+# docker-compose.yml, in the repo root, is the other half of the story: it runs its own Postgres,
+# Mailpit and optionally Caddy, and is for a machine you hold. Do not point Dokploy at it. It
+# publishes the app on port 3000, which is the port Dokploy's own interface listens on, and
+# compose refuses to start ANY service when one binding fails, so the whole stack would fail on a
+# port nobody chose.
+#
+# WHY BOTH SERVICES JOIN dokploy-network
+#
+# Traefik reaches `app` there, and both services reach the database there. A compose stack does
+# NOT join that network on its own, which is the trap: put only `app` on it and the app starts
+# fine while `init` cannot resolve the database hostname, so every deployment fails in the
+# migration step with a name-resolution error that reads like the database is down.
+#
+# Nothing publishes a host port. Traefik routes to the app over the network, and the database is
+# reachable only from containers Dokploy has put on it.
+#
+# Environment variables come from Dokploy's Environment tab, which writes them to a .env file next
+# to this one. That is the same file compose reads for ${...} substitution, so a value set there
+# REPLACES a default below rather than adding to it. See docs/DOKPLOY_DEPLOYMENT.md.
+
+name: cecodes
+
+services:
+  # -------------------------------------------------------------------------------------------
+  # init - one-shot initialization job
+  # -------------------------------------------------------------------------------------------
+  # Applies pending migrations, seeds, creates the first admin, and imports the emission-factor
+  # library on a first deployment. Forward-only and idempotent: it never drops, truncates or
+  # resets. It runs to completion and stops, and the app does not start until it exits 0.
+  #
+  # There is exactly ONE container that migrates, which is what makes this safe with no
+  # coordination: the "several replicas all migrate at once" race cannot occur. (prisma migrate
+  # deploy also takes a Postgres advisory lock, so this is the second lock on the same door.)
+  #
+  # THE FIRST ADMIN PASSWORD IS PRINTED IN THIS SERVICE'S LOG, once, on the run that creates the
+  # row, and never again. Read it in Dokploy under Logs, service "init", before you redeploy.
+  #
+  # The factor import makes the FIRST deployment slow: it reads the workbook under docs/reference
+  # and writes about 1700 rows. Later deployments find the library populated and skip it.
+  init:
+    build:
+      context: .
+      target: migrator
+    # .env ONLY, and deliberately not .env.local. The two files answer different questions:
+    # .env configures the CONTAINERS, .env.local configures a developer's HOST and names loopback
+    # addresses that mean "myself" inside a container.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Required, and named in the error if it is missing. Copy the Internal Connection URL from
+      # the Dokploy database page: the host is that database's appName, not localhost and not the
+      # server's IP.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in the Environment tab to the database's internal connection URL}
+      # Prisma migrations need a session rather than a pooled connection. With no pooler in front
+      # of a Dokploy Postgres these are the same string, so this follows DATABASE_URL unless you
+      # set it yourself.
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+      # Character for character what the app sets below, and kept that way on purpose: init
+      # validates the whole runtime schema before it migrates anything, so a malformed SITE_URL
+      # fails initialization rather than surfacing in the first reset mail nobody reads for a week.
+      SITE_URL: ${SITE_URL:-${DOMAIN:+https://}${DOMAIN:-http://localhost:3000}}
+      DOMAIN: ${DOMAIN:-localhost}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}
+      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
+    # Not a default. Any other policy restarts a job that already succeeded, re-running the seed
+    # on a loop.
+    restart: "no"
+    networks: [dokploy-network]
+
+  # -------------------------------------------------------------------------------------------
+  # app - the Next.js application
+  # -------------------------------------------------------------------------------------------
+  # Adding a domain in Dokploy's Domains tab points Traefik at port 3000 on this container.
+  #
+  # No `ports:`. Publishing to the host would put the app on the server's public interface NEXT TO
+  # the proxy rather than behind it, which is how a deployment ends up answering on plain http,
+  # with no certificate, on a port nobody documented.
+  app:
+    build:
+      context: .
+      target: runner
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in the Environment tab to the database's internal connection URL}
+      DIRECT_URL: ${DIRECT_URL:-${DATABASE_URL}}
+      # The origin in every emailed link. DOMAIN is the bare hostname you gave the Domains tab,
+      # and https:// is prepended only when it has a value. Set SITE_URL itself only when the
+      # public address differs from DOMAIN: behind a path-based proxy, or on a second hostname.
+      SITE_URL: ${SITE_URL:-${DOMAIN:+https://}${DOMAIN:-http://localhost:3000}}
+      DOMAIN: ${DOMAIN:-localhost}
+      # none rather than smtp, because the Mailpit that default points at is not in this file.
+      # none is the honest setting: mailConfigured() answers false, so a password reset is refused
+      # up front instead of accepting a request it cannot deliver. Set MAIL_TRANSPORT=resend with
+      # RESEND_API_KEY and MAIL_FROM in the Environment tab to turn mail on. Nothing here can stop
+      # the app: a mail problem is reported in the boot banner and the site keeps serving.
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}
+      MAIL_FROM: ${MAIL_FROM:-CECODES <no-reply@localhost>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cecodes.local}
+    depends_on:
+      init:
+        # No app until init exits 0. A failed migration means no app, rather than an app serving
+        # requests against a half-migrated schema.
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # Readiness runs SELECT 1 through Prisma. Probing "/" would be a trap: that route redirects
+      # (307), so a naive check passes while the database is down.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      # Generous, because a cold Next start plus the first database connection is not instant and
+      # a container killed during startup never becomes healthy.
+      start_period: 40s
+      retries: 3
+    networks: [dokploy-network]
+    # DO NOT raise this. unstable_cache and revalidatePath in
+    # src/features/admin/lib/factor-library-cache.ts are per-process: with a second replica, an
+    # admin editing the factor library invalidates only the replica that served the edit, and the
+    # others keep serving stale factors until the entry expires.
+    deploy:
+      replicas: 1
+
+networks:
+  # Created by Dokploy when it installs itself, and shared by every app and database it runs.
+  # Declared external because this stack must join it, never create it: a compose-created network
+  # of the same name would be a different network, Traefik would not find the app on it, and the
+  # database hostname would not resolve.
+  dokploy-network:
+    external: true

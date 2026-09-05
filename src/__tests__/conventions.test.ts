@@ -29,6 +29,7 @@ const ROOT_FILES = [
   "vitest.config.ts",
   "eslint.config.mjs",
   "docker-compose.yml",
+  "docker-compose.dokploy.yml",
   "Dockerfile",
   "Caddyfile",
   ".env.example",
