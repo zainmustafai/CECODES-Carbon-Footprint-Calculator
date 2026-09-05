@@ -47,17 +47,52 @@ export function TruncatedText({
   const [clipped, setClipped] = useState(false);
 
   useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
+    let alive = true;
+    let frame = 0;
+    let attempts = 0;
 
-    // Read on the way in as well as on every resize: the first paint is where most of these are
-    // already clipped, and waiting for a resize that may never come would leave them silent.
-    const measure = () => setClipped(element.scrollWidth > element.clientWidth);
+    // Every read goes through ref.current rather than a node captured once when the effect ran.
+    // That is the whole fix, and it was found by measuring rather than by reasoning: the first
+    // version held `const element = ref.current` and reported sw=0 cw=0 forever, on cells that
+    // were visibly 222 wide inside a 208 box. An element with no layout, because it is not yet
+    // attached or an ancestor is still display:none, reports zero for both, and a node that
+    // hydration then replaces is never resized again, so ResizeObserver has nothing to report and
+    // the stale reading stands. Reading the ref each time means the measurement always applies to
+    // the node currently on screen.
+    const measure = () => {
+      const element = ref.current;
+      if (!alive || !element) return;
+
+      // Zero width is "ask again", not "fits". This is the state the factor table starts in, and
+      // treating it as an answer is what silently disabled the tooltip on all 91 clipped cells.
+      if (element.clientWidth === 0) {
+        // Bounded on purpose. A cell inside a tab panel the user never opens stays at zero width
+        // forever, and an unbounded retry would leave one animation-frame loop per row running for
+        // the life of the page. About a second of frames is long enough for layout, and cheap
+        // enough to be wrong about: ResizeObserver below still catches it when the panel opens.
+        if (attempts++ < 60) frame = requestAnimationFrame(measure);
+        return;
+      }
+
+      setClipped(element.scrollWidth > element.clientWidth);
+    };
+
     measure();
 
     const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
+    if (ref.current) observer.observe(ref.current);
+
+    // Fonts change glyph widths without changing the box, so ResizeObserver never fires for them.
+    // The layout loads Geist and Inter through next/font/google, and text that fits in the
+    // fallback face can overflow once the real one arrives. Optional-chained because
+    // document.fonts is absent in jsdom.
+    document.fonts?.ready.then(measure).catch(() => {});
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
     // The text itself is a dependency: a re-render with a longer string has to be re-measured,
     // and ResizeObserver does not fire when only the content changes at the same box size.
   }, [children]);
