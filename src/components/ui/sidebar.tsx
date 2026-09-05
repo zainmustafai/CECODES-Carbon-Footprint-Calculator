@@ -306,7 +306,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex flex-col flex-1 bg-background md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2 md:peer-data-[variant=inset]:rounded-xl w-full",
+        "relative flex flex-col flex-1 bg-background w-full",
         className,
       )}
       {...props}
@@ -466,7 +466,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "group/menu-button peer/menu-button flex items-center gap-2 data-active:bg-sidebar-accent data-open:hover:bg-sidebar-accent hover:bg-sidebar-accent active:bg-sidebar-accent aria-disabled:opacity-50 disabled:opacity-50 p-2 group-data-[collapsible=icon]:p-2! group-has-data-[sidebar=menu-action]/menu-item:pr-8 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2 w-full [&_svg]:size-4 group-data-[collapsible=icon]:size-8! overflow-hidden data-active:font-medium text-sm text-left [&>span:last-child]:truncate transition-[width,height,padding] data-active:text-sidebar-accent-foreground data-open:hover:text-sidebar-accent-foreground hover:text-sidebar-accent-foreground active:text-sidebar-accent-foreground aria-disabled:pointer-events-none disabled:pointer-events-none [&_svg]:shrink-0",
+  "group/menu-button peer/menu-button flex items-center gap-2 data-active:bg-sidebar-accent data-open:hover:bg-sidebar-accent hover:bg-sidebar-accent active:bg-sidebar-accent aria-disabled:opacity-50 disabled:opacity-50 p-2 group-data-[collapsible=icon]:p-2! group-has-data-[sidebar=menu-action]/menu-item:pr-8 rounded-none outline-hidden ring-sidebar-ring focus-visible:ring-2 w-full [&_svg]:size-4 group-data-[collapsible=icon]:size-10! overflow-hidden data-active:font-medium text-sm text-left [&>span:last-child]:truncate transition-[width,height,padding] data-active:text-sidebar-accent-foreground data-open:hover:text-sidebar-accent-foreground hover:text-sidebar-accent-foreground active:text-sidebar-accent-foreground aria-disabled:pointer-events-none disabled:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -475,8 +475,8 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "h-8 text-sm",
-        sm: "h-7 text-xs",
+        default: "h-10 text-sm",
+        sm: "h-9 text-xs",
         lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!",
       },
     },
@@ -666,7 +666,7 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        "group-data-[collapsible=icon]:hidden flex items-center gap-2 data-active:bg-sidebar-accent hover:bg-sidebar-accent active:bg-sidebar-accent aria-disabled:opacity-50 disabled:opacity-50 px-2 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2 min-w-0 h-7 [&>svg]:size-4 overflow-hidden text-sidebar-foreground data-[size=sm]:text-xs data-[size=md]:text-sm [&>span:last-child]:truncate -translate-x-px [&>svg]:text-sidebar-accent-foreground data-active:text-sidebar-accent-foreground hover:text-sidebar-accent-foreground active:text-sidebar-accent-foreground aria-disabled:pointer-events-none disabled:pointer-events-none [&>svg]:shrink-0",
+        "group-data-[collapsible=icon]:hidden flex items-center gap-2 data-active:bg-sidebar-accent hover:bg-sidebar-accent active:bg-sidebar-accent aria-disabled:opacity-50 disabled:opacity-50 px-2 rounded-none outline-hidden ring-sidebar-ring focus-visible:ring-2 min-w-0 h-9 [&>svg]:size-4 overflow-hidden text-sidebar-foreground data-[size=sm]:text-xs data-[size=md]:text-sm [&>span:last-child]:truncate -translate-x-px [&>svg]:text-sidebar-accent-foreground data-active:text-sidebar-accent-foreground hover:text-sidebar-accent-foreground active:text-sidebar-accent-foreground aria-disabled:pointer-events-none disabled:pointer-events-none [&>svg]:shrink-0",
         className,
       )}
       {...props}

@@ -16,7 +16,15 @@ export async function AppTopbar({ email, role, companyName }: AppTopbarProps) {
   const t = await getTranslations("nav");
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
+    // sticky, not fixed: the header stays a flex child of SidebarInset, so it keeps the inset's
+    // width and needs no left offset when the sidebar collapses. The translucent fill plus
+    // backdrop-blur is what makes content read as passing UNDERNEATH it, which is also why the
+    // page content below carries no top padding.
+    //
+    // supports-[backdrop-filter] guards the transparency: a browser with no backdrop-filter would
+    // otherwise show the page scrolling through a 70%-opaque header, so those fall back to the
+    // solid token instead.
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 supports-[backdrop-filter]:bg-background/70 supports-[backdrop-filter]:backdrop-blur-md lg:px-6">
       {/* title too: aria-label localizes the accessible name, but the native tooltip comes
           from the vendored component's hardcoded English title unless overridden. */}
       <SidebarTrigger

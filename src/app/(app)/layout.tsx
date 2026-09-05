@@ -37,7 +37,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           overflow-x-auto container, and the entire dashboard gains a horizontal scrollbar. */}
       <SidebarInset className="min-w-0">
         <AppTopbar email={appUser?.email} role={role} companyName={company?.name ?? null} />
-        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-6 lg:p-8">
+        {/* Horizontal padding only. The vertical padding is gone on purpose: the topbar above is
+            sticky and translucent, and a top gap would park an empty band under it instead of
+            letting content scroll through the blur. */}
+        <div id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-6 lg:px-8">
           {children}
         </div>
       </SidebarInset>
