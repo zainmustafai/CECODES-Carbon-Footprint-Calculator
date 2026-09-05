@@ -43,8 +43,24 @@
 // workbook. If CECODES later sends a corrected sheet, delete the change rows or re-run the
 // importer with an explicit override.
 
-import { Prisma } from "@/lib/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+// Its own client, resolved through the shared helper, exactly like every sibling fix-* script.
+//
+// This file used to import the APPLICATION's singleton from src/lib/prisma, and that was a real
+// hazard rather than a style slip. That client reads DATABASE_URL alone, which on this deployment
+// is the pooled connection; a long correction run that rewrites factors and writes an audit row
+// per factor belongs on the direct connection, which is what datasourceUrl() prefers. It also
+// meant this one script sat outside the standing audit in scripts/__tests__/datasource.test.ts:
+// that guard forbids reading DATABASE_URL or DIRECT_URL out of the environment, and importing the
+// app client reads neither, so the omission was invisible. The guard now also forbids the import.
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd());
+
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Prisma, PrismaClient } from "../src/lib/generated/prisma/client";
+import { datasourceUrl } from "../scripts/datasource";
+
+const adapter = new PrismaPg({ connectionString: datasourceUrl() });
+const prisma = new PrismaClient({ adapter });
 
 const APPLY = process.argv.includes("--apply");
 

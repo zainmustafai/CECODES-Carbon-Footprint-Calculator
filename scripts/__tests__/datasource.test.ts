@@ -131,8 +131,20 @@ const CALL_SITES = [
   join("prisma", "fix-2026-08-24-scope2-sin-rename.ts"),
   join("prisma", "reapply-2026-09-03-factor-correction.ts"),
   join("prisma", "repoint-renamed-factors.ts"),
+  join("prisma", "fix-travel-factors.ts"),
   join("e2e", "fixture.ts"),
 ];
+
+// The second way a script can end up on the wrong database, and the one that got past the audit
+// above for months. fix-travel-factors.ts imported the APPLICATION's Prisma singleton instead of
+// building its own client, so it read neither variable itself, matched no pattern here, and was
+// simply missing from CALL_SITES with nothing to notice. It connected on DATABASE_URL alone, which
+// on this deployment is the pooled connection rather than the direct one.
+//
+// src/lib/prisma.ts is right for the app, which is the point: it is a request-scoped client for a
+// server that is already configured. A script run by bun is not that, so importing it is always
+// the wrong answer under these three trees.
+const APP_PRISMA_IMPORT = /from\s+["'`](?:@\/lib\/prisma|(?:\.\.\/)+src\/lib\/prisma)["'`]/;
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -159,6 +171,14 @@ describe("every script that opens its own connection routes through the helper",
     const offenders = SCRIPT_DIRS.flatMap(walk)
       .map((file) => ({ file, lines: offendingLines(file) }))
       .filter(({ lines }) => lines.length > 0);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("finds no script importing the application's Prisma client instead of building its own", () => {
+    const offenders = SCRIPT_DIRS.flatMap(walk).filter((file) =>
+      APP_PRISMA_IMPORT.test(readFileSync(file, "utf8")),
+    );
 
     expect(offenders).toEqual([]);
   });
