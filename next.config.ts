@@ -6,6 +6,12 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // `next dev` rewrites the top of AGENTS.md (and CLAUDE.md) on every run with its own managed
+  // block. Next 16.3's wording contains an em dash, which this project bans and
+  // src/__tests__/conventions.test.ts enforces, so a single dev run turned the suite red. The
+  // guidance itself is worth keeping, so it stays at the top of AGENTS.md, hand-written and
+  // punctuated like the rest of the repo. Off means Next never touches either file again.
+  agentRules: false,
   // Emits .next/standalone: a self-contained server bundle with only the modules actually
   // imported. Vercel does this for you; a container does not, so without it the runtime image
   // has to carry the whole node_modules tree (shadcn alone drags in ts-morph and @babel/core).
