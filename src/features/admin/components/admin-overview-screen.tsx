@@ -69,126 +69,138 @@ export async function AdminOverviewScreen() {
         />
       </div>
 
-      {/* Portfolio status + the follow-up list */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-base">{t("portfolio.title")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PortfolioDonut portfolio={overview.portfolio} />
-          </CardContent>
-        </Card>
+      {/* Portfolio status and library health share the narrow column; the follow-up list and the
+          activity feed share the wide one.
 
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="text-base">{t("attention.title")}</CardTitle>
-            {overview.attention.length > 0 ? (
-              <Badge variant="secondary" className="tabular-nums">
-                {n(overview.attention.length)}
-              </Badge>
-            ) : null}
-          </CardHeader>
-          <CardContent>
-            {overview.attention.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <CheckCircle2 className="size-8 text-primary" aria-hidden />
-                <p className="text-sm text-muted-foreground">{t("attention.empty")}</p>
-              </div>
-            ) : (
-              <ul className="divide-y">
-                {overview.attention.slice(0, 12).map((item) => (
-                  <li
-                    key={`${item.companyId}-${item.facilityName}-${item.year}-${item.kind}`}
-                    className="flex items-center justify-between gap-3 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/admin/companies/${item.companyId}/data-entry`}
-                        className="text-sm font-medium hover:underline"
-                      >
-                        {item.companyName}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {t("attention.sedeYear", {
-                          sede: item.facilityName,
-                          year: String(item.year),
+          These were two independent 1+2 grids before, one per row, and that is what produced the
+          dead space: the follow-up list renders up to twelve rows, so it set the height of ITS
+          row, and the donut card beside it stretched to match with nothing to put in the gap.
+          Stacking the two narrow cards in one column means the tall list is balanced by two cards
+          instead of one, and items-start stops whichever column ends first from stretching.
+
+          The cost is the small-screen order, which is now portfolio, library, follow-up, activity
+          rather than alternating. The KPI row above still carries the headline numbers, so the
+          first screen on mobile is unchanged. */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+        <div className="space-y-4 lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t("portfolio.title")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PortfolioDonut portfolio={overview.portfolio} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center gap-2 space-y-0">
+              <Library className="size-4 text-muted-foreground" aria-hidden />
+              <CardTitle className="text-base">{t("library.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <LibraryRow label={t("library.factors")} value={n(overview.library.factorCount)} />
+              <LibraryRow
+                label={t("library.version")}
+                value={
+                  overview.library.version ? (
+                    <span className="text-right">
+                      <span className="font-mono">{overview.library.version.version}</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {format.dateTime(overview.library.version.date, {
+                          dateStyle: "medium",
+                          timeZone: "America/Bogota",
                         })}
-                      </p>
-                    </div>
-                    <AttentionBadge
-                      label={attentionLabel(item.kind, item.blankMonths)}
-                      blocking={item.kind !== "scope2Incomplete"}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {overview.attention.length > 12 ? (
-              <p className="pt-3 text-xs text-muted-foreground">
-                {t("attention.more", { count: String(overview.attention.length - 12) })}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Library health + the recent activity feed */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex-row items-center gap-2 space-y-0">
-            <Library className="size-4 text-muted-foreground" aria-hidden />
-            <CardTitle className="text-base">{t("library.title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <LibraryRow label={t("library.factors")} value={n(overview.library.factorCount)} />
-            <LibraryRow
-              label={t("library.version")}
-              value={
-                overview.library.version ? (
-                  <span className="text-right">
-                    <span className="font-mono">{overview.library.version.version}</span>
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      {format.dateTime(overview.library.version.date, {
-                        dateStyle: "medium",
-                        timeZone: "America/Bogota",
-                      })}
+                      </span>
                     </span>
-                  </span>
-                ) : (
-                  t("library.noVersion")
-                )
-              }
-            />
-            <LibraryRow
-              label={t("library.recentChanges")}
-              value={t("library.recentChangesValue", {
-                count: String(overview.library.recentChanges),
-              })}
-            />
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <Link href="/admin/factors">
-                {t("library.open")}
-                <ArrowRight className="size-4" aria-hidden />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+                  ) : (
+                    t("library.noVersion")
+                  )
+                }
+              />
+              <LibraryRow
+                label={t("library.recentChanges")}
+                value={t("library.recentChangesValue", {
+                  count: String(overview.library.recentChanges),
+                })}
+              />
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href="/admin/factors">
+                  {t("library.open")}
+                  <ArrowRight className="size-4" aria-hidden />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="text-base">{t("activity.title")}</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/admin/traceability">
-                {t("activity.viewAll")}
-                <ArrowRight className="size-4" aria-hidden />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <TraceabilityFeed rows={activity.rows} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 lg:col-span-2">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-base">{t("attention.title")}</CardTitle>
+              {overview.attention.length > 0 ? (
+                <Badge variant="secondary" className="tabular-nums">
+                  {n(overview.attention.length)}
+                </Badge>
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {overview.attention.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <CheckCircle2 className="size-8 text-primary" aria-hidden />
+                  <p className="text-sm text-muted-foreground">{t("attention.empty")}</p>
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {overview.attention.slice(0, 12).map((item) => (
+                    <li
+                      key={`${item.companyId}-${item.facilityName}-${item.year}-${item.kind}`}
+                      className="flex items-center justify-between gap-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <Link
+                          href={`/admin/companies/${item.companyId}/data-entry`}
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {item.companyName}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {t("attention.sedeYear", {
+                            sede: item.facilityName,
+                            year: String(item.year),
+                          })}
+                        </p>
+                      </div>
+                      <AttentionBadge
+                        label={attentionLabel(item.kind, item.blankMonths)}
+                        blocking={item.kind !== "scope2Incomplete"}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {overview.attention.length > 12 ? (
+                <p className="pt-3 text-xs text-muted-foreground">
+                  {t("attention.more", { count: String(overview.attention.length - 12) })}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-base">{t("activity.title")}</CardTitle>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/admin/traceability">
+                  {t("activity.viewAll")}
+                  <ArrowRight className="size-4" aria-hidden />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <TraceabilityFeed rows={activity.rows} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
