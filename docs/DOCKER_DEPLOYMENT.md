@@ -124,10 +124,10 @@ system that answers requests is worse than one that is plainly down. Step 6 is t
 warns instead: a missing factor library leaves an app that works and reports its own gaps, which is
 better than no app at all.
 
-Step 1 checks a deliberately short list: `DATABASE_URL`, the shape of `SITE_URL` if one is set, and
-`ADMIN_EMAIL` / `ADMIN_PASSWORD`. It does **not** look at the mail variables at all. A mail mistake
-therefore passes initialization untouched, reaches the `app` container, and is reported there
-without stopping it, which is why section 7 sends you to the app's log and not this one for mail.
+Step 1 checks a deliberately short list: `DATABASE_URL`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`, which
+are what initialization itself cannot run without. It does **not** look at the mail variables or at
+`SITE_URL`. Those pass initialization untouched, reach the `app` container, and are reported there
+without stopping it, which is why section 7 sends you to the app's log and not this one for them.
 
 ---
 
@@ -170,7 +170,7 @@ token behind a dead link.
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `DOMAIN` | unset | Your public hostname, e.g. `huella.example.org`, a bare hostname with no scheme. Set it in `.env` and emailed links are built as `https://<DOMAIN>`. The optional `edge` (Caddy/TLS) profile uses the same value to obtain a certificate. |
-| `SITE_URL` | unset | A **full absolute http(s) URL**, and it takes precedence over `DOMAIN`. Only for a deployment whose public address is not simply `https://<DOMAIN>`. Validated at boot: a bare hostname here stops the app and names the variable, instead of being silently discarded. |
+| `SITE_URL` | unset | A **full absolute http(s) URL**, and it takes precedence over `DOMAIN`. Only for a deployment whose public address is not simply `https://<DOMAIN>`. Checked at boot and named in the log if it is anything else, such as the bare hostname `DOMAIN` takes. Nothing stops: the unusable value is discarded and links fall back to `DOMAIN`, so the symptom is mail pointing at the wrong hostname, not an outage. |
 
 With neither set, a purely local trial still resolves `http://localhost:3000`, which is why the
 bundled reset flow works with no configuration at all.
@@ -182,6 +182,10 @@ bundled reset flow works with no configuration at all.
 variable, the app serves normally, and `mailConfigured()` answers false so password reset and the
 welcome mail are refused up front. "Required" in the table below therefore means "required for mail
 to work at all", never "required to start".
+
+`SITE_URL` is reported by that same check and shows up in the same banner, being the origin every
+emailed link is built from. It is the one line there that does **not** disable mail: an unusable
+value falls back to `DOMAIN`, so the mail still goes out and still carries a working link.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -252,8 +256,9 @@ from Google during `docker build`.
 
 **Broken mail is now silent, and that is the trade.** It used to stop the process, which was
 unmissable and also wrong: a mistyped API key for an auxiliary feature took down a site that could
-serve every page it has, and on a single-process platform such as Vercel that meant every route
-answering 500 at once, `/api/health/live` included. Mail no longer has that power. What you get
+serve every page it has, and on a single-process platform such as Vercel that meant every Node route
+answering 500 at once, `/api/health/live` included, while edge middleware carried on as if nothing
+were wrong. Mail no longer has that power. What you get
 instead is a deployment that is up, healthy, green, and quietly unable to send a password reset: the
 action refuses before writing a token row, so the user is not lied to, but nobody is told either.
 The boot log is the only place it appears. Read it at deploy time, not when somebody reports being
@@ -278,19 +283,19 @@ one service.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | You never saw the generated admin password | The banner prints once, on the run that creates the admin row, and `docker compose down` removed the log along with the container | Set `ADMIN_PASSWORD` in `.env` (12+ characters) and re-run initialization: `docker compose run --rm init`. That rewrites the password and ends every open session. |
-| init exits 1, "Invalid environment" | A variable is missing or malformed | The message names it. Commonly `ADMIN_EMAIL` not parsing as an address, `ADMIN_PASSWORD` under 12 characters, `DATABASE_URL` unset, or `SITE_URL` given as a bare hostname. It is never a mail variable: init does not validate mail. |
+| init exits 1, "Invalid environment" | A variable is missing or malformed | The message names it. Commonly `ADMIN_EMAIL` not parsing as an address, `ADMIN_PASSWORD` under 12 characters, or `DATABASE_URL` unset. It is never a mail variable and never `SITE_URL`: init validates neither. |
 | init exits 1, "Database unreachable after 30 attempts" | Wrong host or password, or your Postgres is unreachable from the container network | Check `DIRECT_URL`. If you pointed it at an external database, confirm the containers can actually reach that host. |
 | init exits 1, "Database bootstrap failed" | The connecting role cannot create the objects `scripts/bootstrap-db.sql` supplies | On a fresh database it needs to create a role and a schema. On a managed Postgres, connect as an owner-level role. |
 | init exits 1, "Cannot seed the admin account. Missing: ADMIN_EMAIL" | `ADMIN_EMAIL` is empty | Set it. Without an admin there is no way in: self-serve registration is off. |
 | init exits 1, "DEMO_SEED_ALLOWED=true is set" | Demo flag copied from a dev `.env` | Remove it. This guard is protecting real data. |
 | app container never starts | init failed | `docker compose logs init`. The app is gated on init succeeding. |
-| app exits 1 immediately, or restarts in a loop | Boot-time env validation failed | `docker compose logs app`. It names the variable, and as `src/lib/env.ts` stands there are only two candidates: `DATABASE_URL` unset, or `SITE_URL` set to something that is not an absolute http(s) URL. No mail variable can do this any more. The container carries `restart: unless-stopped`, so a boot refusal looks like a crash loop rather than a single exit. |
-| Every route returns 500 on a deployment that just went out green, and only some of them | The same boot refusal as the row above, on a platform that serves the whole deployment from one process (Vercel) instead of a container it can mark unhealthy. The boot hook exits, so every Node route 500s at once, `/api/health/live` included, while edge middleware keeps answering normally, which is what makes the site look half alive | Read the platform's **runtime** log, not the build log. The build succeeded; that is why the deployment is green. One line at the top names the variable. This happened in production: the cause was a single environment variable, and mail was the reason, which is exactly why mail no longer sits in the fatal path. Today only `DATABASE_URL` and a malformed `SITE_URL` can still produce it. |
+| app exits 1 immediately, or restarts in a loop | Boot-time env validation failed | `docker compose logs app`. It names the variable, and as `src/lib/env.ts` stands there is exactly one candidate: `DATABASE_URL` is unset. Nothing else in the environment can do this, mail and `SITE_URL` included. The container carries `restart: unless-stopped`, so a boot refusal looks like a crash loop rather than a single exit. |
+| Every Node route returns 500 on a deployment that just went out green, while middleware still answers | The same boot refusal as the row above, on a platform that serves the whole deployment from one process (Vercel) instead of a container it can mark unhealthy. The boot hook exits, so every Node route 500s at once, `/api/health/live` included, while edge middleware keeps answering normally, which is what makes the site look half alive | Read the platform's **runtime** log, not the build log. The build succeeded; that is why the deployment is green. One line at the top names the variable. This happened in production: the cause was a single environment variable, and mail was the reason, which is exactly why mail no longer sits in the fatal path. Today `DATABASE_URL` is the only variable that can still produce it, because it is the only one the app genuinely cannot serve a request without. |
 | The site works, but password reset does nothing and no mail arrives | Mail is misconfigured, so `mailConfigured()` is false and the action refuses before writing a token row. Nothing is broken from the outside, which is why this can run for weeks | `docker compose logs app \| head -40`, or the platform's runtime log. A `MAIL IS MISCONFIGURED` banner names the variable at fault. Fix it and redeploy; the boot log is the only place this is reported. |
 | app runs but shows `unhealthy` | Database unreachable from the app | Hit the readiness endpoint inside: `docker compose exec app node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>r.text()).then(console.log)"` |
 | Styles missing, pages unstyled | `.next/static` not copied | Rebuild without cache: `docker compose build --no-cache app`. |
 | Build fails downloading fonts | No outbound HTTPS on the build host | Allow egress to `fonts.googleapis.com` / `fonts.gstatic.com`. |
-| Mailpit's inbox stays empty after a reset request | `MAIL_TRANSPORT` is not `smtp`, or no public origin is configured, or that address simply has no active account | `docker compose logs app`. `[auth] password reset requested, but no mail is configured` names the transport; `... no public origin is configured` means set `DOMAIN` or `SITE_URL`. Neither line appears when the address has no account, which is deliberate: the action answers identically either way. |
+| Mailpit's inbox stays empty after a reset request | `MAIL_TRANSPORT` is not `smtp`, or the mail configuration is invalid and mail is therefore off, or no public origin is configured, or that address simply has no active account | `docker compose logs app`. `[auth] password reset requested, but no mail is configured` covers both of the first two, and the `MAIL IS MISCONFIGURED` boot banner tells you which by naming the variable; `... no public origin is configured` means set `DOMAIN` or `SITE_URL`. Neither line appears when the address has no account, which is deliberate: the action answers identically either way. |
 | Reset mail arrives with links pointing at `localhost` | `DOMAIN` and `SITE_URL` are both unset, so the local default is in force | Set `DOMAIN` in `.env` to your real hostname and restart the app. |
 
 Three things worth knowing:

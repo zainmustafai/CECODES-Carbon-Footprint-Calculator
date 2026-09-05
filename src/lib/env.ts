@@ -25,6 +25,18 @@ import { z } from "zod";
  * the mail feature (mailConfigured() answers false, so the reset is refused up front and no token
  * row is written) and a named, unmissable line in the boot log, instead of the whole site.
  *
+ * SITE_URL followed it, for the same argument and after nearly the same accident. It was the last
+ * fatal rule that was not about being able to serve, and the value that tripped it is the one an
+ * operator types first: a bare hostname copied from DOMAIN. Its shape is now siteUrlSchema, also
+ * reported by validateMailConfig, but with one difference from the mail rules that is spelled out
+ * at mailConfigured(): it does not turn mail off, because a wrong SITE_URL still delivers a
+ * working link from a fallback origin, and refusing every password reset over it would cost more
+ * than the fault does.
+ *
+ * What is left in runtimeSchema is DATABASE_URL, and that is the whole intended list. The test for
+ * this file pins it as a list, so adding a second fatal rule means arguing with a test that asks
+ * whether the app can SERVE without the variable, which is the only question that justifies one.
+ *
  * Deliberately NOT validated as a URL: DATABASE_URL. Prisma and pg accept forms zod's url()
  * rejects, and a false rejection at boot would be worse than the late failure it replaces.
  */
@@ -330,15 +342,35 @@ export function mailTransport(source: EnvSource = process.env): MailTransport {
  * with no mail refuses the reset up front rather than telling a user to watch an inbox nothing
  * will arrive in.
  *
- * Any issue at all answers false, and this line is what carries the mail rules now that they no
- * longer stop the process. Before the split, a key that had wrapped on paste could not reach here
- * because boot had already refused it; with boot only logging, presence alone would let
+ * Any mail issue at all answers false, and this line is what carries the mail rules now that they
+ * no longer stop the process. Before the split, a key that had wrapped on paste could not reach
+ * here because boot had already refused it; with boot only logging, presence alone would let
  * requestPasswordResetAction write a live token row and tell the user to check their inbox, while
  * the send is dropped later with one console.warn. That is exactly the silent loss the
  * header-safety rule was written to prevent, so the rule has to be read here, not just reported.
+ *
+ * SITE_URL is the deliberate exception, and it reads mailSchema rather than validateMailConfig to
+ * make that exception exact rather than implied. Every OTHER line that reporter can produce
+ * describes a send that cannot succeed: a key Resend rejects, a From with no address in it, a
+ * relay that will answer "530 Authentication required". A wrong SITE_URL describes none of those.
+ * The mail leaves, arrives, and carries a working link, built from DOMAIN or VERCEL_URL instead,
+ * which on Vercel is the canonical hostname anyway.
+ *
+ * The asymmetry is what settles it. Answering false here would mean nobody on that deployment can
+ * reset a password at all, and password reset is the recovery path for people who are ALREADY
+ * locked out, so the cost of the strict reading is an auth outage over a hostname preference.
+ * The cost of the lenient reading is, at worst, a link on the wrong one of the deployment's own
+ * hostnames, announced by name in the boot log. That is the same trade the whole file is built on:
+ * one feature's configuration must not be allowed to cost more than that feature.
+ *
+ * The genuinely broken case is already handled, and not here. When SITE_URL is unusable AND there
+ * is no DOMAIN and no VERCEL_URL, siteOrigin() answers "", and both callers that build a link
+ * (requestPasswordReset and the admin's createUser) check that separately and refuse before any
+ * token row is written. Repeating that guard here would be redundant where it is right and wrong
+ * everywhere else, because it would also refuse the deployments where the fallback works.
  */
 export function mailConfigured(source: EnvSource = process.env): boolean {
-  if (validateMailConfig(source).length > 0) return false;
+  if (issuesFor(mailSchema, source).length > 0) return false;
 
   const from = Boolean(source.MAIL_FROM?.trim());
   switch (mailTransport(source)) {

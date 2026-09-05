@@ -275,7 +275,10 @@ describe("mail misconfiguration never stops the app", () => {
   });
 
   // Same principle one layer down: a container must not refuse to run its migrations and create
-  // its first admin because the mail variables are wrong. Nothing the init job does sends mail.
+  // its first admin because the mail variables are wrong. Nothing the init job does sends mail,
+  // and nothing it does builds a link, so SITE_URL cannot stop it either. This one matters on a
+  // first deploy in particular, which is when SITE_URL gets typed for the first time and when the
+  // init job is the only thing standing between an empty database and a usable site.
   it("lets the init job run with mail misconfigured", () => {
     expect(() =>
       validateInitEnv({
@@ -283,6 +286,7 @@ describe("mail misconfiguration never stops the app", () => {
         ADMIN_EMAIL: "admin@cecodes.local",
         MAIL_TRANSPORT: "resend",
         RESEND_API_KEY: WRAPPED_KEY,
+        SITE_URL: "huella.cecodes.org",
       }),
     ).not.toThrow();
   });

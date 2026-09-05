@@ -15,11 +15,25 @@ const subscribeToNothing = () => () => {};
 // markup the server sends is a plain <form> with no handler attached yet. Before hydration a
 // submit is therefore a NATIVE submit, and it was reaching production: the login form put
 // ?email=...&password=... in the address bar, which is browser history and the CDN access log.
-// method="post" (now on every form) keeps the fields out of the URL, but the better outcome is
-// that the submit never happens, because a POST to a page route with no POST handler is a 405 in
-// the user's face. Per the HTML spec, implicit submission does nothing when the form's default
-// button is disabled, so disabling that one button closes the click path and the Enter-in-a-field
-// path together, and it is the only thing that works with no JavaScript running yet.
+// method="post" (now on every form) moves the fields into the request body, which closes the
+// leak, but it does NOT make the stray submit visible, and an earlier version of this comment
+// said it did. The claim was that a POST to a page route with no POST handler comes back as a
+// 405 in the user's face. Checked against the installed Next (16.2.10) rather than from memory,
+// that is false. A native form POST sends content-type application/x-www-form-urlencoded, and
+// server/lib/server-action-request-meta.js counts any urlencoded POST as a possible Server
+// Action, which is exactly the condition that skips the 405 branch in server/base-server.js
+// ("Server actions can use non-GET/HEAD methods"). server/app-render/action-handler.js then
+// bails on it, because urlencoded actions are not supported, and for a non-fetch request it
+// bails by returning null, which means "not handled, carry on rendering". Next's own source
+// says why in a comment there: "to prevent changes in behavior when a regular page component
+// tries to handle a POST". The user gets HTTP 200 and the page again, their input silently
+// dropped, with nothing on screen to say the submit went nowhere.
+//
+// So the disabled button is not a nicety layered on top of a loud failure. It is the only thing
+// that stops the submit from happening at all. Per the HTML spec, implicit submission does
+// nothing when the form's default button is disabled, so disabling that one button closes the
+// click path and the Enter-in-a-field path together, and it is the only thing that works with no
+// JavaScript running yet.
 //
 // Why it is a hook of its own rather than another field on useFormSubmit's return, which is where
 // it belongs by rights: no form component calls useFormSubmit. Each calls its feature hook

@@ -30,10 +30,17 @@ export async function sendViaResend(message: MailMessage): Promise<MailResult> {
   // file would then print in full, once per reset attempt, in the one log an operator is most
   // likely to ship somewhere else.
   //
-  // The shape itself lives in src/lib/env.ts, which now enforces the same rule at BOOT, so this is
-  // a backstop rather than the first line of defence: reaching it means the process started
-  // without validateRuntimeEnv, which is a state a script can be in. One constant, read by both,
-  // so the two checks cannot drift apart.
+  // The shape itself lives in src/lib/env.ts, and this check is the LAST line of defence rather
+  // than a spare one. That file used to refuse the boot over a key like this, which made reaching
+  // this line nearly impossible; refusing the boot also meant one mail typo answered 500 on every
+  // route, so the rule now reports at boot and the process serves. A deployment with an unusable
+  // key therefore runs, and this code path is ordinary rather than theoretical.
+  //
+  // What stands between such a deployment and a send is mailConfigured(), which reads the same
+  // rule and answers false, so the two callers that mail today refuse before a token row is
+  // written. That guard lives in another file and is a decision each caller makes; this one is a
+  // property of the request being about to go out, and it is the only check a future caller
+  // cannot forget to make. One constant, read by both, so the two cannot drift apart.
   if (!HEADER_SAFE_VALUE.test(apiKey)) {
     console.warn("[mail] not sent, RESEND_API_KEY is not a usable header value");
     return { ok: false, reason: "not-configured" };
