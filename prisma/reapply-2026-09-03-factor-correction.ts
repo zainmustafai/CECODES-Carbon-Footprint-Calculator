@@ -48,7 +48,7 @@ const CHANGED_BY = "correccion-factores-2026-09-03";
 // regrouping changes it and the row is still the same source.
 const ALIASES: Record<string, string> = {
   // Client feedback 2026-08-24, applied by prisma/fix-2026-08-24-scope2-sin-rename.ts.
-  "SISTEMA INTERCONECTADO NACIONAL - SIN": "Electricidad (Sistema Interconectado Nacional - SIN)",
+  "Sistema Interconectado Nacional - SIN": "Electricidad (Sistema Interconectado Nacional - SIN)",
 };
 
 // Markers whose stored values deliberately SUPERSEDE the workbook, so re-applying the sheet to

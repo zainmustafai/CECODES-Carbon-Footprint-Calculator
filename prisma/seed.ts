@@ -109,7 +109,7 @@ const starterEmissionFactors = [
   { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Consumo de aislante SF6", element: "Uso de SF6", unit: "kg", co2eFactor: "25200", gwpSet: GwpSet.AR6, factorUnit: "kg CO2e/kg", source: "IPCC (starter)" },
   { scope: Scope.SCOPE_1, category: "Emisiones Fugitivas", subcategory: "Uso de extintores", element: "Extintores CO2", unit: "kg", co2eFactor: "1", factorUnit: "kg CO2/kg", source: "IPCC (starter)" },
   // Scope 2 - grid electricity (factor comes from grid_electricity_factors by year)
-  { scope: Scope.SCOPE_2, category: "Consumo de energía eléctrica", subcategory: null, element: "SISTEMA INTERCONECTADO NACIONAL - SIN", unit: "kWh", factorUnit: "kg CO2/kWh", source: "UPME/XM - factor por año (grid_electricity_factors)" },
+  { scope: Scope.SCOPE_2, category: "Consumo de energía eléctrica", subcategory: null, element: "Sistema Interconectado Nacional - SIN", unit: "kWh", factorUnit: "kg CO2/kWh", source: "UPME/XM - factor por año (grid_electricity_factors)" },
   // Scope 2 - electricity backed by renewable-energy certificates. The ONE Alcance 2 row in
   // CECODES's library that is not a year (their "Energía eléctrica adquirida respaldada con RECs
   // (cualquier año)", value 0, unit kgCO2e/kWh), which the importer therefore cannot route into

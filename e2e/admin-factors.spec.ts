@@ -34,8 +34,11 @@ test.describe("admin factor library", () => {
 
     // Filtering by scope narrows the table. Alcance 2 holds exactly one element, the national
     // grid. It is matched by its current name, not by /electricidad/i: client feedback 2026-08-24
-    // renamed it to "SISTEMA INTERCONECTADO NACIONAL - SIN" (prisma/fix-2026-08-24-scope2-sin-
-    // rename.ts), and the word this used to look for is no longer anywhere in the row.
+    // dropped the "Electricidad (...)" wrapper (prisma/fix-2026-08-24-scope2-sin-rename.ts) and
+    // 2026-09-07 took it out of full caps to "Sistema Interconectado Nacional - SIN"
+    // (prisma/fix-2026-09-07-scope2-sin-titlecase.ts). The word this used to look for,
+    // "electricidad", is no longer anywhere in the row. The matcher below is case-insensitive on
+    // purpose, so it survived the second rename without an edit.
     await page.getByRole("combobox", { name: /alcance/i }).click();
     await page.getByRole("option", { name: "Alcance 2" }).click();
     await expect(
