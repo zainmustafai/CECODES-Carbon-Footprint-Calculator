@@ -29,9 +29,17 @@ import type { ElementTotal } from "../lib/types";
 //
 // Colour carries ONE meaning here, and it is not the alcance. Client feedback 2026-09-03: "keep
 // all of the bars and lines the same color, only change the color for the elements which
-// cumulative % is up to 85%". So every bar and the line share the navy, and only the vital few
-// are orange - which is the whole point of a Pareto: it says where to start, not which scope a
-// source belongs to (the category chart already answers that).
+// cumulative % is up to 85%". So every bar shares one colour and only the vital few differ -
+// which is the whole point of a Pareto: it says where to start, not which scope a source belongs
+// to (the category chart already answers that).
+//
+// The HUES changed on 2026-09-07 and the reason is worth keeping. This chart used navy bars with
+// orange highlights, which are literally the Alcance 3 and Alcance 2 tokens, so a reader coming
+// from the scope donut read the bars as scopes. The client asked for colours that belong to no
+// alcance and supplied them: grey bars (--chart-6), violet for the vital few (--chart-7), and
+// their light blue for the cumulative line (--chart-8). Grey and violet sit only 0.07 apart in
+// lightness, so the highlight is carried by hue rather than by weight; the table below repeats
+// the same violet on the same rows, which is what makes the signal survive that.
 export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
   const t = useTranslations("dashboard.pareto");
   const tUnit = useTranslations("dashboard");
@@ -65,8 +73,8 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
         ) : (
           <ChartContainer
             config={{
-              tonnes: { label: tUnit("tCo2e"), color: "var(--chart-3)" },
-              cumulativePct: { label: t("cumulative"), color: "var(--chart-3)" },
+              tonnes: { label: tUnit("tCo2e"), color: "var(--chart-6)" },
+              cumulativePct: { label: t("cumulative"), color: "var(--chart-8)" },
             }}
             className="aspect-16/8 w-full"
           >
@@ -129,7 +137,7 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
                 {data.map((d, index) => (
                   <Cell
                     key={`${index}-${d.element}`}
-                    fill={d.isVitalFew ? "var(--chart-2)" : "var(--chart-3)"}
+                    fill={d.isVitalFew ? "var(--chart-7)" : "var(--chart-6)"}
                   />
                 ))}
               </Bar>
@@ -195,21 +203,21 @@ function ParetoTable({
             <th
               scope="row"
               className={`py-1.5 pr-3 text-left font-normal ${
-                d.isVitalFew ? "font-medium text-chart-2" : ""
+                d.isVitalFew ? "font-medium text-chart-7" : ""
               }`}
             >
               {d.element}
             </th>
             <td
               className={`py-1.5 pl-3 text-right font-mono tabular-nums ${
-                d.isVitalFew ? "font-semibold text-chart-2" : ""
+                d.isVitalFew ? "font-semibold text-chart-7" : ""
               }`}
             >
               {num(d.tonnes, 1)}
             </td>
             <td
               className={`py-1.5 pl-3 text-right font-mono tabular-nums ${
-                d.isVitalFew ? "font-semibold text-chart-2" : "text-muted-foreground"
+                d.isVitalFew ? "font-semibold text-chart-7" : "text-muted-foreground"
               }`}
             >
               {num(d.cumulativePct, 2)}%

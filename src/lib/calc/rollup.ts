@@ -95,6 +95,37 @@ export const REMOVALS_CATEGORY = "Remociones";
  */
 export const OTHER_GAS_FALLBACK = "Otros gases sin identificar";
 
+/**
+ * The Scope 3 categories excluded from the per-gas VIEW (the dashboard's "Participacion por GEI"
+ * chart and the report's "Panorama por GEI" list). Client decision, 2026-09-07.
+ *
+ * These are the purchased-goods categories, and every factor in them is spend-based: the library
+ * reads them off workbook column 9, which carries no gas-identifying column, so the importer
+ * leaves gasType null by construction (map-row.ts) and every one of them lands in the
+ * OTHER_GAS_FALLBACK bucket above. On a real inventory that single bucket was 91% of the chart,
+ * which made the other eight gases unreadable and made the chart look like it had failed. The
+ * client's own resolution is to take them out of the graph and state their value underneath it,
+ * with the ACV explanation that says why they cannot be split.
+ *
+ * This is PRESENTATION ONLY and must stay that way. Nothing here may reach rollupYear's totals:
+ * totalTonnes, byScope and byCategory keep every category, the ISO 14064-1 declaration keeps
+ * every category, and the Excel workbook keeps every category. Excel parity is the acceptance
+ * test and these categories are part of the footprint.
+ *
+ * Matched on the "C1:" / "C2:" code prefix rather than the full Spanish title, because the title
+ * is workbook copy and has been re-worded before, while the GHG Protocol code has not. Compared
+ * case-insensitively after trimming: the official library says "C1: Bienes y servicios
+ * adquiridos" but the Excel-parity fixture spells other categories with different casing, and a
+ * case-sensitive match would silently miss rows rather than fail loudly.
+ */
+export const GAS_VIEW_EXCLUDED_CATEGORY_CODES = ["C1", "C2"] as const;
+
+/** Whether a category is excluded from the per-gas view. See GAS_VIEW_EXCLUDED_CATEGORY_CODES. */
+export function isExcludedFromGasView(category: string): boolean {
+  const code = category.trim().toUpperCase();
+  return GAS_VIEW_EXCLUDED_CATEGORY_CODES.some((c) => code.startsWith(`${c}:`));
+}
+
 export type CategoryTotal = {
   scope: Scope;
   category: string;

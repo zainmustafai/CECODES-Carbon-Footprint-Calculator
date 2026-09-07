@@ -22,8 +22,15 @@ export type TextDraw = {
   yFromTop: number;
 };
 
-/** A3 height in PostScript points, matching <Page size="A3" /> in build-pdf.tsx. */
-export const PAGE_HEIGHT = 1190.55;
+/**
+ * Page height in PostScript points, matching build-pdf.tsx's Page.
+ *
+ * A3 is 841.89 x 1190.55pt, and the report is LANDSCAPE (client feedback 2026-09-07), so the
+ * height is the SHORT edge. This is used to flip PDF y-coordinates (origin bottom-left) into
+ * yFromTop, so a stale value here does not fail loudly: every position silently shifts by the
+ * difference and the header/footer collision assertions report impossible overlaps instead.
+ */
+export const PAGE_HEIGHT = 841.89;
 
 type Matrix = [number, number, number, number, number, number];
 

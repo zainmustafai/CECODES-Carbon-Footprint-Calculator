@@ -18,7 +18,8 @@ import {
 import type { ReportVM, ResultRow } from "./types";
 import { FACTOR_CORRECTION_APPLIED } from "@/lib/factor-correction";
 import { formatGwpSource } from "@/lib/gwp";
-import { buildIsoGasTable } from "./iso-gas-table";
+import { buildIsoGasTable, type IsoGasRow } from "./iso-gas-table";
+import { isExcludedFromGasView, OTHER_GAS_FALLBACK } from "@/lib/calc/rollup";
 import { buildIsoDeclaration, type IsoGasColumns } from "./iso-declaration";
 import { buildParetoSeries, paretoHighlightCount } from "@/features/dashboard/lib/pareto";
 
@@ -49,8 +50,23 @@ const SCOPE_COLOR: Record<string, string> = {
   SCOPE_3: "#4c71b1",
 };
 const BRAND_NAVY = "#002060";
-// The Pareto's "vital few" highlight: the brand orange, matching --chart-2 on the dashboard.
-const PARETO_HIGHLIGHT = "#eb6428";
+// The client's own palette (2026-09-07), the same three hexes the dashboard now carries as
+// --chart-6/7/8. They are literal here because react-pdf has no DOM and no CSS custom
+// properties, and no dark-mode lift is needed: a PDF is a fixed light artifact.
+//
+// PARETO_BAR is deliberately NOT BRAND_NAVY. The navy constant also paints the "Panorama por
+// categoria" rows above, so reusing it would have recoloured a section nobody asked about.
+const CLIENT_GREY = "#51636c";
+const CLIENT_VIOLET = "#623e5e";
+const CLIENT_LIGHT_BLUE = "#006282";
+const PARETO_BAR = CLIENT_GREY;
+// The Pareto's "vital few" highlight. Was the brand orange, which is the Alcance 2 colour and is
+// exactly what the client asked to stop seeing on a chart that is not about scopes.
+const PARETO_HIGHLIGHT = CLIENT_VIOLET;
+// The cumulative line, and the "Panorama por GEI" bars. Both were violet, which now means "vital
+// few" on the chart directly above them.
+const PARETO_LINE = CLIENT_LIGHT_BLUE;
+const GAS_PANORAMA_COLOR = CLIENT_LIGHT_BLUE;
 
 // The running header is absolutely positioned, so the page's own top padding has to be derived
 // from these rather than guessed; see styles.page. Client feedback 2026-08-28: "Larger page" - A3
@@ -61,7 +77,16 @@ const HEADER_TOP = 34;
 const HEADER_HEIGHT = 50;
 // The content area's usable width, for every chart below that needs a concrete pixel width rather
 // than a percentage (react-pdf's Svg has no "100%" sizing the way a View does).
-const CONTENT_WIDTH = 841.89 - PAGE_HORIZONTAL_PADDING * 2;
+// A3 is 841.89 x 1190.55pt. Client feedback 2026-09-07: the ISO 14064-1 declaration "looks
+// tight", so the page is LANDSCAPE and the long edge is the width. These two constants and the
+// Page's orientation prop are one decision: derive the width here rather than repeating a
+// literal, because the failure when they drift is silent (charts keep drawing at the old width
+// and hug the left margin, with no error anywhere).
+const PAGE_LONG_EDGE = 1190.55;
+const PAGE_SHORT_EDGE = 841.89;
+const PAGE_ORIENTATION = "landscape" as const;
+const PAGE_WIDTH = PAGE_ORIENTATION === "landscape" ? PAGE_LONG_EDGE : PAGE_SHORT_EDGE;
+const CONTENT_WIDTH = PAGE_WIDTH - PAGE_HORIZONTAL_PADDING * 2;
 
 // Loaded once per module, not per request. react-pdf's server-side render cannot fetch a
 // `/public` URL, so the asset is read directly; the export route pins runtime = "nodejs".
@@ -208,6 +233,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#f4f5f7",
   },
   th: { fontFamily: "Helvetica-Bold", fontSize: 11 },
+  // Client feedback 2026-09-07: "Incertidumbre por elemento" and "Emisiones por categoria" look
+  // too big. These two opt out of the shared row/headRow/th sizing above rather than shrinking
+  // it: styles.row and styles.th are also worn by "Emisiones por sede", "Remociones" and
+  // "Tecnologias mas limpias", none of which the client asked to change, and editing them in
+  // place would silently reformat all three.
+  smallRow: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e5e5e5",
+    paddingVertical: 3.5,
+    paddingHorizontal: 5,
+    fontSize: 9.5,
+  },
+  smallHeadRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#999",
+    paddingVertical: 3.5,
+    paddingHorizontal: 5,
+    backgroundColor: "#f4f5f7",
+    fontSize: 9.5,
+  },
+  smallTh: { fontFamily: "Helvetica-Bold", fontSize: 9 },
   cellName: { flex: 4, paddingRight: 10 },
   cellScope: { flex: 2, paddingRight: 10, color: "#666" },
   cellNum: { flex: 2, textAlign: "right" },
@@ -408,7 +456,7 @@ function ParetoChartPdf({
             key={pct}
             x={PARETO_LEFT_AXIS + plotWidth + 6}
             y={baseY - (pct / 100) * plotHeight + 3}
-            style={{ fontSize: 8, fill: "#7c3aed" }}
+            style={{ fontSize: 8, fill: PARETO_LINE }}
           >
             {pct}%
           </Text>
@@ -421,16 +469,16 @@ function ParetoChartPdf({
             y={baseY - p.barHeight}
             width={barWidth}
             height={Math.max(p.barHeight, p.tonnes > 0 ? 1 : 0)}
-            fill={p.isVitalFew ? PARETO_HIGHLIGHT : BRAND_NAVY}
+            fill={p.isVitalFew ? PARETO_HIGHLIGHT : PARETO_BAR}
             rx={2}
           />
         ))}
         {/* Cumulative-% line + dots */}
         {points.length > 1 ? (
-          <Polyline points={linePoints} stroke="#7c3aed" strokeWidth={1.5} fill="none" />
+          <Polyline points={linePoints} stroke={PARETO_LINE} strokeWidth={1.5} fill="none" />
         ) : null}
         {points.map((p) => (
-          <Circle key={`dot-${p.element}`} cx={p.cx} cy={p.lineY} r={2.4} fill="#7c3aed" />
+          <Circle key={`dot-${p.element}`} cx={p.cx} cy={p.lineY} r={2.4} fill={PARETO_LINE} />
         ))}
         {/* X-axis element labels */}
         {points.map((p) => (
@@ -459,7 +507,10 @@ function ParetoChartPdf({
 const MONTHLY_HEIGHT = 200;
 const MONTHLY_LEFT_AXIS = 50;
 const MONTHLY_TOP = 14;
-const MONTHLY_BOTTOM_LABELS = 30;
+// 46, not 30: client feedback 2026-09-07 asked for each month's value printed under its name, so
+// the band holds two lines now. react-pdf's Svg CLIPS nothing and reports nothing, so a band left
+// at 30 would draw the value row outside the chart box and it would simply not appear.
+const MONTHLY_BOTTOM_LABELS = 46;
 const MONTH_LABELS = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
 ];
@@ -548,8 +599,49 @@ function MonthlyTrendChartPdf({ points }: { points: { month: number; tonnes: num
           {MONTH_LABELS[c.month - 1]}
         </Text>
       ))}
+      {/* Client feedback 2026-09-07: print the value under each month name. The unit is stated
+          once in the section subtitle rather than twelve times here: even in landscape a slot is
+          about 94pt and "1.234,57 t CO2e" at 7.5pt does not fit without colliding with its
+          neighbour. A month nobody reported prints nothing at all, which is the same rule the
+          line itself follows (it breaks rather than dipping to zero), so a blank slot means "not
+          reported" here exactly as it does above. */}
+      {coords.map((c) =>
+        c.y === null ? null : (
+          <Text
+            key={`value-${c.month}`}
+            x={c.x}
+            y={baseY + 26}
+            style={{ fontSize: 7.5, fill: "#1a1a1a", textAnchor: "middle" }}
+          >
+            {tonnesFmt.format(c.tonnes as number)}
+          </Text>
+        ),
+      )}
     </Svg>
   );
+}
+
+// The gas families the "Panorama por GEI" list always shows, in this order, whether or not the
+// company reported any. Mirrors the dashboard's fixed columns (dashboard/lib/types.ts GAS_KEYS),
+// minus the fossil / non-fossil CH4 split, which this table has never carried.
+const PDF_FIXED_GASES = ["CO2", "CH4", "N2O", "HFC", "PFC", "SF6", "NF3"] as const;
+
+// The agreed user-facing name for the fallback bucket. rollup.ts's OTHER_GAS_FALLBACK is an
+// internal key that reads as "we do not know what this is"; this says what the number IS.
+const UNDISAGGREGATED_LABEL = "CO2e sin desagregar";
+
+function withFixedGasRows(rows: IsoGasRow[]): IsoGasRow[] {
+  const byGas = new Map(rows.map((r) => [r.gas, r.tonnes]));
+  const fixed: IsoGasRow[] = PDF_FIXED_GASES.map((gas) => ({ gas, tonnes: byGas.get(gas) ?? 0 }));
+  // Anything else the library named (an HFC-134a rather than a bare HFC, say) keeps its own row.
+  const extras = rows.filter(
+    (r) => !PDF_FIXED_GASES.includes(r.gas as (typeof PDF_FIXED_GASES)[number]) && r.gas !== OTHER_GAS_FALLBACK,
+  );
+  return [
+    ...fixed,
+    ...extras,
+    { gas: UNDISAGGREGATED_LABEL, tonnes: byGas.get(OTHER_GAS_FALLBACK) ?? 0 },
+  ];
 }
 
 function KeyVal({ k, v }: { k: string; v: string }) {
@@ -645,7 +737,28 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
   const categories = [...vm.byCategory].sort((a, b) => b.tonnes - a.tonnes).slice(0, 14);
   // The full (untruncated) category list, so this reconciles to totalTonnes exactly - unlike
   // `categories` above, which is capped at 14 rows for the "Emisiones por categoría" table.
-  const isoGasTable = buildIsoGasTable(vm.byCategory);
+  // "Panorama por GEI" (client feedback 2026-09-07, items 7 and 10). Three deliberate departures
+  // from buildIsoGasTable's raw output, all of them PDF-only:
+  //
+  //  - Scope 3 C1 and C2 are excluded, matching the dashboard's chart. Filtering here rather than
+  //    inside buildIsoGasTable is what keeps the Excel "ISO 14064-1" sheet whole: that sheet
+  //    prints vm.totalTonnes as its total and its caption promises the same total as the Calculo
+  //    sheet, so dropping rows there would make it visibly fail to add up.
+  //  - The four named gas families always appear, at 0,00 if this company has none. The client
+  //    asked for SF6 and NF3 specifically; the reasoning is the dashboard's own (gas-bars.tsx):
+  //    an inventory that silently omits SF6 reads as "we did not measure it", which is a
+  //    different claim from zero.
+  //  - The fallback bucket is labelled "CO2e sin desagregar", the name the client agreed, rather
+  //    than the internal OTHER_GAS_FALLBACK string that says "sin identificar".
+  //
+  // The ISO 14064-1 declaration below is NOT filtered and must not be: it is the reconciling
+  // artifact and keeps every category.
+  const gasCategories = vm.byCategory.filter((c) => !isExcludedFromGasView(c.category));
+  const gasExcludedTonnes = vm.byCategory
+    .filter((c) => isExcludedFromGasView(c.category))
+    .reduce((sum, c) => sum + c.tonnes, 0);
+  const gasShownTotal = gasCategories.reduce((sum, c) => sum + c.tonnes, 0);
+  const isoGasTable = withFixedGasRows(buildIsoGasTable(gasCategories));
   // The ISO 14064-1 declaration, built from the element rows so it narrows with a filtered
   // "download this view" report exactly as the rest of the numbers do.
   const declaration = buildIsoDeclaration(vm.results);
@@ -682,7 +795,7 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
       title={`Huella de Carbono ${vm.companyName} ${vm.year}`}
       author="CECODES - Huella de Carbono"
     >
-      <Page size="A3" style={styles.page}>
+      <Page size="A3" orientation={PAGE_ORIENTATION} style={styles.page}>
         <View style={styles.header} fixed>
           {/* Page 1 carries the full title block below, so the running text would only repeat
               itself there; it starts on the continuation pages, where it is the only thing
@@ -789,8 +902,12 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             dashboard leads with (category breakdown, gas breakdown), redrawn with the same plain
             View-bar technique the scope bar above already uses (react-pdf has no charting
             library available server-side). */}
+        {/* wrap={false} on both panorama lists: they are short, bounded lists with NO column
+            headings, so a page break inside one strands rows under nothing that says what they
+            are. Landscape made that reachable (the usable height dropped about a third), and
+            moving a whole 8-row list to the next page beats splitting it. */}
         {categories.length > 0 ? (
-          <View style={styles.section}>
+          <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle} minPresenceAhead={100}>
               Panorama por categoría
             </Text>
@@ -807,13 +924,36 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
         ) : null}
 
         {isoGasTable.length > 0 ? (
-          <View style={styles.section}>
+          <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle} minPresenceAhead={100}>
-              Panorama por gas
+              Panorama por GEI
             </Text>
             {isoGasTable.map((g) => (
-              <DashRow key={g.gas} label={g.gas} tonnes={g.tonnes} total={total} color="#7c3aed" />
+              <DashRow
+                key={g.gas}
+                label={g.gas}
+                tonnes={g.tonnes}
+                total={gasShownTotal}
+                color={GAS_PANORAMA_COLOR}
+              />
             ))}
+            {gasExcludedTonnes > 0 ? (
+              <>
+                <Text style={[styles.note, { marginTop: 8 }]}>
+                  Categorías C1 y C2 del alcance 3 (no desglosables por gas):{" "}
+                  {t(gasExcludedTonnes)} t CO2e
+                </Text>
+                <Text style={styles.note}>
+                  Las emisiones de CO2e reportadas en este gráfico corresponden a las categorías C1
+                  y C2 del alcance 3, asociadas a los bienes y servicios adquiridos por la
+                  organización. Los factores de emisión utilizados para su cálculo fueron
+                  determinados con base en el análisis de ciclo de vida (ACV) de cada bien y/o
+                  servicio, considerando las emisiones de los diferentes gases de efecto
+                  invernadero (GEI) y su correspondiente potencial de calentamiento global,
+                  expresados en términos de CO2e.
+                </Text>
+              </>
+            ) : null}
           </View>
         ) : null}
 
@@ -835,24 +975,35 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             <Text style={styles.sectionTitle} minPresenceAhead={MONTHLY_HEIGHT + 40}>
               Tendencia mensual (Alcance 2 - electricidad)
             </Text>
+            {/* The unit is stated once, here, because the twelve value labels under the chart
+                carry bare numbers: repeating "t CO2e" twelve times at chart scale collides. */}
+            <Text style={styles.sectionSubtitle}>
+              Valores en t CO2e. Un mes sin dato no se grafica y no imprime valor.
+            </Text>
             <MonthlyTrendChartPdf points={vm.monthly} />
           </View>
         ) : null}
 
         {bySede.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle} minPresenceAhead={80}>
-              Emisiones por sede
-            </Text>
-            {bySede.map((s) => (
-              <DashRow
-                key={`bar-${s.facilityId}`}
-                label={s.facilityName}
-                tonnes={s.tonnes}
-                total={total}
-                color={BRAND_NAVY}
-              />
-            ))}
+            {/* The bar list is heading-less like the two panoramas above, so it gets its own
+                non-wrapping View. The TABLE that follows it keeps wrapping: that one has a fixed
+                column heading which react-pdf repeats on every continuation page, so splitting it
+                strands nothing. */}
+            <View wrap={false}>
+              <Text style={styles.sectionTitle} minPresenceAhead={80}>
+                Emisiones por sede
+              </Text>
+              {bySede.map((s) => (
+                <DashRow
+                  key={`bar-${s.facilityId}`}
+                  label={s.facilityName}
+                  tonnes={s.tonnes}
+                  total={total}
+                  color={BRAND_NAVY}
+                />
+              ))}
+            </View>
             <View style={[styles.headRow, { marginTop: 10 }]} fixed>
               <Text style={[styles.cellName, styles.th]}>Sede</Text>
               <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
@@ -876,13 +1027,13 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Emisiones por categoría
             </Text>
-            <View style={styles.headRow} fixed>
-              <Text style={[styles.cellName, styles.th]}>Categoría</Text>
-              <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
-              <Text style={[styles.cellNum, styles.th]}>t CO2e</Text>
+            <View style={styles.smallHeadRow} fixed>
+              <Text style={[styles.cellName, styles.smallTh]}>Categoría</Text>
+              <Text style={[styles.cellScope, styles.smallTh]}>Alcance</Text>
+              <Text style={[styles.cellNum, styles.smallTh]}>t CO2e</Text>
             </View>
             {categories.map((c) => (
-              <View key={`${c.scope}-${c.category}`} style={styles.row} wrap={false}>
+              <View key={`${c.scope}-${c.category}`} style={styles.smallRow} wrap={false}>
                 <Text style={styles.cellName}>{c.category}</Text>
                 <Text style={styles.cellScope}>{SCOPE_LABEL[c.scope]}</Text>
                 <Text style={styles.cellNum}>{t(c.tonnes)}</Text>
@@ -1044,17 +1195,17 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
             indica que la biblioteca no registra incertidumbre para ese elemento. No se combina en
             un solo valor por alcance o total: no existe un método acordado para hacerlo.
           </Text>
-          <View style={[styles.headRow, { marginTop: 6 }]} fixed>
-            <Text style={[styles.cellName, styles.th]}>Elemento</Text>
-            <Text style={[styles.cellScope, styles.th]}>Alcance</Text>
+          <View style={[styles.smallHeadRow, { marginTop: 6 }]} fixed>
+            <Text style={[styles.cellName, styles.smallTh]}>Elemento</Text>
+            <Text style={[styles.cellScope, styles.smallTh]}>Alcance</Text>
             {/* The factor lived in "Resumen por elemento" until that section was dropped
                 (client feedback 2026-09-03). It belongs beside its own uncertainty anyway, and
                 without it the report would carry no record of what priced each number. */}
-            <Text style={[styles.cellNum, styles.th]}>Factor</Text>
-            <Text style={[styles.cellNum, styles.th]}>Incertidumbre</Text>
+            <Text style={[styles.cellNum, styles.smallTh]}>Factor</Text>
+            <Text style={[styles.cellNum, styles.smallTh]}>Incertidumbre</Text>
           </View>
           {uncertainty.map((r) => (
-            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.row} wrap={false}>
+            <View key={`${r.scope}-${r.category}-${r.element}`} style={styles.smallRow} wrap={false}>
               <Text style={styles.cellName}>{r.element}</Text>
               <Text style={styles.cellScope}>{SCOPE_LABEL[r.scope]}</Text>
               <Text style={styles.cellNum}>{factorCell(r.factorValue, r.factorUnit)}</Text>

@@ -230,7 +230,7 @@ describe("buildPdf page layout", () => {
     // continuation, so it is allowed here too, alongside an actual repeated column heading.
     const SECTION_TITLES = new Set([
       "Panorama por categoría",
-      "Panorama por gas",
+      "Panorama por GEI",
       "Priorización de fuentes de emisión (Pareto)",
       "Tendencia mensual (Alcance 2 - electricidad)",
       "Emisiones por sede",
@@ -263,5 +263,75 @@ describe("buildPdf page layout", () => {
     const firstPageHeaderBand = pages[0].filter((d) => d.yFromTop < CONTENT_TOP);
     expect(firstPageHeaderBand).toEqual([]);
     expect(pages[0].some((d) => d.text === "Huella de Carbono Corporativa")).toBe(true);
+  });
+});
+
+// Client decision 2026-09-07 (items 7 and 10). The "Panorama por GEI" list drops Scope 3 C1 and
+// C2 and states their tonnes underneath instead, because those categories are spend-based and
+// arrive as one undisaggregated CO2e lump. The trap is that the SAME report also carries the ISO
+// 14064-1 declaration, which is the reconciling artifact and must keep every category: an
+// exclusion that leaked into it would make the report stop adding up, silently.
+describe("buildPdf: the per-gas panorama", () => {
+  const withPurchased: ReportVM = {
+    ...base,
+    byCategory: [
+      { scope: "SCOPE_1", category: "Fuentes Fijas", tonnes: 10.149 },
+      { scope: "SCOPE_3", category: "C1: Bienes y servicios adquiridos", tonnes: 8064.745 },
+      { scope: "SCOPE_3", category: "C2: Bienes de capital", tonnes: 100.5 },
+      { scope: "SCOPE_3", category: "C6: Viajes de negocios", tonnes: 16.339 },
+    ],
+  };
+
+  const textOf = async (vm: ReportVM) =>
+    readPdfTextByPage(await buildPdf(vm))
+      .flat()
+      .map((d) => d.text);
+
+  it("keeps the excluded categories out of the panorama but names their total under it", async () => {
+    const text = await textOf(withPurchased);
+    expect(text.some((t) => t.includes("Panorama por GEI"))).toBe(true);
+    // The label and the ACV paragraph the client wrote, so the number is explained where it is
+    // published rather than in a reply nobody keeps.
+    expect(text.some((t) => t.includes("no desglosables por gas"))).toBe(true);
+    expect(text.some((t) => t.includes("ciclo de vida"))).toBe(true);
+  });
+
+  it("still shows SF6 and NF3 at zero rather than dropping the columns", async () => {
+    // An inventory that silently omits SF6 reads as "we did not measure it", which is a
+    // different claim from zero. Same rule the dashboard's fixed columns follow.
+    const text = await textOf(withPurchased);
+    expect(text).toContain("SF6");
+    expect(text).toContain("NF3");
+  });
+
+  it("names the fallback bucket by what it is, not by what we lack", async () => {
+    const text = await textOf(withPurchased);
+    expect(text.some((t) => t.includes("CO2e sin desagregar"))).toBe(true);
+    expect(text.some((t) => t.includes("sin identificar"))).toBe(false);
+  });
+
+  it("leaves the ISO 14064-1 declaration whole, excluded categories included", async () => {
+    // The declaration is built from vm.results, not from byCategory, and it is the artifact that
+    // has to reconcile with the report total. Nothing above may narrow it.
+    const text = await textOf(withPurchased);
+    expect(text.some((t) => t.includes("Declaración consolidada GEI"))).toBe(true);
+    expect(text.some((t) => t.includes("Total general"))).toBe(true);
+  });
+});
+
+// Landscape (client feedback 2026-09-07, item 6). The Page's orientation prop and CONTENT_WIDTH
+// are one decision spread over two constants, and the failure when they drift is silent: the page
+// turns landscape while both SVG charts keep drawing at the old portrait width and hug the left
+// margin, with no error anywhere. This is the assertion that would catch that.
+describe("buildPdf page geometry", () => {
+  it("uses the full landscape width, not the old portrait content box", async () => {
+    const pages = readPdfTextByPage(await buildPdf(multiPage));
+    const widest = Math.max(...pages.flat().map((d) => d.x));
+
+    // Portrait A3 content ran to 54 + 733.89 = 787.89pt. Landscape runs to 54 + 1082.55 =
+    // 1136.55pt. Anything that lands beyond the portrait box proves the wider box is in use.
+    expect(widest).toBeGreaterThan(800);
+    // And nothing may run off the physical page.
+    expect(widest).toBeLessThan(1190.55);
   });
 });

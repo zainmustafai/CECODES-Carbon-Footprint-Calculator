@@ -332,7 +332,9 @@
       "gasColumn": "Gas",
       "empty": "No gas data for this filter.",
       "preBlendedNote": "{count, plural, one {# source arrives} other {# sources arrive}} with the factor already expressed as CO2e (refrigerants, SF6/PFC/NF3, or spend or distance based Scope 3), so they count under their own gas and contribute no CO2, CH4 or N2O mass.",
-      "unidentifiedNote": "The “CO₂e not broken out” column holds factors the library supplies directly in CO₂e without naming the gas, typically spend-based Scope 3. They are already CO₂e rather than CO₂ mass, so they are shown separately instead of being added to the CO₂ column. They are included in the total."
+      "unidentifiedNote": "The “CO₂e not broken out” column holds factors the library supplies directly in CO₂e without naming the gas, typically spend-based Scope 3. They are already CO₂e rather than CO₂ mass, so they are shown separately instead of being added to the CO₂ column. They are included in the total.",
+      "excludedNote": "The CO2e emissions reported below correspond to Scope 3 categories C1 and C2, the goods and services the organization purchased. Their emission factors were determined from a life-cycle assessment (LCA) of each good or service, taking in the different greenhouse gases (GHG) and their global warming potential, and are expressed as CO2e.",
+      "excludedLabel": "Scope 3 categories C1 and C2 (not separable by gas)"
     },
     "pareto": {
       "title": "Prioritizing emission sources",

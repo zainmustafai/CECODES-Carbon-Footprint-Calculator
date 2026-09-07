@@ -18,6 +18,9 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-8: var(--chart-8);
+  --color-chart-7: var(--chart-7);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -57,7 +60,16 @@
    real meaning (a brand action or a chart legend), never as ambient tint. This replaced an
    earlier six-color version (the client's Light Blue/Gray/Violet each had a chart slot too) that
    read as busy and cold; the fix was fewer hues plus neutral chrome, not different hues. Every
-   hex-to-OKLCH value here is round-trip and WCAG-contrast verified. See DESIGN.md. */
+   hex-to-OKLCH value here is round-trip and WCAG-contrast verified. See DESIGN.md.
+
+   AMENDED 2026-09-07, and the amendment is narrower than it looks. The client's Gray and Violet
+   are back, plus their Light Blue, as chart-6/7/8. They are NOT general-purpose hues and nothing
+   ambient may use them: they exist because chart-1/2/3 ARE the Alcance colors, so any chart that
+   is not about Alcance was borrowing a color that means something else. On the Pareto, navy bars
+   read as "these are Alcance 3" and orange highlights read as "these are Alcance 2", which is
+   exactly the confusion the client reported. Three charts (Pareto, the GEI participation area,
+   the monthly trend) are the whole blast radius. The 2026-08-04 lesson still holds for chrome:
+   ambient surfaces stay true neutral. */
 :root {
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.05 0 0);
@@ -85,6 +97,13 @@
   --chart-3: oklch(0.55 0.11 261.3);
   --chart-4: oklch(0.75 0.08 159.3);
   --chart-5: oklch(0.6 0.025 261.3);
+  /* chart-6/7/8 are the client's own supplied palette (2026-09-07), for charts that are NOT
+     about Alcance and must not borrow an Alcance color. Round-trip verified against the hexes
+     the client sent: Gris #51636C, Violeta #623E5E, Azul Claro #006282. Contrast on the white
+     card is 6.27:1, 8.86:1 and 6.84:1, so all three are safe for text as well as for marks. */
+  --chart-6: oklch(0.488 0.026 229.6);
+  --chart-7: oklch(0.418 0.069 330.7);
+  --chart-8: oklch(0.464 0.092 229.3);
   --radius: 0.625rem;
   /* The sidebar is the client's navy Primary at full brand strength; navy is already dark
      enough to serve as a moody chrome surface on its own, so it is not a separately darkened
@@ -129,6 +148,13 @@
   --chart-3: oklch(0.68 0.09 261.3);
   --chart-4: oklch(0.78 0.07 159.3);
   --chart-5: oklch(0.65 0.02 261.3);
+  /* The client's three hexes are far darker than any existing chart token (L 0.42 to 0.49
+     against 0.55 to 0.75), so used verbatim here they would sink into the dark card at
+     oklch(0.2 0 0). Lifted to the same lightness band the other dark chart tokens occupy,
+     keeping each hue and its relative chroma: 5.6:1, 4.6:1 and 5.1:1 on the dark card. */
+  --chart-6: oklch(0.65 0.022 229.6);
+  --chart-7: oklch(0.62 0.09 330.7);
+  --chart-8: oklch(0.62 0.085 229.3);
   /* The sidebar is NOT the light theme's navy panel repeated, and it carries NO hue at all.
      
      Two attempts got this wrong before. First the light navy was copied here verbatim: at

@@ -40,8 +40,13 @@ export type GasSlice = { gas: GasKey; tonnes: number; pct: number };
 // Emissions split by gas instead of by scope/category. Two kinds of number live here and the
 // distinction is real: CO2/CH4/N2O come from factors that retain a per-gas split, while HFCs,
 // PFCs, SF6 and NF3 arrive from the library already expressed as CO2e, with no underlying mass to
-// split - only WHICH gas they are survives. Either way every slice is tonnes CO2e, so the slices
-// always sum to the SAME total this screen's other cards show, for whatever filter is active.
+// split - only WHICH gas they are survives. Either way every slice is tonnes CO2e.
+//
+// The slices no longer sum to the KPI card, and that is deliberate (client decision 2026-09-07).
+// Scope 3 C1 and C2 are excluded from this view and carried in excludedTonnes instead, and the
+// percentages are shares of what remains. slices + excludedTonnes is what reconciles with the
+// card. See isExcludedFromGasView in lib/calc/rollup.ts for why those two categories cannot be
+// split by gas at all.
 export type GasBreakdown = {
   /** One entry per GAS_KEYS member, in that order, always present so the chart's columns are
    *  fixed rather than appearing and disappearing with the data. The exception is UNIDENTIFIED,
@@ -51,6 +56,10 @@ export type GasBreakdown = {
   gasResolvedEntries: number;
   /** Priced entries that arrived already expressed as CO2e. */
   otherEntries: number;
+  /** Tonnes CO2e in the excluded purchased-goods categories (Scope 3 C1 and C2), which are NOT
+   *  in `slices` and are not part of the percentage base. Reported as a note under the chart, so
+   *  the number is published rather than dropped. Zero when the active filter contains none. */
+  excludedTonnes: number;
 };
 
 // The company's single reduction goal (set on the Empresa screen) vs. its actual progress.

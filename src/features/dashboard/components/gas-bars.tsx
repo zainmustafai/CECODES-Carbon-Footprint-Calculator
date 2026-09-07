@@ -28,7 +28,9 @@ import type { GasBreakdown } from "../lib/types";
 //
 // Colour: chart-1/2/3 are reserved for Alcance everywhere else in the product (see chart.ts), so
 // reusing them here would make a reader who has learned "green = Alcance 1" misread this as
-// scope-related. chart-4 is free for exactly this kind of single, unscoped series.
+// scope-related. chart-4 was free, but it is a TINT of the Alcance 1 green, and the client read
+// it as exactly the scope colour it is derived from (2026-09-07). It is now chart-8, the client's
+// own light blue, which is derived from no alcance at all.
 export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
   const t = useTranslations("dashboard.byGas");
   const tGas = useTranslations("dashboard.gasNames");
@@ -59,7 +61,7 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
         {hasAny ? (
           <>
             <ChartContainer
-              config={{ pct: { label: t("share"), color: "var(--chart-4)" } }}
+              config={{ pct: { label: t("share"), color: "var(--chart-8)" } }}
               className="aspect-16/6 w-full"
             >
               <AreaChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
@@ -165,6 +167,23 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
                 </tbody>
               </table>
             </div>
+
+            {/* Client decision 2026-09-07. C1 and C2 are not drawn, so their tonnes are stated
+                here instead, with the client's own ACV wording for why a spend-based factor
+                cannot be split by gas. The number comes first and the paragraph explains it:
+                this is the line that makes the chart's percentages honest, because they are
+                shares of the inventory MINUS this figure. */}
+            {breakdown.excludedTonnes > 0 ? (
+              <div className="mt-3 rounded-lg border border-dashed p-3">
+                <p className="flex flex-wrap items-baseline justify-between gap-2 font-medium text-sm">
+                  <span>{t("excludedLabel")}</span>
+                  <span className="font-mono tabular-nums">
+                    {n(breakdown.excludedTonnes, 2)} {tUnit("tCo2e")}
+                  </span>
+                </p>
+                <p className="mt-1 text-muted-foreground text-xs">{t("excludedNote")}</p>
+              </div>
+            ) : null}
 
             {breakdown.otherEntries > 0 ? (
               <p className="mt-3 text-muted-foreground text-xs">

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { resolveGwpSet } from "@/lib/gwp";
-import { rollupYear, type YearRollup } from "@/lib/calc/rollup";
+import { isExcludedFromGasView, rollupYear, type YearRollup } from "@/lib/calc/rollup";
 import { toRollupEntries } from "@/lib/calc/rollup-entries";
 import { toFuelPrices, type FuelPrices } from "@/lib/calc/fuel";
 import type { GwpSet, Scope } from "@/lib/generated/prisma/client";
@@ -241,11 +241,26 @@ export async function loadDashboard(
     total = scope.reduce((sum, s) => sum + rollup.byScope[s], 0);
   }
 
-  // Same filter as `total` above (scope AND category), so the gas breakdown always ties back to
-  // the exact number the KPI card already shows - the reconciliation is undeniable in the code
-  // itself, not just true in theory.
-  const gasSource = category ? scopedCategories.filter((c) => c.category === category) : scopedCategories;
-  const gasPct = (value: number) => (total > 0 ? (value / total) * 100 : 0);
+  // Same filter as `total` above (scope AND category), MINUS the purchased-goods categories.
+  //
+  // Client decision 2026-09-07: C1 and C2 come out of this chart entirely and are stated as a
+  // note underneath it instead. They are spend-based, so every one of their factors arrives as
+  // undisaggregated CO2e and piles into a single bucket; on a real inventory that bucket was 91%
+  // of the chart and the eight actual gases were flat lines along the bottom.
+  //
+  // The percentage base moves with them. gasPct divides by gasTotal, not by `total`, so the
+  // slices still sum to 100% of what the chart draws. The reconciliation this comment used to
+  // claim (chart total === KPI card) is deliberately no longer true, and the note under the chart
+  // is what closes the gap: excludedTonnes + the drawn slices === the KPI card. Anything that
+  // reads these percentages as shares of the whole inventory is wrong, which is exactly why the
+  // excluded number is published beside them rather than quietly dropped.
+  const gasFiltered = category ? scopedCategories.filter((c) => c.category === category) : scopedCategories;
+  const gasSource = gasFiltered.filter((c) => !isExcludedFromGasView(c.category));
+  const excludedTonnes = gasFiltered
+    .filter((c) => isExcludedFromGasView(c.category))
+    .reduce((sum, c) => sum + c.tonnes, 0);
+  const gasTotal = gasSource.reduce((sum, c) => sum + c.tonnes, 0);
+  const gasPct = (value: number) => (gasTotal > 0 ? (value / gasTotal) * 100 : 0);
 
   // The eight gases the client's own "Participación por GEI" chart names, always in their order
   // and always present, so the chart's columns do not appear and disappear with the data. CO2,
@@ -297,6 +312,7 @@ export async function loadDashboard(
     })),
     gasResolvedEntries,
     otherEntries,
+    excludedTonnes,
   };
 
   const lastUpdated = entries.reduce<string | null>((latest, e) => {

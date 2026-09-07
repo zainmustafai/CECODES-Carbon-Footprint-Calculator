@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { FuelType } from "@/lib/calc/fuel";
-import { OTHER_GAS_FALLBACK, rollupYear, type RollupEntry, type RollupFactor } from "@/lib/calc/rollup";
+import {
+  isExcludedFromGasView,
+  OTHER_GAS_FALLBACK,
+  rollupYear,
+  type RollupEntry,
+  type RollupFactor,
+} from "@/lib/calc/rollup";
 
 const consolidated = (
   co2e: string,
@@ -973,5 +979,50 @@ describe("rollupYear: per-element gas totals for the ISO 14064-1 declaration", (
     const fijas = r.byCategory.find((c) => c.category === "Fuentes Fijas")!;
     expect(fijas.ch4FossilTonnes).toBeGreaterThan(0);
     expect(fijas.ch4NonFossilTonnes).toBeGreaterThan(0);
+  });
+});
+
+// Client decision 2026-09-07: the purchased-goods categories come out of the per-gas VIEW because
+// they are spend-based and arrive as undisaggregated CO2e, which made them 91% of one bucket on a
+// real inventory. The predicate is tiny and the damage from getting it wrong is silent (a category
+// quietly missing from a chart, or C10 vanishing because someone matched a bare "C1" prefix), so
+// it is pinned here rather than only exercised through a screen.
+describe("isExcludedFromGasView", () => {
+  it("excludes the two purchased-goods categories", () => {
+    expect(isExcludedFromGasView("C1: Bienes y servicios adquiridos")).toBe(true);
+    expect(isExcludedFromGasView("C2: Bienes de capital")).toBe(true);
+  });
+
+  it("does not confuse C1 with C10 through C15", () => {
+    // The colon is load-bearing: a bare "C1" prefix would take C10 and every category after it
+    // out of the chart, and nothing downstream would report the loss.
+    for (const category of [
+      "C10: Procesamiento de productos vendidos",
+      "C11: Uso de productos vendidos",
+      "C12: Tratamiento al final de la vida util",
+      "C15: Inversiones",
+    ]) {
+      expect(isExcludedFromGasView(category)).toBe(false);
+    }
+  });
+
+  it("keeps every other category, including the ones that look adjacent", () => {
+    for (const category of [
+      "C3: Combustibles y energia",
+      "C4: Transporte y distribucion (aguas arriba)",
+      "Emisiones Fugitivas",
+      "Fuentes Fijas",
+      "Remociones",
+      "",
+    ]) {
+      expect(isExcludedFromGasView(category)).toBe(false);
+    }
+  });
+
+  it("survives the casing and padding the library and the parity fixture disagree on", () => {
+    // The official library and the Excel-parity fixture spell categories with different casing,
+    // and a case-sensitive match would skip rows rather than fail loudly.
+    expect(isExcludedFromGasView("  c1: bienes y servicios adquiridos  ")).toBe(true);
+    expect(isExcludedFromGasView("C2:Bienes de capital")).toBe(true);
   });
 });
