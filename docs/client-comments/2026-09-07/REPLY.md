@@ -141,5 +141,3 @@ been calculating something different from what it was showing, and it was not.
    "per kilogram" part, because the official library already spells SF6 and NF3 that way, and
    because dropping it leaves the Resumen showing a factor with no basis. Say the word and we
    remove it.
-
-If it is easier for your team, we can send this same document in Spanish.

@@ -13,10 +13,25 @@ const nextConfig: NextConfig = {
   // punctuated like the rest of the repo. Off means Next never touches either file again.
   agentRules: false,
   // Emits .next/standalone: a self-contained server bundle with only the modules actually
-  // imported. Vercel does this for you; a container does not, so without it the runtime image
-  // has to carry the whole node_modules tree (shadcn alone drags in ts-morph and @babel/core).
-  // Harmless on Vercel, which ignores it.
-  output: "standalone",
+  // imported. A container needs it, because without it the runtime image has to carry the whole
+  // node_modules tree (shadcn alone drags in ts-morph and @babel/core). The Dockerfile's runner
+  // stage copies .next/standalone directly, so this is what makes that image small.
+  //
+  // NOT on Vercel, and the comment here used to say it was "harmless on Vercel, which ignores
+  // it". That was wrong and it cost a day of failed deployments (2026-09-07):
+  //
+  //   Running onBuildComplete from Vercel
+  //   Error: ENOENT: no such file or directory, open
+  //     '/vercel/path0/.next/next-server.js.nft.json'
+  //
+  // Vercel does its own file tracing and reads that manifest after the build. Standalone mode
+  // copies the traced files into .next/standalone instead, so Vercel's step looks for a manifest
+  // that is no longer where it expects. The build itself succeeds, which is what makes this
+  // confusing: the failure is in Vercel's post-build hook, after "Compiled successfully".
+  //
+  // Setting it per platform rather than removing it keeps both deployment targets working from
+  // one config. VERCEL is set to "1" on every Vercel build, and is unset in Docker and locally.
+  output: process.env.VERCEL ? undefined : "standalone",
   // The .hbs files under src/lib/mail/templates are read with fs at runtime, so Next's import
   // tracing cannot see them and would ship none of them. Without this the standalone server throws
   // "Email template not found" the first time anyone asks for a password reset. The Dockerfile also
