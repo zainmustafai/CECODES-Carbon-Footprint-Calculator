@@ -64,7 +64,13 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
               config={{ pct: { label: t("share"), color: "var(--chart-8)" } }}
               className="aspect-16/6 w-full"
             >
-              <AreaChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
+              {/* right: 28, not 8. An area chart puts its last data point ON the right edge of
+                  the plot and centres that point's x-axis label on it, so half the label renders
+                  outside the SVG and is clipped. Reported 2026-09-09 with the label "CO2e sin
+                  desagregar" cut to "CO2e sin de". That column is gone now, but the shortest
+                  remaining label still loses a few pixels at 8, so the margin is sized for the
+                  label rather than for the data that happens to be there today. */}
+              <AreaChart data={data} margin={{ left: 4, right: 28, top: 8 }}>
                 <defs>
                   <linearGradient id="gasFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-pct)" stopOpacity={0.35} />

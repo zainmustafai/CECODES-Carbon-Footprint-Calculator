@@ -47,7 +47,7 @@ export function MonthlyTrend({ points, year }: { points: MonthlyPoint[]; year: n
             config={{ tonnes: { label: t("subtitle"), color: "var(--chart-2)" } }}
             className="aspect-16/6 w-full"
           >
-            <LineChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
+            <LineChart data={data} margin={{ left: 4, right: 28, top: 8 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="month"
