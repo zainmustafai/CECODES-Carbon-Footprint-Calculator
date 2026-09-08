@@ -78,7 +78,16 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
             }}
             className="aspect-16/8 w-full"
           >
-            <ComposedChart data={data} margin={{ top: 20, left: 4, right: 8, bottom: 24 }}>
+            {/* These margins carry the rotated x-axis labels, which is why they are not the 8px
+                the other charts use. Reported clipped on 2026-09-09, and the numbers below are
+                measured rather than guessed: the widest label truncate() can emit is 14 characters
+                plus an ellipsis, which is 99px at the 12px tick size in this app's font. Rotated
+                -35 degrees that reaches 81px horizontally and 57px vertically.
+                textAnchor="end" anchors each label's END at its tick, so the text hangs down and
+                to the LEFT. The FIRST label is therefore the one that runs off the canvas, which
+                is what left has to cover along with the y-axis width; the last label leans away
+                from the right edge and needs nothing. */}
+            <ComposedChart data={data} margin={{ top: 20, left: 24, right: 24, bottom: 24 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="element"
@@ -88,7 +97,9 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
                 interval={0}
                 angle={-35}
                 textAnchor="end"
-                height={48}
+                // 57px of rotated label plus the 8px tickMargin is 65, so 64 clipped the last
+                // row of pixels off every label. 72 leaves a margin for a wider glyph set.
+                height={72}
                 tickFormatter={truncate}
               />
               <YAxis
