@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Bar,
   CartesianGrid,
@@ -41,6 +42,13 @@ import type { ElementTotal } from "../lib/types";
 // lightness, so the highlight is carried by hue rather than by weight; the table below repeats
 // the same violet on the same rows, which is what makes the signal survive that.
 export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
+  // Below lg there is nowhere near enough room for one label per source: at a 390px phone each
+  // label gets about 8px of width and needs 81px, so all 28 collapse into an unreadable smear
+  // (reported 2026-09-09). The labels are dropped there rather than thinned, because the table
+  // directly under the chart already names every source in the same order with its tonnes and
+  // cumulative %, which is the readable form on a phone. The plot still carries the point of a
+  // Pareto: a few bars dominate and the line reaches 100%.
+  const isMobile = useIsMobile();
   const t = useTranslations("dashboard.pareto");
   const tUnit = useTranslations("dashboard");
   const format = useFormatter();
@@ -86,8 +94,20 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
                 textAnchor="end" anchors each label's END at its tick, so the text hangs down and
                 to the LEFT. The FIRST label is therefore the one that runs off the canvas, which
                 is what left has to cover along with the y-axis width; the last label leans away
-                from the right edge and needs nothing. */}
-            <ComposedChart data={data} margin={{ top: 20, left: 24, right: 24, bottom: 24 }}>
+                from the right edge and needs nothing.
+
+                left is 48 so that 48 + the 36px y-axis alone exceeds that 81px reach, WITHOUT
+                counting the half-band of space in front of the first tick. That half-band shrinks
+                as sources are added, so a margin that leans on it works on a wide screen with ten
+                sources and clips on a narrower one with thirty. This does not. */}
+            <ComposedChart
+              data={data}
+              margin={
+                isMobile
+                  ? { top: 20, left: 4, right: 8, bottom: 8 }
+                  : { top: 20, left: 48, right: 24, bottom: 24 }
+              }
+            >
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="element"
@@ -95,11 +115,12 @@ export function ParetoChart({ byElement }: { byElement: ElementTotal[] }) {
                 axisLine={false}
                 tickMargin={8}
                 interval={0}
+                tick={!isMobile}
                 angle={-35}
                 textAnchor="end"
                 // 57px of rotated label plus the 8px tickMargin is 65, so 64 clipped the last
                 // row of pixels off every label. 72 leaves a margin for a wider glyph set.
-                height={72}
+                height={isMobile ? 4 : 72}
                 tickFormatter={truncate}
               />
               <YAxis

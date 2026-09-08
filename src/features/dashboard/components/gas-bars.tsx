@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
@@ -32,6 +33,10 @@ import type { GasBreakdown } from "../lib/types";
 // it as exactly the scope colour it is derived from (2026-09-07). It is now chart-8, the client's
 // own light blue, which is derived from no alcance at all.
 export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
+  // Same reasoning as the Pareto: at a 390px phone each of the eight gases gets about 33px and
+  // "CH4 (no fósil)" alone is 79px, so the axis overlaps itself. The table under the plot lists
+  // every gas with its share and tonnes, so nothing is lost by dropping the axis labels there.
+  const isMobile = useIsMobile();
   const t = useTranslations("dashboard.byGas");
   const tGas = useTranslations("dashboard.gasNames");
   const tUnit = useTranslations("dashboard");
@@ -84,6 +89,8 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
                   axisLine={false}
                   tickMargin={8}
                   interval={0}
+                  tick={!isMobile}
+                  height={isMobile ? 4 : undefined}
                 />
                 <YAxis
                   width={44}
