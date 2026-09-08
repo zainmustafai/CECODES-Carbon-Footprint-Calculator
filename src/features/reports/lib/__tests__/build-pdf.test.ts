@@ -292,7 +292,7 @@ describe("buildPdf: the per-gas panorama", () => {
     expect(text.some((t) => t.includes("Panorama por GEI"))).toBe(true);
     // The label and the ACV paragraph the client wrote, so the number is explained where it is
     // published rather than in a reply nobody keeps.
-    expect(text.some((t) => t.includes("no desglosables por gas"))).toBe(true);
+    expect(text.some((t) => t.includes("sin desagregar por gas"))).toBe(true);
     expect(text.some((t) => t.includes("ciclo de vida"))).toBe(true);
   });
 
@@ -304,10 +304,13 @@ describe("buildPdf: the per-gas panorama", () => {
     expect(text).toContain("NF3");
   });
 
-  it("names the fallback bucket by what it is, not by what we lack", async () => {
+  it("does not draw the undisaggregated bucket as if it were a gas", async () => {
+    // It used to be the last row of the list. On a real inventory it dwarfed every actual gas,
+    // which is what the client reported on 2026-09-08. It is a figure under the list now.
     const text = await textOf(withPurchased);
-    expect(text.some((t) => t.includes("CO2e sin desagregar"))).toBe(true);
     expect(text.some((t) => t.includes("sin identificar"))).toBe(false);
+    expect(text.some((t) => t.trim() === "CO2e sin desagregar")).toBe(false);
+    expect(text.some((t) => t.includes("sin desagregar por gas"))).toBe(true);
   });
 
   it("leaves the ISO 14064-1 declaration whole, excluded categories included", async () => {

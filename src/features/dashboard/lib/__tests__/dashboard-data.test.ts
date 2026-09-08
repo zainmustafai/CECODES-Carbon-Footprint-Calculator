@@ -196,15 +196,19 @@ describe("loadDashboard: multi-scope filter", () => {
 });
 
 // The client reported on 2026-09-03 that the gas figures were wrong and asked for every gas to be
-// shown separately, with fossil and non-fossil CH4 apart. The property that makes the chart
-// trustworthy is not any individual number but the reconciliation: whatever the filter, the gas
-// slices must sum to the very total the KPI card prints, and the columns must be a fixed set so a
-// gas reading zero still appears instead of silently vanishing.
+// shown separately, with fossil and non-fossil CH4 apart.
+//
+// The reconciliation that makes the chart trustworthy CHANGED on 2026-09-09 and these tests are
+// where that change is pinned. The slices no longer sum to the KPI card, on purpose: the chart
+// draws gases, and a tonne of CO2e that no gas can be named for is reported underneath instead of
+// becoming a ninth column. The invariant is now slices + excludedTonnes === the KPI card, and it
+// is worth MORE than the old one, because the old one was satisfied by a chart in which one
+// unnamed bucket was 85% of the plot.
 describe("loadDashboard: the gas breakdown", () => {
-  it("always exposes the client's eight gases, in their order", async () => {
+  it("draws the client's eight gases and nothing else", async () => {
     const vm = await loadDashboard(COMPANY_ID, {});
-    // Every fixture factor is pre-blended with no gasType captured, so this run also carries the
-    // unidentified bucket - which belongs at the end, after the eight named gases.
+    // No UNIDENTIFIED. Every fixture factor here is pre-blended with no gasType, so under the old
+    // rule this same call produced a ninth column holding the entire inventory.
     expect(vm.current!.byGas.slices.map((s) => s.gas)).toEqual([
       "CO2",
       "CH4_NON_FOSSIL",
@@ -214,7 +218,6 @@ describe("loadDashboard: the gas breakdown", () => {
       "PFC",
       "SF6",
       "NF3",
-      "UNIDENTIFIED",
     ]);
   });
 
@@ -224,26 +227,40 @@ describe("loadDashboard: the gas breakdown", () => {
     expect(sf6).toEqual({ gas: "SF6", tonnes: 0, pct: 0 });
   });
 
-  it("sums to the same total the KPI card shows, unfiltered and filtered alike", async () => {
+  it("reconciles with the KPI card once the excluded tonnes are added back", async () => {
     for (const filters of [{}, { scope: ["SCOPE_1" as const] }, { scope: ["SCOPE_1" as const, "SCOPE_3" as const] }]) {
       const vm = await loadDashboard(COMPANY_ID, filters);
-      const summed = vm.current!.byGas.slices.reduce((sum, s) => sum + s.tonnes, 0);
-      expect(summed).toBeCloseTo(vm.current!.total, 9);
+      const drawn = vm.current!.byGas.slices.reduce((sum, s) => sum + s.tonnes, 0);
+      expect(drawn + vm.current!.byGas.excludedTonnes).toBeCloseTo(vm.current!.total, 9);
     }
   });
 
-  it("keeps the percentages on the same base as the total, so they add to 100", async () => {
-    const vm = await loadDashboard(COMPANY_ID, {});
+  it("keeps the percentages on the base it actually draws, so they add to 100", async () => {
+    // Shares of the drawn total, not of the inventory. A chart whose bars add to 40% would be
+    // unreadable, which is what dividing by the KPI total would now produce.
+    const vm = await loadDashboard(COMPANY_ID, { scope: ["SCOPE_2"] });
     const pct = vm.current!.byGas.slices.reduce((sum, s) => sum + s.pct, 0);
     expect(pct).toBeCloseTo(100, 6);
   });
 
-  it("discloses the unidentified bucket rather than folding it into a named gas", async () => {
-    // Every fixture entry is pre-blended with no gasType captured, so all of its tonnes are
-    // genuinely unattributed. Hiding that would silently attribute them to a gas they may not be.
+  it("publishes undisaggregated CO2e as a figure under the chart, never as a gas", async () => {
+    // Every fixture Scope 1 entry is pre-blended with no gasType, so all of its tonnes are
+    // genuinely unattributed. They must leave the plot AND still be visible: dropping them would
+    // understate the inventory, and drawing them would claim they are a gas.
     const vm = await loadDashboard(COMPANY_ID, { scope: ["SCOPE_1"] });
-    const unidentified = vm.current!.byGas.slices.find((s) => s.gas === "UNIDENTIFIED");
-    expect(unidentified?.tonnes).toBeCloseTo(vm.current!.total, 9);
-    expect(unidentified?.pct).toBeCloseTo(100, 6);
+    const drawn = vm.current!.byGas.slices.reduce((sum, s) => sum + s.tonnes, 0);
+    expect(drawn).toBeCloseTo(0, 9);
+    expect(vm.current!.byGas.excludedTonnes).toBeCloseTo(vm.current!.total, 9);
+    // And the reader is told which categories it came from, so the number is not a mystery.
+    expect(vm.current!.byGas.excludedCategories.length).toBeGreaterThan(0);
+  });
+
+  it("counts Scope 2 as CO2, so electricity is never undisaggregated", async () => {
+    // Client comment 9. Scope 2 is priced per kWh and booked as 100% CO2, so it must appear as a
+    // drawn gas even though its factor is expressed in CO2e.
+    const vm = await loadDashboard(COMPANY_ID, { scope: ["SCOPE_2"] });
+    const co2 = vm.current!.byGas.slices.find((s) => s.gas === "CO2");
+    expect(co2!.tonnes).toBeGreaterThan(0);
+    expect(vm.current!.byGas.excludedTonnes).toBeCloseTo(0, 9);
   });
 });

@@ -241,26 +241,36 @@ export async function loadDashboard(
     total = scope.reduce((sum, s) => sum + rollup.byScope[s], 0);
   }
 
-  // Same filter as `total` above (scope AND category), MINUS the purchased-goods categories.
+  // The chart draws GASES. Anything that is not attributable to a gas leaves it and is stated
+  // underneath instead, as one number with the client's own explanation.
   //
-  // Client decision 2026-09-07: C1 and C2 come out of this chart entirely and are stated as a
-  // note underneath it instead. They are spend-based, so every one of their factors arrives as
-  // undisaggregated CO2e and piles into a single bucket; on a real inventory that bucket was 91%
-  // of the chart and the eight actual gases were flat lines along the bottom.
+  // Two things leave, and the second is the one that matters in practice:
   //
-  // The percentage base moves with them. gasPct divides by gasTotal, not by `total`, so the
-  // slices still sum to 100% of what the chart draws. The reconciliation this comment used to
-  // claim (chart total === KPI card) is deliberately no longer true, and the note under the chart
-  // is what closes the gap: excludedTonnes + the drawn slices === the KPI card. Anything that
-  // reads these percentages as shares of the whole inventory is wrong, which is exactly why the
-  // excluded number is published beside them rather than quietly dropped.
+  //   1. Scope 3 C1 and C2 in full, whatever they carry (client instruction, 2026-09-07).
+  //   2. Every tonne of undisaggregated CO2e from anywhere else.
+  //
+  // The first rule alone was shipped on 2026-09-07 and it was not enough. On the client's own
+  // 2024 data it removed 3,33 t while the chart still showed 3.855,18 t of "CO2e sin desagregar",
+  // 84,88% of the plot, and they reported it the same evening. C1 and C2 are not the only
+  // spend-based categories: C4, C6, C7 and C9 read their factors off the same workbook column,
+  // which carries no gas-identifying field, so the importer leaves gasType null for those too
+  // (map-row.ts). Matching category names could never have caught them.
+  //
+  // So the predicate that actually matches the client's intent is a PROPERTY of the number, not a
+  // list of categories: if we cannot say which gas it is, it is not a bar on a gas chart. Rule 1
+  // is kept anyway because it is what they asked for in writing, and because a C1 factor that did
+  // carry a gasType should still leave the chart.
+  //
+  // The percentage base is what remains. The slices therefore sum to 100% of what is drawn and
+  // NOT to the KPI card; excludedTonnes is what closes that gap, which is why it is published
+  // beside them rather than quietly dropped.
   const gasFiltered = category ? scopedCategories.filter((c) => c.category === category) : scopedCategories;
   const gasSource = gasFiltered.filter((c) => !isExcludedFromGasView(c.category));
-  const excludedTonnes = gasFiltered
-    .filter((c) => isExcludedFromGasView(c.category))
-    .reduce((sum, c) => sum + c.tonnes, 0);
-  const gasTotal = gasSource.reduce((sum, c) => sum + c.tonnes, 0);
-  const gasPct = (value: number) => (gasTotal > 0 ? (value / gasTotal) * 100 : 0);
+
+  // Rule 1: the named categories, in full.
+  const excludedCategoryRows = gasFiltered.filter((c) => isExcludedFromGasView(c.category));
+  let excludedTonnes = excludedCategoryRows.reduce((sum, c) => sum + c.tonnes, 0);
+  const excludedCategories = new Set(excludedCategoryRows.map((c) => c.category));
 
   // The eight gases the client's own "Participación por GEI" chart names, always in their order
   // and always present, so the chart's columns do not appear and disappear with the data. CO2,
@@ -290,22 +300,29 @@ export async function loadDashboard(
     otherEntries += c.otherGasesEntries;
 
     for (const [gasType, tonnes] of Object.entries(c.otherGasesByType)) {
-      // Anything the library did not identify as one of the four named gases lands in
-      // UNIDENTIFIED rather than being folded into a gas it might not be.
-      const key: GasKey =
-        gasType === "HFC" || gasType === "PFC" || gasType === "SF6" || gasType === "NF3"
-          ? gasType
-          : "UNIDENTIFIED";
-      tonnesByGas[key] += tonnes;
+      // Rule 2. A pre-blended factor whose gas the library never captured cannot be drawn as a
+      // gas, so it joins the note instead of becoming a ninth column. Folding it into a named gas
+      // would be a quiet lie about a number that is 85% of this company's chart.
+      const named =
+        gasType === "HFC" || gasType === "PFC" || gasType === "SF6" || gasType === "NF3";
+      if (named) {
+        tonnesByGas[gasType] += tonnes;
+      } else {
+        excludedTonnes += tonnes;
+        excludedCategories.add(c.category);
+      }
     }
   }
 
+  const gasTotal = Object.entries(tonnesByGas)
+    .filter(([gas]) => gas !== "UNIDENTIFIED")
+    .reduce((sum, [, tonnes]) => sum + tonnes, 0);
+  const gasPct = (value: number) => (gasTotal > 0 ? (value / gasTotal) * 100 : 0);
+
   const byGas: GasBreakdown = {
-    slices: GAS_KEYS.filter(
-      // The unidentified bucket is ours, not the client's: show it only when it holds something,
-      // and never hide it when it does.
-      (gas) => gas !== "UNIDENTIFIED" || tonnesByGas.UNIDENTIFIED !== 0,
-    ).map<GasSlice>((gas) => ({
+    // UNIDENTIFIED is never drawn now. It stays in GAS_KEYS because the key still names a real
+    // bucket in the rollup; what changed is that this chart reports it as prose, not as a bar.
+    slices: GAS_KEYS.filter((gas) => gas !== "UNIDENTIFIED").map<GasSlice>((gas) => ({
       gas,
       tonnes: tonnesByGas[gas],
       pct: gasPct(tonnesByGas[gas]),
@@ -313,6 +330,7 @@ export async function loadDashboard(
     gasResolvedEntries,
     otherEntries,
     excludedTonnes,
+    excludedCategories: [...excludedCategories].sort(),
   };
 
   const lastUpdated = entries.reduce<string | null>((latest, e) => {

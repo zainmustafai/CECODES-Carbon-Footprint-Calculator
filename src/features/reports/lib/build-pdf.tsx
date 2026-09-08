@@ -626,10 +626,6 @@ function MonthlyTrendChartPdf({ points }: { points: { month: number; tonnes: num
 // minus the fossil / non-fossil CH4 split, which this table has never carried.
 const PDF_FIXED_GASES = ["CO2", "CH4", "N2O", "HFC", "PFC", "SF6", "NF3"] as const;
 
-// The agreed user-facing name for the fallback bucket. rollup.ts's OTHER_GAS_FALLBACK is an
-// internal key that reads as "we do not know what this is"; this says what the number IS.
-const UNDISAGGREGATED_LABEL = "CO2e sin desagregar";
-
 function withFixedGasRows(rows: IsoGasRow[]): IsoGasRow[] {
   const byGas = new Map(rows.map((r) => [r.gas, r.tonnes]));
   const fixed: IsoGasRow[] = PDF_FIXED_GASES.map((gas) => ({ gas, tonnes: byGas.get(gas) ?? 0 }));
@@ -637,11 +633,15 @@ function withFixedGasRows(rows: IsoGasRow[]): IsoGasRow[] {
   const extras = rows.filter(
     (r) => !PDF_FIXED_GASES.includes(r.gas as (typeof PDF_FIXED_GASES)[number]) && r.gas !== OTHER_GAS_FALLBACK,
   );
-  return [
-    ...fixed,
-    ...extras,
-    { gas: UNDISAGGREGATED_LABEL, tonnes: byGas.get(OTHER_GAS_FALLBACK) ?? 0 },
-  ];
+  // The undisaggregated bucket is deliberately NOT a row. It is not a gas, and on a real
+  // inventory it dwarfs every gas that is one, which is exactly what the client reported on
+  // 2026-09-08. It is reported under the list instead, by undisaggregatedTonnes below.
+  return [...fixed, ...extras];
+}
+
+/** Tonnes the gas list cannot attribute, so the caller can state them under it. */
+function undisaggregatedTonnes(rows: IsoGasRow[]): number {
+  return rows.find((r) => r.gas === OTHER_GAS_FALLBACK)?.tonnes ?? 0;
 }
 
 function KeyVal({ k, v }: { k: string; v: string }) {
@@ -757,8 +757,15 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
   const gasExcludedTonnes = vm.byCategory
     .filter((c) => isExcludedFromGasView(c.category))
     .reduce((sum, c) => sum + c.tonnes, 0);
-  const gasShownTotal = gasCategories.reduce((sum, c) => sum + c.tonnes, 0);
-  const isoGasTable = withFixedGasRows(buildIsoGasTable(gasCategories));
+  const gasShownTotal = withFixedGasRows(buildIsoGasTable(gasCategories)).reduce(
+    (sum, r) => sum + r.tonnes,
+    0,
+  );
+  const gasRows = buildIsoGasTable(gasCategories);
+  const isoGasTable = withFixedGasRows(gasRows);
+  // What leaves the list: the named categories in full, plus every tonne the remaining categories
+  // could not attribute to a gas. One number under the list, the same rule the dashboard follows.
+  const gasExcludedTotal = gasExcludedTonnes + undisaggregatedTonnes(gasRows);
   // The ISO 14064-1 declaration, built from the element rows so it narrows with a filtered
   // "download this view" report exactly as the rest of the numbers do.
   const declaration = buildIsoDeclaration(vm.results);
@@ -937,11 +944,10 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
                 color={GAS_PANORAMA_COLOR}
               />
             ))}
-            {gasExcludedTonnes > 0 ? (
+            {gasExcludedTotal > 0 ? (
               <>
                 <Text style={[styles.note, { marginTop: 8 }]}>
-                  Categorías C1 y C2 del alcance 3 (no desglosables por gas):{" "}
-                  {t(gasExcludedTonnes)} t CO2e
+                  Emisiones en CO2e sin desagregar por gas: {t(gasExcludedTotal)} t CO2e
                 </Text>
                 <Text style={styles.note}>
                   Las emisiones de CO2e reportadas en este gráfico corresponden a las categorías C1

@@ -168,11 +168,11 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
               </table>
             </div>
 
-            {/* Client decision 2026-09-07. C1 and C2 are not drawn, so their tonnes are stated
-                here instead, with the client's own ACV wording for why a spend-based factor
-                cannot be split by gas. The number comes first and the paragraph explains it:
-                this is the line that makes the chart's percentages honest, because they are
-                shares of the inventory MINUS this figure. */}
+            {/* Everything the chart cannot attribute to a gas, stated as one number with the
+                client's own ACV wording. The categories are listed because this covers more than
+                the C1 and C2 the paragraph names: on the client's 2024 data it is mostly C4, C6,
+                C7 and C9, which read their factors off the same gas-less workbook column. Naming
+                them is what stops the number reading as an error. */}
             {breakdown.excludedTonnes > 0 ? (
               <div className="mt-3 rounded-lg border border-dashed p-3">
                 <p className="flex flex-wrap items-baseline justify-between gap-2 font-medium text-sm">
@@ -181,6 +181,9 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
                     {n(breakdown.excludedTonnes, 2)} {tUnit("tCo2e")}
                   </span>
                 </p>
+                {breakdown.excludedCategories.length > 0 ? (
+                  <p className="mt-1 text-xs">{breakdown.excludedCategories.join(" · ")}</p>
+                ) : null}
                 <p className="mt-1 text-muted-foreground text-xs">{t("excludedNote")}</p>
               </div>
             ) : null}
@@ -191,12 +194,6 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
               </p>
             ) : null}
 
-            {/* The client read this column as "we do not know what this is" and asked why it was
-                not simply added to CO2. It is CO2e, not CO2 mass, so it cannot be - but the column
-                has to say why on the screen where the question arises, not only in a reply. */}
-            {breakdown.slices.some((s) => s.gas === "UNIDENTIFIED" && s.tonnes !== 0) ? (
-              <p className="mt-2 text-muted-foreground text-xs">{t("unidentifiedNote")}</p>
-            ) : null}
           </>
         ) : (
           <div className="flex aspect-16/6 items-center justify-center rounded-lg border border-dashed">
