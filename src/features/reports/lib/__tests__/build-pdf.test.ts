@@ -294,6 +294,9 @@ describe("buildPdf: the per-gas panorama", () => {
     // published rather than in a reply nobody keeps.
     expect(text.some((t) => t.includes("sin desagregar por gas"))).toBe(true);
     expect(text.some((t) => t.includes("ciclo de vida"))).toBe(true);
+    // Client edit 2026-09-09: "reportadas en este gráfico" removed. The phrase described a chart
+    // the paragraph no longer sits inside, since the value left the plot on 2026-09-07.
+    expect(text.some((t) => t.includes("reportadas en este"))).toBe(false);
   });
 
   it("still shows SF6 and NF3 at zero rather than dropping the columns", async () => {

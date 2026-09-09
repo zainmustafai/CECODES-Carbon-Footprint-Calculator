@@ -333,8 +333,9 @@
       "empty": "Sin datos de gases para este filtro.",
       "preBlendedNote": "{count, plural, one {# fuente llega} other {# fuentes llegan}} con el factor ya expresado en CO2e (refrigerantes, SF6/PFC/NF3, o Alcance 3 por gasto o distancia), por lo que se cuentan bajo su propio gas y no aportan masa de CO2, CH4 ni N2O.",
       "unidentifiedNote": "La columna “CO₂e sin desagregar” recoge factores que la biblioteca entrega directamente en CO₂e sin indicar el gas, típicamente los de Alcance 3 basados en gasto. Ya son CO₂e y no masa de CO₂, por eso se muestran aparte en lugar de sumarse a la columna de CO₂. Están incluidos en el total.",
-      "excludedNote": "Las emisiones de CO2e reportadas en este gráfico corresponden a las categorías C1 y C2 del alcance 3, asociadas a los bienes y servicios adquiridos por la organización. Los factores de emisión utilizados para su cálculo fueron determinados con base en el análisis de ciclo de vida (ACV) de cada bien y/o servicio, considerando las emisiones de los diferentes gases de efecto invernadero (GEI) y su correspondiente potencial de calentamiento global, expresados en términos de CO2e.",
-      "excludedLabel": "Emisiones en CO2e sin desagregar por gas"
+      "excludedNote": "Las emisiones de CO2e corresponden a las categorías C1 y C2 del alcance 3, asociadas a los bienes y servicios adquiridos por la organización. Los factores de emisión utilizados para su cálculo fueron determinados con base en el análisis de ciclo de vida (ACV) de cada bien y/o servicio, considerando las emisiones de los diferentes gases de efecto invernadero (GEI) y su correspondiente potencial de calentamiento global, expresados en términos de CO2e.",
+      "excludedLabel": "Emisiones en CO2e sin desagregar por gas",
+      "excludedAlso": "Incluye además: {categories}"
     },
     "pareto": {
       "title": "Priorización de fuentes de emisión",
@@ -446,7 +447,7 @@
     "title": "Ingreso de datos",
     "subtitle": "Registra el consumo de tus fuentes por alcance. Los cambios se guardan solos.",
     "intro": {
-      "title": "Cómo funciona Huella de Carbono",
+      "title": "Cómo funciona la Herramienta Huella de Carbono de CECODES",
       "subtitle": "Guía rápida en 3 pasos. La guía completa está en el manual de usuario.",
       "step1Title": "Registra tus datos",
       "step1Body": "En esta misma pantalla, ingresa el consumo anual (o mensual para Alcance 2) de tu empresa.",

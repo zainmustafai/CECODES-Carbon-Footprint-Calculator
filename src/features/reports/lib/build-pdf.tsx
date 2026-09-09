@@ -950,8 +950,8 @@ function ReportDocument({ vm }: { vm: ReportVM }) {
                   Emisiones en CO2e sin desagregar por gas: {t(gasExcludedTotal)} t CO2e
                 </Text>
                 <Text style={styles.note}>
-                  Las emisiones de CO2e reportadas en este gráfico corresponden a las categorías C1
-                  y C2 del alcance 3, asociadas a los bienes y servicios adquiridos por la
+                  Las emisiones de CO2e corresponden a las categorías C1 y C2 del alcance 3,
+                  asociadas a los bienes y servicios adquiridos por la
                   organización. Los factores de emisión utilizados para su cálculo fueron
                   determinados con base en el análisis de ciclo de vida (ACV) de cada bien y/o
                   servicio, considerando las emisiones de los diferentes gases de efecto

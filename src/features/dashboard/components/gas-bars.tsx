@@ -44,6 +44,13 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
 
   const hasAny = breakdown.slices.some((s) => s.tonnes !== 0);
 
+  // Categories in the note that the client's paragraph does not cover. C1 and C2 are named there
+  // by their code, so match on the code rather than the full Spanish title, which is workbook
+  // copy and has been re-worded before.
+  const othersInNote = breakdown.excludedCategories.filter(
+    (c) => !/^c[12]\s*:/i.test(c.trim()),
+  );
+
   const data = breakdown.slices.map((s) => ({
     gas: tGas(s.gas),
     tonnes: s.tonnes,
@@ -194,8 +201,19 @@ export function GasBars({ breakdown }: { breakdown: GasBreakdown }) {
                     {n(breakdown.excludedTonnes, 2)} {tUnit("tCo2e")}
                   </span>
                 </p>
-                {breakdown.excludedCategories.length > 0 ? (
-                  <p className="mt-1 text-xs">{breakdown.excludedCategories.join(" · ")}</p>
+                {/* The category list is gone at the client's request (2026-09-09): on their pilot
+                    it read "C1: Bienes y servicios adquiridos", which the paragraph below already
+                    says, so it was noise.
+                    It survives for the case that paragraph does NOT describe. The figure is every
+                    tonne we cannot attribute to a gas, and in production that is not always only
+                    C1 and C2: Cambios Uso Suelo and some Emisiones Fugitivas rows reach it too.
+                    Printing "corresponden a las categorías C1 y C2" over a number that includes
+                    land-use change would be a plain untruth, so when something else contributes,
+                    it is named. On the client's own data this line does not render at all. */}
+                {othersInNote.length > 0 ? (
+                  <p className="mt-1 text-xs">
+                    {t("excludedAlso", { categories: othersInNote.join(" · ") })}
+                  </p>
                 ) : null}
                 <p className="mt-1 text-muted-foreground text-xs">{t("excludedNote")}</p>
               </div>
